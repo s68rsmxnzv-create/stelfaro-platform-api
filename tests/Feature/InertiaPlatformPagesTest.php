@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\PlatformApp;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -31,7 +32,8 @@ class InertiaPlatformPagesTest extends TestCase
 
     public function test_taller_page_renders(): void
     {
-        $this->get('/taller')
+        $this->actingAs(User::factory()->create())
+            ->get('/taller')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Apps/Taller/Dashboard')
@@ -41,7 +43,8 @@ class InertiaPlatformPagesTest extends TestCase
 
     public function test_facturacion_page_renders(): void
     {
-        $this->get('/facturacion')
+        $this->actingAs(User::factory()->create())
+            ->get('/facturacion')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Apps/Facturacion/Dashboard')
