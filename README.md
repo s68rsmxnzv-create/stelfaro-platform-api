@@ -1,6 +1,6 @@
 # Stelfaro Platform API
 
-Backend Laravel de plataforma para Stelfaro.
+Backend Laravel de plataforma para Stelfaro, con UI base en Inertia + Vue.
 
 Esta pieza concentra seguridad y resolución de plataforma:
 
@@ -18,6 +18,16 @@ Este servicio no es el motor fiscal. Para emisión DTE debe actuar como backend 
 
 ```text
 Frontend apps -> Stelfaro Platform API -> dte-core / notifications / print
+```
+
+## UI inicial
+
+La capa web está montada con Inertia para reutilizar seguridad, rutas y resolución de tenant desde Laravel sin separar todavía otro backend.
+
+```text
+GET /
+GET /taller
+GET /facturacion
 ```
 
 ## Endpoints iniciales
@@ -48,7 +58,9 @@ El seeder crea:
 
 ```bash
 composer install
+npm install
 php artisan migrate:fresh --seed
+npm run build
 php artisan serve
 php artisan test
 ```
