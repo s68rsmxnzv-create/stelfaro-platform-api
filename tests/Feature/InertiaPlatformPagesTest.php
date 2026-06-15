@@ -21,7 +21,8 @@ class InertiaPlatformPagesTest extends TestCase
             'default_path' => '/',
         ]);
 
-        $this->get('/')
+        $this->actingAs(User::factory()->create())
+            ->get('/')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Portal/Home')
