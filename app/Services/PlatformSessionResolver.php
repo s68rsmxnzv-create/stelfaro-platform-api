@@ -117,6 +117,11 @@ class PlatformSessionResolver
             'name' => $app->name,
             'host' => $app->host,
             'default_path' => $app->default_path,
+            'local_path' => match ($app->key) {
+                'taller' => '/taller',
+                'facturacion' => '/facturacion',
+                default => '/',
+            },
             'url' => $this->urlFor($app),
         ];
     }

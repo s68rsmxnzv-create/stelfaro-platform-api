@@ -56,8 +56,10 @@ class PlatformSessionTest extends TestCase
             ->assertJsonPath('tenant.slug', 'servicio-tecnico-el-faro')
             ->assertJsonPath('tenant.role', 'owner')
             ->assertJsonPath('apps.0.id', 'taller')
+            ->assertJsonPath('apps.0.local_path', '/taller')
             ->assertJsonPath('apps.1.id', 'facturacion')
             ->assertJsonPath('default_app.id', 'taller')
+            ->assertJsonPath('default_app.local_path', '/taller')
             ->assertJsonPath('redirect_url', 'https://taller.stelfaro.com/');
     }
 

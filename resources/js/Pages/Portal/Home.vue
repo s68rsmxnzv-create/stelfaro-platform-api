@@ -1,7 +1,8 @@
 <script setup>
+import { computed } from 'vue';
 import PlatformShell from '../../Layouts/PlatformShell.vue';
 
-defineProps({
+const props = defineProps({
     session: {
         type: Object,
         default: null,
@@ -11,6 +12,9 @@ defineProps({
         default: () => [],
     },
 });
+
+const apps = computed(() => props.session?.apps?.length ? props.session.apps : props.availableApps);
+const defaultAppPath = computed(() => props.session?.default_app?.local_path || '/taller');
 </script>
 
 <template>
@@ -26,7 +30,7 @@ defineProps({
                         </p>
                     </div>
                     <a
-                        :href="session?.redirect_url || '/taller'"
+                        :href="defaultAppPath"
                         class="inline-flex items-center justify-center rounded-md bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
                     >
                         Entrar a mi app
@@ -42,9 +46,9 @@ defineProps({
                 </div>
                 <div class="divide-y divide-slate-100">
                     <a
-                        v-for="app in availableApps"
+                        v-for="app in apps"
                         :key="app.id"
-                        :href="app.local_path"
+                        :href="app.local_path || '/'"
                         class="grid gap-3 px-5 py-4 transition hover:bg-slate-50 md:grid-cols-[1fr_auto]"
                     >
                         <span>
@@ -55,7 +59,7 @@ defineProps({
                             Abrir
                         </span>
                     </a>
-                    <div v-if="availableApps.length === 0" class="px-5 py-8 text-sm text-slate-500">
+                    <div v-if="apps.length === 0" class="px-5 py-8 text-sm text-slate-500">
                         No hay apps activas configuradas todavía.
                     </div>
                 </div>
@@ -65,16 +69,22 @@ defineProps({
                 <h2 class="text-lg font-semibold">Sesión de plataforma</h2>
                 <dl class="mt-4 space-y-4 text-sm">
                     <div>
+                        <dt class="font-medium text-slate-500">Usuario</dt>
+                        <dd class="mt-1 font-semibold">{{ session?.user?.name }}</dd>
+                        <dd class="mt-1 text-slate-600">{{ session?.user?.email }}</dd>
+                    </div>
+                    <div>
                         <dt class="font-medium text-slate-500">Tenant activo</dt>
-                        <dd class="mt-1 font-semibold">{{ session?.tenant?.name || 'Pendiente de autenticación' }}</dd>
+                        <dd class="mt-1 font-semibold">{{ session?.tenant?.name }}</dd>
+                        <dd class="mt-1 text-slate-600">{{ session?.tenant?.role }}</dd>
                     </div>
                     <div>
                         <dt class="font-medium text-slate-500">App principal</dt>
-                        <dd class="mt-1 font-semibold">{{ session?.default_app?.name || 'Taller electrónico' }}</dd>
+                        <dd class="mt-1 font-semibold">{{ session?.default_app?.name }}</dd>
                     </div>
                     <div>
-                        <dt class="font-medium text-slate-500">Próxima capa</dt>
-                        <dd class="mt-1 text-slate-700">Login, roles, onboarding de tenants y redirección por subdominio.</dd>
+                        <dt class="font-medium text-slate-500">Estado</dt>
+                        <dd class="mt-1 text-slate-700">Sesión autenticada y apps resueltas por tenant.</dd>
                     </div>
                 </dl>
             </aside>
