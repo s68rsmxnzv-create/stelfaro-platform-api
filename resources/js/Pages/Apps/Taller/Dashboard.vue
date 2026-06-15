@@ -1,5 +1,6 @@
 <script setup>
 import PlatformShell from '../../../Layouts/PlatformShell.vue';
+import TallerNav from '../../../Components/TallerNav.vue';
 
 defineProps({
     app: {
@@ -16,7 +17,11 @@ const metrics = [
 </script>
 
 <template>
-    <PlatformShell active-app="taller">
+    <PlatformShell active-app="taller" :show-platform-nav="false">
+        <template #nav>
+            <TallerNav />
+        </template>
+
         <section class="border-b border-slate-200 bg-white">
             <div class="mx-auto max-w-7xl px-5 py-7">
                 <p class="text-sm font-semibold uppercase tracking-wide text-blue-700">App operativa</p>
@@ -35,9 +40,12 @@ const metrics = [
                     <button class="rounded-md border border-slate-200 px-4 py-3 text-left font-medium hover:bg-slate-50">
                         Diagnóstico técnico
                     </button>
-                    <button class="rounded-md border border-slate-200 px-4 py-3 text-left font-medium hover:bg-slate-50">
+                    <a
+                        class="rounded-md border border-slate-200 px-4 py-3 text-left font-medium hover:bg-slate-50"
+                        href="/facturacion"
+                    >
                         Entregar y facturar
-                    </button>
+                    </a>
                 </div>
             </div>
 

@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'dte_core' => [
+        'base_url' => env('DTE_CORE_BASE_URL', 'https://dte.stelfaro.me/api/v1'),
+        'bridge_password' => env('DTE_CORE_BRIDGE_PASSWORD'),
+    ],
+
 ];

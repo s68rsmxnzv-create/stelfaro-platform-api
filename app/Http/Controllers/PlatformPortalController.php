@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\PlatformApp;
+use App\Services\CoreBillingSessionBroker;
 use App\Services\PlatformSessionResolver;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -12,6 +13,7 @@ class PlatformPortalController extends Controller
 {
     public function __construct(
         private readonly PlatformSessionResolver $sessionResolver,
+        private readonly CoreBillingSessionBroker $coreBillingSessionBroker,
     ) {}
 
     public function home(Request $request): Response
@@ -35,14 +37,90 @@ class PlatformPortalController extends Controller
         ]);
     }
 
+    public function tallerBilling(?string $documentSlug = null): Response
+    {
+        return $this->renderBillingModule([
+            'app' => [
+                'id' => 'taller',
+                'name' => 'Taller electrónico',
+                'description' => 'Facturación electrónica reutilizada desde el monorepo Stelfaro Platform.',
+            ],
+            'module' => 'billing',
+            'documentSlug' => $documentSlug ?? 'fe',
+        ]);
+    }
+
     public function facturacion(): Response
     {
-        return Inertia::render('Apps/Facturacion/Dashboard', [
+        return $this->renderBillingModule([
             'app' => [
                 'id' => 'facturacion',
                 'name' => 'Facturación',
                 'description' => 'Emisión libre de DTE, clientes, productos, recepción y entrega automática por correo.',
             ],
+            'module' => 'billing',
+            'documentSlug' => 'fe',
+        ]);
+    }
+
+    public function tallerArtifacts(): Response
+    {
+        return $this->renderBillingModule([
+            'app' => [
+                'id' => 'taller',
+                'name' => 'Comprobantes',
+                'description' => 'Consulta de documentos fiscales, PDF, JSON y artefactos emitidos.',
+            ],
+            'module' => 'artifacts',
+        ]);
+    }
+
+    public function tallerMhEvents(?string $eventSlug = null): Response
+    {
+        return $this->renderBillingModule([
+            'app' => [
+                'id' => 'taller',
+                'name' => 'Eventos MH',
+                'description' => 'Invalidaciones, contingencias, retornos y eventos operativos conectados al core fiscal.',
+            ],
+            'module' => 'mh-events',
+            'eventSlug' => $eventSlug ?? 'invalidacion',
+        ]);
+    }
+
+    public function tallerMhResponses(): Response
+    {
+        return $this->renderBillingModule([
+            'app' => [
+                'id' => 'taller',
+                'name' => 'Respuestas MH',
+                'description' => 'Trazabilidad de respuestas del Ministerio de Hacienda para documentos transmitidos.',
+            ],
+            'module' => 'mh-responses',
+        ]);
+    }
+
+    public function tallerMhEventResponses(): Response
+    {
+        return $this->renderBillingModule([
+            'app' => [
+                'id' => 'taller',
+                'name' => 'Respuestas eventos MH',
+                'description' => 'Trazabilidad de respuestas del Ministerio de Hacienda para eventos fiscales.',
+            ],
+            'module' => 'mh-event-responses',
+        ]);
+    }
+
+    public function tallerFiscalSettings(): Response
+    {
+        return $this->renderBillingModule([
+            'app' => [
+                'id' => 'taller',
+                'name' => 'Configuración fiscal',
+                'description' => 'Empresas, certificados, ambiente y credenciales fiscales reutilizadas desde el monorepo.',
+            ],
+            'module' => 'settings',
         ]);
     }
 
@@ -68,5 +146,27 @@ class PlatformPortalController extends Controller
             ])
             ->values()
             ->all();
+    }
+
+    /**
+     * @param  array<string, mixed>  $props
+     */
+    private function renderBillingModule(array $props): Response
+    {
+        $coreSession = null;
+        $coreSessionError = null;
+
+        try {
+            $coreSession = $this->coreBillingSessionBroker->openFor(request()->user());
+        } catch (\RuntimeException $exception) {
+            $coreSessionError = $exception->getMessage();
+        }
+
+        return Inertia::render('Apps/Taller/BillingWorkspace', [
+            ...$props,
+            'coreBaseUrl' => '/core-api/v1',
+            'coreSession' => $coreSession,
+            'coreSessionError' => $coreSessionError,
+        ]);
     }
 }
