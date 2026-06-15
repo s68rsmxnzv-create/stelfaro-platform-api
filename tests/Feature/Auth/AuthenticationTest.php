@@ -12,7 +12,7 @@ class AuthenticationTest extends TestCase
 
     public function test_login_screen_can_be_rendered(): void
     {
-        $response = $this->get('/login');
+        $response = $this->get('https://platform.stelfaro.com/login');
 
         $response->assertStatus(200);
     }
@@ -21,7 +21,7 @@ class AuthenticationTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $response = $this->post('/login', [
+        $response = $this->post('https://platform.stelfaro.com/login', [
             'email' => $user->email,
             'password' => 'password',
         ]);
@@ -34,7 +34,7 @@ class AuthenticationTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->post('/login', [
+        $this->post('https://platform.stelfaro.com/login', [
             'email' => $user->email,
             'password' => 'wrong-password',
         ]);
@@ -46,9 +46,9 @@ class AuthenticationTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $response = $this->actingAs($user)->post('/logout');
+        $response = $this->actingAs($user)->post('https://platform.stelfaro.com/logout');
 
         $this->assertGuest();
-        $response->assertRedirect('/');
+        $response->assertRedirect('https://platform.stelfaro.com/login');
     }
 }

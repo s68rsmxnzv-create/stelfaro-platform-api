@@ -22,7 +22,7 @@ class InertiaPlatformPagesTest extends TestCase
         ]);
 
         $this->actingAs(User::factory()->create())
-            ->get('/')
+            ->get('https://platform.stelfaro.com')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Portal/Home')
@@ -34,7 +34,7 @@ class InertiaPlatformPagesTest extends TestCase
     public function test_taller_page_renders(): void
     {
         $this->actingAs(User::factory()->create())
-            ->get('/taller')
+            ->get('https://taller.stelfaro.com')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Apps/Taller/Dashboard')
@@ -45,7 +45,7 @@ class InertiaPlatformPagesTest extends TestCase
     public function test_facturacion_page_renders(): void
     {
         $this->actingAs(User::factory()->create())
-            ->get('/facturacion')
+            ->get('https://facturacion.stelfaro.com')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Apps/Facturacion/Dashboard')

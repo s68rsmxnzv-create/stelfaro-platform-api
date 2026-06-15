@@ -61,9 +61,9 @@ class PlatformPortalController extends Controller
                 'host' => $app->host,
                 'default_path' => $app->default_path,
                 'local_path' => match ($app->key) {
-                    'taller' => '/taller',
-                    'facturacion' => '/facturacion',
-                    default => '/',
+                    'taller' => 'https://'.config('platform.hosts.taller'),
+                    'facturacion' => 'https://'.config('platform.hosts.facturacion'),
+                    default => 'https://'.config('platform.hosts.platform'),
                 },
             ])
             ->values()

@@ -17,10 +17,6 @@ class PlatformRedirectController extends Controller
         $session = $this->sessionResolver->resolve($request->user());
         $defaultApp = $session['default_app'] ?? null;
 
-        return match ($defaultApp['id'] ?? null) {
-            'taller' => redirect()->route('apps.taller'),
-            'facturacion' => redirect()->route('apps.facturacion'),
-            default => redirect()->route('portal.home'),
-        };
+        return redirect($defaultApp['local_path'] ?? 'https://'.config('platform.hosts.platform'));
     }
 }

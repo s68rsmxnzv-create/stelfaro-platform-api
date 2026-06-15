@@ -14,8 +14,8 @@ class ExampleTest extends TestCase
      */
     public function test_the_application_redirects_guests_to_login(): void
     {
-        $response = $this->get('/');
+        $response = $this->get('https://platform.stelfaro.com');
 
-        $response->assertRedirect('/login');
+        $response->assertRedirect('https://platform.stelfaro.com/login');
     }
 }

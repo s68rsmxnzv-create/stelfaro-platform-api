@@ -37,14 +37,14 @@ class PlatformRedirectTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->get('/dashboard')
-            ->assertRedirect('/taller');
+            ->get('https://platform.stelfaro.com/dashboard')
+            ->assertRedirect('https://taller.stelfaro.com');
     }
 
     public function test_dashboard_returns_to_portal_when_user_has_no_apps(): void
     {
         $this->actingAs(User::factory()->create())
-            ->get('/dashboard')
-            ->assertRedirect('/');
+            ->get('https://platform.stelfaro.com/dashboard')
+            ->assertRedirect('https://platform.stelfaro.com');
     }
 }

@@ -117,13 +117,18 @@ class PlatformSessionResolver
             'name' => $app->name,
             'host' => $app->host,
             'default_path' => $app->default_path,
-            'local_path' => match ($app->key) {
-                'taller' => '/taller',
-                'facturacion' => '/facturacion',
-                default => '/',
-            },
+            'local_path' => $this->localPathFor($app),
             'url' => $this->urlFor($app),
         ];
+    }
+
+    private function localPathFor(PlatformApp $app): string
+    {
+        return match ($app->key) {
+            'taller' => 'https://'.config('platform.hosts.taller'),
+            'facturacion' => 'https://'.config('platform.hosts.facturacion'),
+            default => 'https://'.config('platform.hosts.platform'),
+        };
     }
 
     private function urlFor(PlatformApp $app): ?string
