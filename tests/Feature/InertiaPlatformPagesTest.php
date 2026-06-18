@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\PlatformApp;
+use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -13,23 +14,33 @@ class InertiaPlatformPagesTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_portal_page_renders_available_apps(): void
+    public function test_platform_entry_redirects_to_default_app(): void
     {
-        PlatformApp::query()->create([
+        $taller = PlatformApp::query()->create([
             'key' => 'taller',
             'name' => 'Taller electrónico',
             'host' => 'taller.stelfaro.com',
             'default_path' => '/',
         ]);
+        $tenant = Tenant::query()->create([
+            'slug' => 'servicio-tecnico-el-faro',
+            'name' => 'Servicio Técnico El Faro',
+            'primary_app_id' => $taller->id,
+        ]);
+        $tenant->appAccesses()->create([
+            'platform_app_id' => $taller->id,
+            'is_default' => true,
+        ]);
+        $user = User::factory()->create();
+        $user->memberships()->create([
+            'tenant_id' => $tenant->id,
+            'role' => 'owner',
+            'is_default' => true,
+        ]);
 
-        $this->actingAs(User::factory()->create())
+        $this->actingAs($user)
             ->get('https://platform.stelfaro.com')
-            ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page
-                ->component('Portal/Home')
-                ->has('availableApps', 1)
-                ->where('availableApps.0.id', 'taller')
-            );
+            ->assertRedirect('https://taller.stelfaro.com');
     }
 
     public function test_taller_page_renders(): void
@@ -38,8 +49,9 @@ class InertiaPlatformPagesTest extends TestCase
             ->get('https://taller.stelfaro.com')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
-                ->component('Apps/Taller/Dashboard')
+                ->component('Apps/Taller/BillingWorkspace')
                 ->where('app.id', 'taller')
+                ->where('module', 'dashboard')
             );
     }
 

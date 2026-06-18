@@ -17,6 +17,8 @@ class PlatformRedirectController extends Controller
         $session = $this->sessionResolver->resolve($request->user());
         $defaultApp = $session['default_app'] ?? null;
 
-        return redirect($defaultApp['local_path'] ?? 'https://'.config('platform.hosts.platform'));
+        abort_if(! $defaultApp, 403, 'No tienes apps activas asignadas.');
+
+        return redirect($defaultApp['local_path']);
     }
 }

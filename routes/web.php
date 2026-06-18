@@ -1,7 +1,10 @@
 <?php
 
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Api\V1\PlatformSessionController;
 use App\Http\Controllers\CoreBillingSessionController;
+use App\Http\Controllers\PlatformAdmin\CoreSessionController;
+use App\Http\Controllers\PlatformAdmin\NotificationProxyController;
 use App\Http\Controllers\PlatformPortalController;
 use App\Http\Controllers\PlatformRedirectController;
 use App\Http\Controllers\ProfileController;
@@ -11,6 +14,9 @@ Route::domain(config('platform.hosts.taller'))
     ->middleware(['auth', 'verified'])
     ->group(function (): void {
         Route::get('/', [PlatformPortalController::class, 'taller'])->name('apps.taller');
+        Route::get('/recepcion', [PlatformPortalController::class, 'tallerReception'])->name('apps.taller.reception');
+        Route::get('/diagnostico', [PlatformPortalController::class, 'tallerDiagnosis'])->name('apps.taller.diagnosis');
+        Route::get('/ordenes', [PlatformPortalController::class, 'tallerOrders'])->name('apps.taller.orders');
         Route::get('/facturacion/{documentSlug?}', [PlatformPortalController::class, 'tallerBilling'])->name('apps.taller.billing');
         Route::get('/comprobantes', [PlatformPortalController::class, 'tallerArtifacts'])->name('apps.taller.artifacts');
         Route::get('/eventos-mh/{eventSlug?}', [PlatformPortalController::class, 'tallerMhEvents'])->name('apps.taller.mh-events');
@@ -31,10 +37,21 @@ Route::domain(config('platform.hosts.facturacion'))
         Route::post('/logout', [AuthenticatedSessionController::class, 'destroy']);
     });
 
+Route::domain(config('platform.hosts.admin'))
+    ->prefix('platform-api/v1')
+    ->middleware(['auth', 'verified'])
+    ->group(function (): void {
+        Route::get('/me', PlatformSessionController::class);
+        Route::get('/admin/core/session', CoreSessionController::class);
+        Route::any('/admin/notifications/{path?}', NotificationProxyController::class)
+            ->where('path', '.*');
+        Route::post('/logout', [AuthenticatedSessionController::class, 'destroy']);
+    });
+
 Route::domain(config('platform.hosts.platform'))
     ->group(function (): void {
         Route::middleware(['auth', 'verified'])->group(function (): void {
-            Route::get('/', [PlatformPortalController::class, 'home'])->name('portal.home');
+            Route::get('/', PlatformRedirectController::class)->name('portal.home');
             Route::get('/dashboard', PlatformRedirectController::class)->name('dashboard');
         });
 

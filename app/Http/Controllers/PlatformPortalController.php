@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\PlatformApp;
 use App\Services\CoreBillingSessionBroker;
+use App\Services\PlatformAdminAccess;
 use App\Services\PlatformSessionResolver;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -14,6 +15,7 @@ class PlatformPortalController extends Controller
     public function __construct(
         private readonly PlatformSessionResolver $sessionResolver,
         private readonly CoreBillingSessionBroker $coreBillingSessionBroker,
+        private readonly PlatformAdminAccess $platformAdminAccess,
     ) {}
 
     public function home(Request $request): Response
@@ -28,12 +30,13 @@ class PlatformPortalController extends Controller
 
     public function taller(): Response
     {
-        return Inertia::render('Apps/Taller/Dashboard', [
+        return $this->renderBillingModule([
             'app' => [
                 'id' => 'taller',
                 'name' => 'Taller electrónico',
                 'description' => 'Recepción, diagnóstico, órdenes de trabajo y facturación electrónica conectada al core fiscal.',
             ],
+            'module' => 'dashboard',
         ]);
     }
 
@@ -48,6 +51,33 @@ class PlatformPortalController extends Controller
             'module' => 'billing',
             'documentSlug' => $documentSlug ?? 'fe',
         ]);
+    }
+
+    public function tallerReception(): Response
+    {
+        return $this->renderOperationalPlaceholder(
+            'Recepción',
+            'Ingreso de equipos, datos del cliente, condicion inicial y prioridad de atencion.',
+            ['Ingreso de cliente', 'Equipo recibido', 'Ticket de recepcion']
+        );
+    }
+
+    public function tallerDiagnosis(): Response
+    {
+        return $this->renderOperationalPlaceholder(
+            'Diagnóstico',
+            'Revision tecnica, hallazgos, presupuesto y aprobacion antes de reparar.',
+            ['Revision tecnica', 'Presupuesto', 'Aprobacion del cliente']
+        );
+    }
+
+    public function tallerOrders(): Response
+    {
+        return $this->renderOperationalPlaceholder(
+            'Órdenes',
+            'Seguimiento de ordenes de trabajo, estados, repuestos, mano de obra y cierre.',
+            ['Ordenes abiertas', 'Trabajo en proceso', 'Entrega y facturacion']
+        );
     }
 
     public function facturacion(): Response
@@ -167,6 +197,28 @@ class PlatformPortalController extends Controller
             'coreBaseUrl' => '/core-api/v1',
             'coreSession' => $coreSession,
             'coreSessionError' => $coreSessionError,
+            'canAccessPlatformAdmin' => $this->platformAdminAccess->allows(request()->user()),
+            'platformAdminUrl' => 'https://'.config('platform.hosts.admin'),
+        ]);
+    }
+
+    /**
+     * @param  array<int, string>  $items
+     */
+    private function renderOperationalPlaceholder(string $title, string $description, array $items): Response
+    {
+        return $this->renderBillingModule([
+            'app' => [
+                'id' => 'taller',
+                'name' => 'Taller electrónico',
+                'description' => 'Recepción, diagnóstico, órdenes de trabajo y facturación electrónica conectada al core fiscal.',
+            ],
+            'module' => 'operational-placeholder',
+            'operationalPage' => [
+                'title' => $title,
+                'description' => $description,
+                'items' => $items,
+            ],
         ]);
     }
 }

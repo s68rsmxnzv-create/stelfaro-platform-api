@@ -38,6 +38,13 @@ return [
     'dte_core' => [
         'base_url' => env('DTE_CORE_BASE_URL', 'https://dte.stelfaro.me/api/v1'),
         'bridge_password' => env('DTE_CORE_BRIDGE_PASSWORD'),
+        'admin_email' => env('DTE_CORE_ADMIN_EMAIL', 'admin@stelfaro.com'),
+        'admin_device_name' => env('DTE_CORE_ADMIN_DEVICE_NAME', 'stelfaro-platform-admin'),
+    ],
+
+    'notifications' => [
+        'base_url' => env('NOTIFICATIONS_BASE_URL', 'https://admin.stelfaro.com/notifications-api/v1'),
+        'internal_token' => env('NOTIFICATIONS_INTERNAL_TOKEN'),
     ],
 
 ];
