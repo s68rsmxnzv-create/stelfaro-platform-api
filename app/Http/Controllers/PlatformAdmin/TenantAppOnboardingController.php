@@ -45,12 +45,18 @@ class TenantAppOnboardingController extends Controller
             'app_keys.*' => ['string', 'max:80'],
         ]);
 
-        $selectedKeys = collect(['facturacion'])
-            ->merge($validated['app_keys'] ?? [])
+        $requestedKeys = collect($validated['app_keys'] ?? [])
             ->map(fn (mixed $key): string => Str::slug((string) $key))
             ->filter()
             ->unique()
             ->values();
+
+        $selectedKeys = collect(['facturacion'])
+            ->merge($requestedKeys)
+            ->unique()
+            ->values();
+
+        $defaultAppKey = $requestedKeys->first(fn (string $key): bool => $key !== 'facturacion') ?? 'facturacion';
 
         $apps = PlatformApp::query()
             ->where('status', 'active')
@@ -60,13 +66,13 @@ class TenantAppOnboardingController extends Controller
 
         abort_unless($apps->has('facturacion'), 422, 'La app Facturacion debe existir y estar activa.');
 
-        $tenant = DB::transaction(function () use ($request, $validated, $selectedKeys, $apps): Tenant {
-            $facturacion = $apps->get('facturacion');
+        $tenant = DB::transaction(function () use ($request, $validated, $selectedKeys, $defaultAppKey, $apps): Tenant {
+            $defaultApp = $apps->get($defaultAppKey) ?? $apps->get('facturacion');
             $tenant = Tenant::query()->create([
                 'slug' => $this->uniqueTenantSlug((string) ($validated['slug'] ?? $validated['name'])),
                 'name' => (string) $validated['name'],
                 'status' => 'active',
-                'primary_app_id' => $facturacion?->id,
+                'primary_app_id' => $defaultApp?->id,
                 'metadata' => [
                     'source' => 'platform_admin_onboarding',
                     'core_empresa_id' => (int) $validated['core_empresa_id'],
@@ -74,7 +80,7 @@ class TenantAppOnboardingController extends Controller
                 ],
             ]);
 
-            $selectedKeys->each(function (string $key) use ($apps, $tenant): void {
+            $selectedKeys->each(function (string $key) use ($apps, $tenant, $defaultAppKey): void {
                 $app = $apps->get($key);
                 if (! $app) {
                     return;
@@ -83,7 +89,7 @@ class TenantAppOnboardingController extends Controller
                 $tenant->appAccesses()->create([
                     'platform_app_id' => $app->id,
                     'status' => 'active',
-                    'is_default' => $app->key === 'facturacion',
+                    'is_default' => $app->key === $defaultAppKey,
                     'metadata' => ['source' => 'platform_admin_onboarding'],
                 ]);
             });
