@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\User;
+use App\Models\UserTenantMembership;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
@@ -13,7 +14,24 @@ class CoreBillingSessionBroker
      */
     public function openFor(User $user): array
     {
-        return $this->open($user->email, 'stelfaro-platform');
+        $membership = $this->defaultMembership($user);
+        $empresaId = $membership?->tenant?->metadata['core_empresa_id'] ?? null;
+
+        if (! $membership || ! is_numeric($empresaId)) {
+            throw new RuntimeException('No hay una empresa fiscal activa vinculada a este usuario.');
+        }
+
+        return $this->open([
+            'email' => $user->email,
+            'name' => $user->name,
+            'role' => $this->billingRoleFor($membership->role),
+            'device_name' => 'stelfaro-platform',
+            'empresas' => [[
+                'id' => (int) $empresaId,
+                'role' => $this->billingRoleFor($membership->role),
+                'active' => true,
+            ]],
+        ]);
     }
 
     /**
@@ -28,33 +46,55 @@ class CoreBillingSessionBroker
             throw new RuntimeException('La cuenta fiscal backoffice no esta configurada.');
         }
 
-        return $this->open($email, is_string($deviceName) && $deviceName !== '' ? $deviceName : 'stelfaro-platform-admin');
+        return $this->open([
+            'email' => $email,
+            'name' => 'Stelfaro Fiscal Admin',
+            'role' => config('services.dte_core.admin_role', 'admin_fiscal'),
+            'device_name' => is_string($deviceName) && $deviceName !== '' ? $deviceName : 'stelfaro-platform-admin',
+        ]);
     }
 
     /**
+     * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */
-    private function open(string $email, string $deviceName): array
+    private function open(array $payload): array
     {
         $baseUrl = rtrim((string) config('services.dte_core.base_url'), '/');
-        $bridgePassword = config('services.dte_core.bridge_password');
+        $internalToken = config('services.dte_core.internal_token');
 
-        if ($baseUrl === '' || ! is_string($bridgePassword) || $bridgePassword === '') {
+        if ($baseUrl === '' || ! is_string($internalToken) || $internalToken === '') {
             throw new RuntimeException('La conexion con el core fiscal no esta configurada.');
         }
 
         $response = Http::acceptJson()
+            ->withToken($internalToken)
             ->timeout(15)
-            ->post($baseUrl.'/auth/login', [
-                'email' => $email,
-                'password' => $bridgePassword,
-                'device_name' => $deviceName,
-            ]);
+            ->post($baseUrl.'/internal/auth/billing-session', $payload);
 
         if ($response->failed()) {
             throw new RuntimeException('No fue posible abrir la sesion fiscal.');
         }
 
         return $response->json();
+    }
+
+    private function defaultMembership(User $user): ?UserTenantMembership
+    {
+        return $user->memberships()
+            ->with('tenant')
+            ->where('status', 'active')
+            ->orderByDesc('is_default')
+            ->orderBy('id')
+            ->first();
+    }
+
+    private function billingRoleFor(string $platformRole): string
+    {
+        return match ($platformRole) {
+            'owner', 'admin', 'tenant_admin', 'company_admin', 'billing_admin', 'fiscal_admin' => 'company_admin',
+            'viewer', 'read_only' => 'viewer',
+            default => 'billing_user',
+        };
     }
 }

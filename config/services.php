@@ -37,8 +37,9 @@ return [
 
     'dte_core' => [
         'base_url' => env('DTE_CORE_BASE_URL', 'https://dte.stelfaro.me/api/v1'),
-        'bridge_password' => env('DTE_CORE_BRIDGE_PASSWORD'),
+        'internal_token' => env('DTE_CORE_TOKEN'),
         'admin_email' => env('DTE_CORE_ADMIN_EMAIL', 'admin@stelfaro.com'),
+        'admin_role' => env('DTE_CORE_ADMIN_ROLE', 'admin_fiscal'),
         'admin_device_name' => env('DTE_CORE_ADMIN_DEVICE_NAME', 'stelfaro-platform-admin'),
     ],
 

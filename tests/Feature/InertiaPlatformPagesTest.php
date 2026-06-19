@@ -70,17 +70,29 @@ class InertiaPlatformPagesTest extends TestCase
     {
         config([
             'services.dte_core.base_url' => 'https://core.test/api/v1',
-            'services.dte_core.bridge_password' => 'secret',
+            'services.dte_core.internal_token' => 'internal-secret',
         ]);
         Http::fake([
-            'https://core.test/api/v1/auth/login' => Http::response([
+            'https://core.test/api/v1/internal/auth/billing-session' => Http::response([
                 'token' => 'core-token',
                 'token_type' => 'Bearer',
                 'expires_at' => null,
             ]),
         ]);
 
-        $this->actingAs(User::factory()->create())
+        $tenant = Tenant::query()->create([
+            'slug' => 'servicio-tecnico-el-faro',
+            'name' => 'Servicio Técnico El Faro',
+            'metadata' => ['core_empresa_id' => 123],
+        ]);
+        $user = User::factory()->create();
+        $user->memberships()->create([
+            'tenant_id' => $tenant->id,
+            'role' => 'owner',
+            'is_default' => true,
+        ]);
+
+        $this->actingAs($user)
             ->get('https://taller.stelfaro.com/facturacion')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
