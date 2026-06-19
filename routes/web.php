@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\PlatformSessionController;
 use App\Http\Controllers\CoreBillingSessionController;
 use App\Http\Controllers\PlatformAdmin\CoreSessionController;
 use App\Http\Controllers\PlatformAdmin\NotificationProxyController;
+use App\Http\Controllers\PlatformAdmin\TenantAppOnboardingController;
 use App\Http\Controllers\PlatformPortalController;
 use App\Http\Controllers\PlatformRedirectController;
 use App\Http\Controllers\ProfileController;
@@ -43,6 +44,8 @@ Route::domain(config('platform.hosts.admin'))
     ->group(function (): void {
         Route::get('/me', PlatformSessionController::class);
         Route::get('/admin/core/session', CoreSessionController::class);
+        Route::get('/admin/platform/apps', [TenantAppOnboardingController::class, 'apps']);
+        Route::post('/admin/platform/tenants', [TenantAppOnboardingController::class, 'store']);
         Route::any('/admin/notifications/{path?}', NotificationProxyController::class)
             ->where('path', '.*');
         Route::post('/logout', [AuthenticatedSessionController::class, 'destroy']);
