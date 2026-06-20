@@ -61,6 +61,10 @@ class CoreBillingSessionTest extends TestCase
             && $request->hasHeader('Authorization', 'Bearer internal-secret')
             && $request['email'] === 'armando@example.test'
             && $request['role'] === 'company_admin'
+            && $request['platform_user_id'] === $user->id
+            && $request['platform_tenant_id'] === $tenant->id
+            && $request['platform_tenant_slug'] === 'cliente-demo'
+            && $request['platform_tenant_name'] === 'Cliente Demo'
             && $request['empresas'][0]['id'] === 123);
     }
 

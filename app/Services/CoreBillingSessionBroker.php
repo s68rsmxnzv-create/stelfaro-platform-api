@@ -15,20 +15,27 @@ class CoreBillingSessionBroker
     public function openFor(User $user): array
     {
         $membership = $this->defaultMembership($user);
-        $empresaId = $membership?->tenant?->metadata['core_empresa_id'] ?? null;
+        $tenant = $membership?->tenant;
+        $empresaId = $tenant?->metadata['core_empresa_id'] ?? null;
 
-        if (! $membership || ! is_numeric($empresaId)) {
+        if (! $membership || ! $tenant || ! is_numeric($empresaId)) {
             throw new RuntimeException('No hay una empresa fiscal activa vinculada a este usuario.');
         }
+
+        $billingRole = $this->billingRoleFor($membership->role);
 
         return $this->open([
             'email' => $user->email,
             'name' => $user->name,
-            'role' => $this->billingRoleFor($membership->role),
+            'role' => $billingRole,
             'device_name' => 'stelfaro-platform',
+            'platform_user_id' => $user->id,
+            'platform_tenant_id' => $tenant->id,
+            'platform_tenant_slug' => $tenant->slug,
+            'platform_tenant_name' => $tenant->name,
             'empresas' => [[
                 'id' => (int) $empresaId,
-                'role' => $this->billingRoleFor($membership->role),
+                'role' => $billingRole,
                 'active' => true,
             ]],
         ]);
