@@ -1,5 +1,6 @@
 import defaultTheme from 'tailwindcss/defaultTheme';
 import forms from '@tailwindcss/forms';
+import { stelfaroTheme } from '../stelfaro-platform/packages/ui/tailwind-theme.js';
 
 /** @type {import('tailwindcss').Config} */
 export default {
@@ -13,6 +14,7 @@ export default {
 
     theme: {
         extend: {
+            ...stelfaroTheme,
             fontFamily: {
                 sans: ['Figtree', ...defaultTheme.fontFamily.sans],
             },
