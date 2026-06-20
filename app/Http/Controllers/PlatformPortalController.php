@@ -93,6 +93,18 @@ class PlatformPortalController extends Controller
         ]);
     }
 
+    public function facturacionSettings(): Response
+    {
+        return $this->renderBillingModule([
+            'app' => [
+                'id' => 'facturacion',
+                'name' => 'Configuración',
+                'description' => 'Panel de configuracion de empresa, fiscalidad, sucursales y correlativos.',
+            ],
+            'module' => 'settings',
+        ]);
+    }
+
     public function tallerArtifacts(): Response
     {
         return $this->renderBillingModule([
@@ -147,8 +159,8 @@ class PlatformPortalController extends Controller
         return $this->renderBillingModule([
             'app' => [
                 'id' => 'taller',
-                'name' => 'Configuración fiscal',
-                'description' => 'Empresas, certificados, ambiente y credenciales fiscales reutilizadas desde el monorepo.',
+                'name' => 'Configuración',
+                'description' => 'Panel de configuracion de empresa, fiscalidad, sucursales y correlativos.',
             ],
             'module' => 'settings',
         ]);

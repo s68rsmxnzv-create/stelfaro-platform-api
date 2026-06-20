@@ -23,7 +23,8 @@ Route::domain(config('platform.hosts.taller'))
         Route::get('/eventos-mh/{eventSlug?}', [PlatformPortalController::class, 'tallerMhEvents'])->name('apps.taller.mh-events');
         Route::get('/respuestas-mh', [PlatformPortalController::class, 'tallerMhResponses'])->name('apps.taller.mh-responses');
         Route::get('/respuestas-eventos-mh', [PlatformPortalController::class, 'tallerMhEventResponses'])->name('apps.taller.mh-event-responses');
-        Route::get('/configuracion-fiscal', [PlatformPortalController::class, 'tallerFiscalSettings'])->name('apps.taller.fiscal-settings');
+        Route::get('/configuracion', [PlatformPortalController::class, 'tallerFiscalSettings'])->name('apps.taller.settings');
+        Route::redirect('/configuracion-fiscal', '/configuracion')->name('apps.taller.fiscal-settings');
         Route::get('/platform/core-billing-session', CoreBillingSessionController::class)
             ->name('apps.taller.core-billing-session');
         Route::post('/logout', [AuthenticatedSessionController::class, 'destroy']);
@@ -33,6 +34,8 @@ Route::domain(config('platform.hosts.facturacion'))
     ->middleware(['auth', 'verified'])
     ->group(function (): void {
         Route::get('/', [PlatformPortalController::class, 'facturacion'])->name('apps.facturacion');
+        Route::get('/configuracion', [PlatformPortalController::class, 'facturacionSettings'])->name('apps.facturacion.settings');
+        Route::redirect('/configuracion-fiscal', '/configuracion')->name('apps.facturacion.fiscal-settings');
         Route::get('/platform/core-billing-session', CoreBillingSessionController::class)
             ->name('apps.facturacion.core-billing-session');
         Route::post('/logout', [AuthenticatedSessionController::class, 'destroy']);
