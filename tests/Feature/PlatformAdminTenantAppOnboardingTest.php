@@ -193,6 +193,42 @@ class PlatformAdminTenantAppOnboardingTest extends TestCase
         $this->assertTrue($user->memberships()->where('tenant_id', $existing->id)->firstOrFail()->is_default);
     }
 
+    public function test_admin_onboarding_can_replace_default_membership_when_requested(): void
+    {
+        Config::set('platform.admin.emails', ['owner@stelfaro.test']);
+        $this->fakeActiveCoreEmpresa(123);
+        $user = User::factory()->create(['email' => 'owner@stelfaro.test']);
+        $existing = Tenant::query()->create([
+            'slug' => 'tenant-antiguo',
+            'name' => 'Tenant Antiguo',
+            'metadata' => ['core_empresa_id' => 99],
+        ]);
+        $user->memberships()->create([
+            'tenant_id' => $existing->id,
+            'role' => 'owner',
+            'status' => 'active',
+            'is_default' => true,
+        ]);
+        PlatformApp::query()->create([
+            'key' => 'facturacion',
+            'name' => 'Facturación',
+            'host' => 'facturacion.stelfaro.com',
+        ]);
+
+        $response = $this->actingAs($user)
+            ->postJson('/api/v1/admin/platform/tenants', [
+                'core_empresa_id' => 123,
+                'name' => 'Tenant Nuevo',
+                'app_keys' => ['facturacion'],
+                'make_default' => true,
+            ])
+            ->assertCreated();
+
+        $this->assertSame(1, $user->memberships()->where('is_default', true)->count());
+        $this->assertFalse($user->memberships()->where('tenant_id', $existing->id)->firstOrFail()->is_default);
+        $this->assertTrue($user->memberships()->where('tenant_id', $response->json('tenant.id'))->firstOrFail()->is_default);
+    }
+
     public function test_non_admin_cannot_onboard_tenant_apps(): void
     {
         $user = User::factory()->create();

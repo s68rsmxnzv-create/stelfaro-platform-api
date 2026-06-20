@@ -49,6 +49,7 @@ class TenantAppOnboardingController extends Controller
             'slug' => ['nullable', 'string', 'max:255'],
             'app_keys' => ['nullable', 'array'],
             'app_keys.*' => ['string', 'max:80'],
+            'make_default' => ['sometimes', 'boolean'],
         ]);
         try {
             $this->fiscalCompanyValidator->validateActiveEmpresa((int) $validated['core_empresa_id']);
@@ -108,9 +109,13 @@ class TenantAppOnboardingController extends Controller
             });
 
             if ($request->user()) {
-                $this->membershipManager->create($request->user(), $tenant, 'owner', [
-                    'source' => 'platform_admin_onboarding',
-                ]);
+                $this->membershipManager->create(
+                    $request->user(),
+                    $tenant,
+                    'owner',
+                    ['source' => 'platform_admin_onboarding'],
+                    (bool) ($validated['make_default'] ?? false),
+                );
             }
 
             return $tenant->load('appAccesses.app', 'memberships');

@@ -12,19 +12,25 @@ class UserTenantMembershipManager
     /**
      * @param  array<string, mixed>  $metadata
      */
-    public function create(User $user, Tenant $tenant, string $role, array $metadata = []): UserTenantMembership
+    public function create(User $user, Tenant $tenant, string $role, array $metadata = [], bool $makeDefault = false): UserTenantMembership
     {
-        return DB::transaction(function () use ($user, $tenant, $role, $metadata): UserTenantMembership {
+        return DB::transaction(function () use ($user, $tenant, $role, $metadata, $makeDefault): UserTenantMembership {
             $hasDefault = $user->memberships()
                 ->where('is_default', true)
                 ->lockForUpdate()
                 ->exists();
 
+            if ($makeDefault) {
+                $user->memberships()
+                    ->where('is_default', true)
+                    ->update(['is_default' => false]);
+            }
+
             return $user->memberships()->create([
                 'tenant_id' => $tenant->id,
                 'role' => $role,
                 'status' => 'active',
-                'is_default' => ! $hasDefault,
+                'is_default' => $makeDefault || ! $hasDefault,
                 'metadata' => $metadata,
             ]);
         });
