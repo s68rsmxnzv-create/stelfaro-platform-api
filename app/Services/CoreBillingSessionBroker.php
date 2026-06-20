@@ -12,16 +12,16 @@ class CoreBillingSessionBroker
     /**
      * @return array<string, mixed>
      */
-    public function openFor(User $user): array
+    public function openFor(User $user, ?UserTenantMembership $membership = null): array
     {
-        $membership = $this->defaultMembership($user);
+        $membership ??= $this->defaultMembership($user);
         $tenant = $membership?->tenant;
-        $empresaId = $tenant?->metadata['core_empresa_id'] ?? null;
 
-        if (! $membership || ! $tenant || ! is_numeric($empresaId)) {
+        if (! $membership || ! $tenant) {
             throw new RuntimeException('No hay una empresa fiscal activa vinculada a este usuario.');
         }
 
+        $empresaId = app(TenantFiscalLinkResolver::class)->coreEmpresaId($tenant);
         $billingRole = $this->billingRoleFor($membership->role);
 
         return $this->open([
@@ -80,10 +80,18 @@ class CoreBillingSessionBroker
             ->post($baseUrl.'/internal/auth/billing-session', $payload);
 
         if ($response->failed()) {
+            $message = (string) ($response->json('message') ?? 'No fue posible abrir la sesion fiscal.');
+
+            throw new RuntimeException($message);
+        }
+
+        $session = $response->json();
+
+        if (! is_array($session)) {
             throw new RuntimeException('No fue posible abrir la sesion fiscal.');
         }
 
-        return $response->json();
+        return $session;
     }
 
     private function defaultMembership(User $user): ?UserTenantMembership

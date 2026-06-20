@@ -5,16 +5,22 @@ namespace App\Http\Controllers\PlatformAdmin;
 use App\Http\Controllers\Controller;
 use App\Models\PlatformApp;
 use App\Models\Tenant;
+use App\Services\CoreFiscalCompanyValidator;
 use App\Services\PlatformAdminAccess;
+use App\Services\UserTenantMembershipManager;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
+use RuntimeException;
 
 class TenantAppOnboardingController extends Controller
 {
     public function __construct(
         private readonly PlatformAdminAccess $adminAccess,
+        private readonly CoreFiscalCompanyValidator $fiscalCompanyValidator,
+        private readonly UserTenantMembershipManager $membershipManager,
     ) {}
 
     public function apps(Request $request): JsonResponse
@@ -44,6 +50,13 @@ class TenantAppOnboardingController extends Controller
             'app_keys' => ['nullable', 'array'],
             'app_keys.*' => ['string', 'max:80'],
         ]);
+        try {
+            $this->fiscalCompanyValidator->validateActiveEmpresa((int) $validated['core_empresa_id']);
+        } catch (RuntimeException $exception) {
+            throw ValidationException::withMessages([
+                'core_empresa_id' => [$exception->getMessage()],
+            ]);
+        }
 
         $requestedKeys = collect($validated['app_keys'] ?? [])
             ->map(fn (mixed $key): string => Str::slug((string) $key))
@@ -94,13 +107,11 @@ class TenantAppOnboardingController extends Controller
                 ]);
             });
 
-            $request->user()?->memberships()->create([
-                'tenant_id' => $tenant->id,
-                'role' => 'owner',
-                'status' => 'active',
-                'is_default' => ! $request->user()?->memberships()->where('is_default', true)->exists(),
-                'metadata' => ['source' => 'platform_admin_onboarding'],
-            ]);
+            if ($request->user()) {
+                $this->membershipManager->create($request->user(), $tenant, 'owner', [
+                    'source' => 'platform_admin_onboarding',
+                ]);
+            }
 
             return $tenant->load('appAccesses.app', 'memberships');
         });

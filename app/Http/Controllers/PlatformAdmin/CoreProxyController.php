@@ -19,7 +19,7 @@ class CoreProxyController extends Controller
         CoreBillingSessionBroker $broker,
         string $path = '',
     ): Response {
-        $adminAccess->authorize($request->user());
+        $adminAccess->authorize($request->user(), 'fiscal');
 
         $baseUrl = rtrim((string) config('services.dte_core.base_url'), '/');
         abort_if($baseUrl === '', 503, 'La conexion con el core fiscal no esta configurada.');

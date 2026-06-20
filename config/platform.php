@@ -13,6 +13,16 @@ return [
             fn (string $email): string => strtolower(trim($email)),
             explode(',', (string) env('PLATFORM_ADMIN_EMAILS', ''))
         ))),
+        'platform_emails' => array_values(array_filter(array_map(
+            fn (string $email): string => strtolower(trim($email)),
+            explode(',', (string) env('PLATFORM_ADMIN_EMAILS', ''))
+        ))),
+        'fiscal_emails' => array_values(array_filter(array_map(
+            fn (string $email): string => strtolower(trim($email)),
+            explode(',', (string) env('PLATFORM_FISCAL_ADMIN_EMAILS', ''))
+        ))),
         'membership_roles' => ['platform_owner', 'platform_admin'],
+        'platform_membership_roles' => ['platform_owner', 'platform_admin'],
+        'fiscal_membership_roles' => ['platform_owner', 'fiscal_admin'],
     ],
 ];

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\PlatformApp;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -71,7 +72,7 @@ class CoreBillingSessionTest extends TestCase
     public function test_platform_admin_core_proxy_uses_backoffice_core_session(): void
     {
         config([
-            'platform.admin.emails' => ['owner@example.test'],
+            'platform.admin.fiscal_membership_roles' => ['platform_owner', 'fiscal_admin'],
             'services.dte_core.base_url' => 'https://core.test/api/v1',
             'services.dte_core.internal_token' => 'internal-secret',
             'services.dte_core.admin_email' => 'admin@stelfaro.com',
@@ -94,6 +95,16 @@ class CoreBillingSessionTest extends TestCase
         $user = User::factory()->create([
             'email' => 'owner@example.test',
         ]);
+        $tenant = Tenant::query()->create([
+            'slug' => 'platform-admin',
+            'name' => 'Platform Admin',
+        ]);
+        $user->memberships()->create([
+            'tenant_id' => $tenant->id,
+            'role' => 'fiscal_admin',
+            'status' => 'active',
+            'is_default' => true,
+        ]);
 
         $this->actingAs($user)
             ->getJson('https://platform.stelfaro.com/api/v1/admin/core/health')
@@ -108,5 +119,32 @@ class CoreBillingSessionTest extends TestCase
 
         Http::assertSent(fn ($request) => $request->url() === 'https://core.test/api/v1/health'
             && $request->hasHeader('Authorization', 'Bearer backoffice-token'));
+    }
+
+    public function test_platform_admin_without_fiscal_scope_cannot_open_backoffice_core_proxy(): void
+    {
+        config([
+            'platform.admin.platform_membership_roles' => ['platform_owner', 'platform_admin'],
+            'platform.admin.fiscal_membership_roles' => ['platform_owner', 'fiscal_admin'],
+        ]);
+        PlatformApp::query()->create([
+            'key' => 'facturacion',
+            'name' => 'Facturación',
+        ]);
+        $tenant = Tenant::query()->create([
+            'slug' => 'tenant-admin',
+            'name' => 'Tenant Admin',
+        ]);
+        $user = User::factory()->create(['email' => 'admin@example.test']);
+        $user->memberships()->create([
+            'tenant_id' => $tenant->id,
+            'role' => 'platform_admin',
+            'status' => 'active',
+            'is_default' => true,
+        ]);
+
+        $this->actingAs($user)
+            ->getJson('https://platform.stelfaro.com/api/v1/admin/core/health')
+            ->assertForbidden();
     }
 }

@@ -15,7 +15,7 @@ class CoreSessionController extends Controller
         PlatformAdminAccess $adminAccess,
         CoreBillingSessionBroker $broker,
     ): JsonResponse {
-        $adminAccess->authorize($request->user());
+        $adminAccess->authorize($request->user(), 'fiscal');
 
         return response()->json([
             'base_url' => 'https://'.config('platform.hosts.platform').'/api/v1/admin/core',
