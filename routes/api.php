@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\Platform\GlobalUserController;
 use App\Http\Controllers\Api\V1\Platform\TenantInvitationController;
+use App\Http\Controllers\Api\V1\Platform\TenantLookupController;
 use App\Http\Controllers\Api\V1\Platform\TenantMembershipController;
 use App\Http\Controllers\Api\V1\Platform\TenantUserController;
 use App\Http\Controllers\Api\V1\PlatformSessionController;
@@ -24,6 +25,7 @@ Route::prefix('v1')->group(function (): void {
         Route::get('me', PlatformSessionController::class);
         Route::patch('me/active-membership/{membership}', [TenantMembershipController::class, 'setActive']);
         Route::get('admin/platform/users', [GlobalUserController::class, 'index']);
+        Route::get('admin/platform/tenants/by-core-empresa/{coreEmpresaId}', [TenantLookupController::class, 'byCoreEmpresa']);
         Route::get('admin/core/session', CoreSessionController::class);
         Route::get('admin/platform/apps', [TenantAppOnboardingController::class, 'apps']);
         Route::post('admin/platform/tenants', [TenantAppOnboardingController::class, 'store']);

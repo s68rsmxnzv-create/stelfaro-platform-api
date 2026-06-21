@@ -1,7 +1,11 @@
 <?php
 
-use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Api\V1\Platform\TenantInvitationController;
+use App\Http\Controllers\Api\V1\Platform\TenantLookupController;
+use App\Http\Controllers\Api\V1\Platform\TenantMembershipController;
+use App\Http\Controllers\Api\V1\Platform\TenantUserController;
 use App\Http\Controllers\Api\V1\PlatformSessionController;
+use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\CoreBillingSessionController;
 use App\Http\Controllers\PlatformAdmin\CoreSessionController;
 use App\Http\Controllers\PlatformAdmin\NotificationProxyController;
@@ -49,6 +53,14 @@ Route::domain(config('platform.hosts.admin'))
         Route::get('/admin/core/session', CoreSessionController::class);
         Route::get('/admin/platform/apps', [TenantAppOnboardingController::class, 'apps']);
         Route::post('/admin/platform/tenants', [TenantAppOnboardingController::class, 'store']);
+        Route::get('/admin/platform/tenants/by-core-empresa/{coreEmpresaId}', [TenantLookupController::class, 'byCoreEmpresa']);
+        Route::get('/platform/tenants/{tenant}/users', [TenantUserController::class, 'index']);
+        Route::post('/platform/tenants/{tenant}/invitations', [TenantUserController::class, 'invite']);
+        Route::post('/platform/invitations/{invitation}/resend', [TenantInvitationController::class, 'resend']);
+        Route::patch('/platform/memberships/{membership}/role', [TenantMembershipController::class, 'updateRole']);
+        Route::patch('/platform/memberships/{membership}/suspend', [TenantMembershipController::class, 'suspend']);
+        Route::patch('/platform/memberships/{membership}/reactivate', [TenantMembershipController::class, 'reactivate']);
+        Route::delete('/platform/memberships/{membership}', [TenantMembershipController::class, 'destroy']);
         Route::any('/admin/notifications/{path?}', NotificationProxyController::class)
             ->where('path', '.*');
         Route::post('/logout', [AuthenticatedSessionController::class, 'destroy']);
