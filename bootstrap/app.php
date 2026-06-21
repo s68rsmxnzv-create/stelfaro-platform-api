@@ -27,7 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: [
             'platform-api/*',
             'api/v1/admin/*',
-            'api/v1/platform/invitations/*/accept',
+            'api/v1/platform/*',
             'api/v1/logout',
         ]);
     })
