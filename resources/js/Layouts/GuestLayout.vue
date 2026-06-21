@@ -3,7 +3,7 @@ import { Link } from '@inertiajs/vue3';
 </script>
 
 <template>
-    <div class="grid min-h-screen bg-[#f6f8fb] text-[#0d1629] lg:grid-cols-[0.95fr_1.05fr]">
+    <div class="sf-app-background grid min-h-screen text-[#0d1629] dark:text-text lg:grid-cols-[0.95fr_1.05fr]">
         <section class="hidden bg-[#0d1629] px-10 py-12 text-white lg:flex lg:flex-col lg:justify-between">
             <Link href="/" class="flex items-center gap-3">
                 <span class="grid h-11 w-11 place-items-center rounded-md bg-blue-600 text-sm font-bold">SF</span>
@@ -34,7 +34,7 @@ import { Link } from '@inertiajs/vue3';
                     </span>
                 </Link>
 
-                <div class="rounded-md border border-slate-200 bg-white p-6 shadow-sm">
+                <div class="rounded-md border border-slate-200 bg-white p-6 shadow-sm dark:border-line dark:bg-surface dark:text-text dark:shadow-black/20">
                     <slot />
                 </div>
             </div>

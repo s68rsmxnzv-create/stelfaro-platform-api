@@ -12,7 +12,7 @@ const showingNavigationDropdown = ref(false);
 
 <template>
     <div>
-        <div class="min-h-screen bg-gray-100">
+        <div class="min-h-screen bg-app">
             <nav
                 class="border-b border-gray-100 bg-white"
             >
@@ -190,7 +190,7 @@ const showingNavigationDropdown = ref(false);
             </header>
 
             <!-- Page Content -->
-            <main>
+            <main class="sf-app-background min-h-[calc(100vh-4rem)]">
                 <slot />
             </main>
         </div>
