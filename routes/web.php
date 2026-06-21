@@ -58,6 +58,7 @@ Route::domain(config('platform.hosts.admin'))
         Route::get('/platform/tenants/{tenant}/users', [TenantUserController::class, 'index']);
         Route::post('/platform/tenants/{tenant}/invitations', [TenantUserController::class, 'invite']);
         Route::post('/platform/invitations/{invitation}/resend', [TenantInvitationController::class, 'resend']);
+        Route::get('/platform/invitations/{invitation}/delivery', [TenantInvitationController::class, 'delivery']);
         Route::patch('/platform/memberships/{membership}/role', [TenantMembershipController::class, 'updateRole']);
         Route::patch('/platform/memberships/{membership}/suspend', [TenantMembershipController::class, 'suspend']);
         Route::patch('/platform/memberships/{membership}/reactivate', [TenantMembershipController::class, 'reactivate']);

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\Platform;
 
 use App\Http\Controllers\Controller;
 use App\Models\UserInvitation;
+use App\Services\Platform\InvitationNotificationClient;
 use App\Services\Platform\UserInvitationService;
 use App\Services\PlatformAccessPolicy;
 use Illuminate\Http\JsonResponse;
@@ -47,6 +48,42 @@ class TenantInvitationController extends Controller
                 'expires_at' => $result['invitation']->expires_at?->toISOString(),
             ],
             'token' => $result['token'],
+        ]);
+    }
+
+    public function delivery(
+        Request $request,
+        UserInvitation $invitation,
+        PlatformAccessPolicy $policy,
+        InvitationNotificationClient $notifications,
+    ): JsonResponse {
+        abort_unless($policy->canViewTenantUsers($request->user(), $invitation->tenant_id), 403);
+
+        $message = $notifications->status($invitation);
+
+        return response()->json([
+            'invitation' => [
+                'id' => $invitation->id,
+                'tenant_id' => $invitation->tenant_id,
+                'email' => $invitation->email,
+                'role' => $invitation->role,
+                'status' => $invitation->status,
+            ],
+            'notification' => $message ? [
+                'id' => $message['id'] ?? null,
+                'status' => $message['status'] ?? null,
+                'recipient_email' => $message['recipient_email'] ?? $invitation->email,
+                'attempts' => $message['attempts'] ?? null,
+                'last_error' => $message['last_error'] ?? null,
+                'sent_at' => $message['sent_at'] ?? null,
+            ] : [
+                'id' => data_get($invitation->metadata, 'notification.message_id'),
+                'status' => data_get($invitation->metadata, 'notification.status'),
+                'recipient_email' => data_get($invitation->metadata, 'notification.recipient_email', $invitation->email),
+                'attempts' => null,
+                'last_error' => null,
+                'sent_at' => null,
+            ],
         ]);
     }
 }

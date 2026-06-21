@@ -80,6 +80,9 @@ class PlatformUserManagementTest extends TestCase
             'role' => 'billing_user',
             'status' => 'pending',
         ]);
+        $invitation = UserInvitation::query()->where('email', 'cajero@example.test')->firstOrFail();
+        $this->assertSame(55, data_get($invitation->metadata, 'notification.message_id'));
+        $this->assertSame('pending', data_get($invitation->metadata, 'notification.status'));
         Http::assertSent(fn ($request): bool => $request->url() === 'https://notifications.test/api/v1/platform/invitations/email'
             && $request['recipient']['email'] === 'cajero@example.test'
             && $request['tenant']['id'] === $tenant->id);
@@ -220,6 +223,50 @@ class PlatformUserManagementTest extends TestCase
         $this->assertNotSame($originalHash, $invitation->refresh()->token_hash);
     }
 
+    public function test_owner_can_check_invitation_email_delivery(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        $invitation = UserInvitation::query()->create([
+            'tenant_id' => $tenant->id,
+            'email' => 'pendiente@example.test',
+            'role' => 'billing_user',
+            'token_hash' => hash('sha256', 'delivery-token'),
+            'expires_at' => now()->addDay(),
+            'status' => 'pending',
+            'metadata' => [
+                'notification' => [
+                    'message_id' => 77,
+                    'status' => 'pending',
+                    'recipient_email' => 'pendiente@example.test',
+                ],
+            ],
+        ]);
+
+        config([
+            'services.notifications.base_url' => 'https://notifications.test/api/v1',
+            'services.notifications.internal_token' => 'notifications-secret',
+        ]);
+
+        Http::fake([
+            'https://notifications.test/api/v1/messages/77' => Http::response(['data' => [
+                'id' => 77,
+                'status' => 'sent',
+                'recipient_email' => 'pendiente@example.test',
+                'attempts' => 1,
+                'last_error' => null,
+                'sent_at' => now()->toISOString(),
+            ]]),
+        ]);
+
+        $this->actingAs($owner)
+            ->getJson("/api/v1/platform/invitations/{$invitation->id}/delivery")
+            ->assertOk()
+            ->assertJsonPath('invitation.id', $invitation->id)
+            ->assertJsonPath('notification.id', 77)
+            ->assertJsonPath('notification.status', 'sent')
+            ->assertJsonPath('notification.recipient_email', 'pendiente@example.test');
+    }
+
     public function test_company_admin_cannot_modify_company_owner_membership(): void
     {
         [$owner, $tenant] = $this->userWithTenantRole('owner');
@@ -287,7 +334,12 @@ class PlatformUserManagementTest extends TestCase
         ]);
 
         Http::fake([
-            'https://notifications.test/api/v1/platform/invitations/email' => Http::response(['queued' => true]),
+            'https://notifications.test/api/v1/platform/invitations/email' => Http::response(['data' => [
+                'id' => 55,
+                'status' => 'pending',
+                'purpose' => 'platform_invitation',
+                'recipient_email' => 'cajero@example.test',
+            ]]),
         ]);
     }
 

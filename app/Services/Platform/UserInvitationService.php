@@ -56,7 +56,10 @@ class UserInvitationService
                 'metadata' => ['source' => 'platform-api'],
             ])->load('tenant');
 
-            $this->notifications->send($invitation, $this->acceptUrl($token));
+            $this->recordNotificationStatus(
+                $invitation,
+                $this->notifications->send($invitation, $this->acceptUrl($token))
+            );
 
             return [
                 'invitation' => $invitation,
@@ -95,7 +98,10 @@ class UserInvitationService
         ])->save();
 
         $invitation->load('tenant');
-        $this->notifications->send($invitation, $this->acceptUrl($token));
+        $this->recordNotificationStatus(
+            $invitation,
+            $this->notifications->send($invitation, $this->acceptUrl($token))
+        );
 
         return [
             'invitation' => $invitation->refresh(),
@@ -179,5 +185,27 @@ class UserInvitationService
     private function acceptUrl(string $token): string
     {
         return 'https://'.config('platform.hosts.platform').'/invitations/'.$token;
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $notification
+     */
+    private function recordNotificationStatus(UserInvitation $invitation, ?array $notification): void
+    {
+        if (! $notification) {
+            return;
+        }
+
+        $invitation->forceFill([
+            'metadata' => [
+                ...($invitation->metadata ?? []),
+                'notification' => [
+                    'message_id' => $notification['id'] ?? null,
+                    'status' => $notification['status'] ?? null,
+                    'recipient_email' => $notification['recipient_email'] ?? $invitation->email,
+                    'queued_at' => now()->toISOString(),
+                ],
+            ],
+        ])->save();
     }
 }
