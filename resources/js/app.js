@@ -6,18 +6,6 @@ import { createApp, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Stelfaro';
-const themeStorageKey = 'stelfaro:theme';
-
-function initializeTheme() {
-    const storedTheme = window.localStorage.getItem(themeStorageKey);
-    const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
-    const darkMode = storedTheme ? storedTheme === 'dark' : prefersDark;
-
-    document.documentElement.classList.toggle('dark', darkMode);
-    document.documentElement.dataset.theme = darkMode ? 'dark' : 'light';
-}
-
-initializeTheme();
 
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,

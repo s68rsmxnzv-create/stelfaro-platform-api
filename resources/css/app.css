@@ -3,10 +3,3 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-body {
-    margin: 0;
-    background: var(--sf-app-background, #f8fafc);
-    background-attachment: fixed;
-    color: var(--sf-color-text, #0f172a);
-}

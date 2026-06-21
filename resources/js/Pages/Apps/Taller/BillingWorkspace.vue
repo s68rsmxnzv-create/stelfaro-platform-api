@@ -85,7 +85,7 @@ const navigate = ({ event, href }) => {
 </script>
 
 <template>
-    <div class="sf-app-background min-h-screen dark:text-text">
+    <div class="min-h-screen bg-[#f6f8fb]">
         <section v-if="error" class="mx-auto max-w-7xl px-5 py-8">
             <div class="rounded-md border border-red-200 bg-red-50 p-5 text-red-700">
                 {{ error }}
