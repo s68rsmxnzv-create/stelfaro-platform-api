@@ -35,7 +35,7 @@ const logout = () => {
 
 <template>
     <div class="min-h-screen bg-app text-[#0d1629] dark:text-text">
-        <header class="relative z-50 border-b border-slate-200 bg-[#0d1629] text-white">
+        <header class="sf-app-navbar relative z-50 border-b border-slate-200 text-white dark:border-line">
             <div class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
                 <Link href="/" class="flex items-center gap-3">
                     <span class="grid h-10 w-10 place-items-center rounded-md bg-blue-600 text-sm font-bold">SF</span>
