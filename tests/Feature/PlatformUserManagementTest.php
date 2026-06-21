@@ -24,6 +24,19 @@ class PlatformUserManagementTest extends TestCase
             ->assertJsonFragment(['email' => 'cliente@example.test']);
     }
 
+    public function test_platform_owner_bootstrap_email_can_list_global_users(): void
+    {
+        config(['platform.admin.platform_emails' => ['owner@example.test']]);
+
+        $owner = User::factory()->create(['email' => 'owner@example.test']);
+        User::factory()->create(['email' => 'cliente@example.test']);
+
+        $this->actingAs($owner)
+            ->getJson('/api/v1/admin/platform/users')
+            ->assertOk()
+            ->assertJsonFragment(['email' => 'cliente@example.test']);
+    }
+
     public function test_company_admin_cannot_list_global_users(): void
     {
         $companyAdmin = $this->userWithRole('company_admin');

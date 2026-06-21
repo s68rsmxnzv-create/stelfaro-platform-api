@@ -21,6 +21,17 @@ class PlatformAccessPolicyTest extends TestCase
         $this->assertTrue($policy->canCreateGlobalUsers($user));
     }
 
+    public function test_platform_owner_bootstrap_email_can_manage_global_users(): void
+    {
+        config(['platform.admin.platform_emails' => ['owner@example.test']]);
+
+        $policy = app(PlatformAccessPolicy::class);
+        $user = User::factory()->create(['email' => 'owner@example.test']);
+
+        $this->assertTrue($policy->canViewGlobalUsers($user));
+        $this->assertTrue($policy->canCreateGlobalUsers($user));
+    }
+
     public function test_company_admin_cannot_manage_global_users(): void
     {
         $policy = app(PlatformAccessPolicy::class);

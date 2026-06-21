@@ -85,10 +85,25 @@ class PlatformAccessPolicy
             return false;
         }
 
+        if ($this->hasPlatformOwnerBootstrapEmail($user)) {
+            return true;
+        }
+
         return $user->memberships()
             ->where('status', 'active')
             ->where('role', PlatformRoles::PLATFORM_OWNER)
             ->exists();
+    }
+
+    private function hasPlatformOwnerBootstrapEmail(User $user): bool
+    {
+        $email = strtolower(trim($user->email));
+        $ownerEmails = array_values(array_unique([
+            ...config('platform.admin.platform_emails', []),
+            ...config('platform.admin.emails', []),
+        ]));
+
+        return in_array($email, $ownerEmails, true);
     }
 
     private function hasGlobalAdminRole(?User $user): bool
