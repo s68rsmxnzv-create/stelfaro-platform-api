@@ -1,5 +1,7 @@
 <?php
 
+use App\Support\Platform\PlatformRoles;
+
 return [
     'hosts' => [
         'platform' => env('PLATFORM_HOST', 'platform.stelfaro.com'),
@@ -21,8 +23,16 @@ return [
             fn (string $email): string => strtolower(trim($email)),
             explode(',', (string) env('PLATFORM_FISCAL_ADMIN_EMAILS', ''))
         ))),
-        'membership_roles' => ['platform_owner', 'platform_admin'],
-        'platform_membership_roles' => ['platform_owner', 'platform_admin'],
-        'fiscal_membership_roles' => ['platform_owner', 'fiscal_admin'],
+        'membership_roles' => PlatformRoles::globalAdminRoles(),
+        'platform_membership_roles' => PlatformRoles::globalAdminRoles(),
+        'fiscal_membership_roles' => [PlatformRoles::PLATFORM_OWNER],
+    ],
+
+    'roles' => [
+        'global' => PlatformRoles::globalRoles(),
+        'global_admin' => PlatformRoles::globalAdminRoles(),
+        'tenant' => PlatformRoles::tenantRoles(),
+        'tenant_user_admin' => PlatformRoles::tenantUserAdminRoles(),
+        'fiscal_session' => PlatformRoles::fiscalSessionRoles(),
     ],
 ];

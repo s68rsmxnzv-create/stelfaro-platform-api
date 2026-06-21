@@ -69,6 +69,73 @@ class CoreBillingSessionTest extends TestCase
             && $request['empresas'][0]['id'] === 123);
     }
 
+    public function test_core_billing_session_maps_viewer_to_fiscal_viewer(): void
+    {
+        config([
+            'services.dte_core.base_url' => 'https://core.test/api/v1',
+            'services.dte_core.internal_token' => 'internal-secret',
+        ]);
+
+        Http::fake([
+            'https://core.test/api/v1/internal/auth/billing-session' => Http::response([
+                'token' => 'core-token',
+                'token_type' => 'Bearer',
+            ]),
+        ]);
+
+        $tenant = Tenant::query()->create([
+            'slug' => 'cliente-readonly',
+            'name' => 'Cliente Readonly',
+            'metadata' => ['core_empresa_id' => 456],
+        ]);
+        $user = User::factory()->create();
+        $user->memberships()->create([
+            'tenant_id' => $tenant->id,
+            'role' => 'viewer',
+            'status' => 'active',
+            'is_default' => true,
+        ]);
+
+        $this->actingAs($user)
+            ->getJson('https://taller.stelfaro.com/platform/core-billing-session')
+            ->assertOk();
+
+        Http::assertSent(fn ($request) => $request->url() === 'https://core.test/api/v1/internal/auth/billing-session'
+            && $request['role'] === 'viewer'
+            && $request['empresas'][0]['role'] === 'viewer'
+            && $request['platform_user_id'] === $user->id);
+    }
+
+    public function test_suspended_user_membership_cannot_open_core_billing_session(): void
+    {
+        config([
+            'services.dte_core.base_url' => 'https://core.test/api/v1',
+            'services.dte_core.internal_token' => 'internal-secret',
+        ]);
+
+        Http::fake();
+
+        $tenant = Tenant::query()->create([
+            'slug' => 'cliente-suspendido',
+            'name' => 'Cliente Suspendido',
+            'metadata' => ['core_empresa_id' => 789],
+        ]);
+        $user = User::factory()->create();
+        $user->memberships()->create([
+            'tenant_id' => $tenant->id,
+            'role' => 'billing_user',
+            'status' => 'suspended',
+            'is_default' => true,
+        ]);
+
+        $this->actingAs($user)
+            ->getJson('https://taller.stelfaro.com/platform/core-billing-session')
+            ->assertStatus(503)
+            ->assertJsonPath('message', 'No hay una empresa fiscal activa vinculada a este usuario.');
+
+        Http::assertNothingSent();
+    }
+
     public function test_platform_admin_core_proxy_uses_backoffice_core_session(): void
     {
         config([

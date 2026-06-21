@@ -22,7 +22,13 @@ class CoreBillingSessionBroker
         }
 
         $empresaId = app(TenantFiscalLinkResolver::class)->coreEmpresaId($tenant);
-        $billingRole = $this->billingRoleFor($membership->role);
+        $accessPolicy = app(PlatformAccessPolicy::class);
+
+        if (! $accessPolicy->canAccessFiscalSession($user, $membership)) {
+            throw new RuntimeException('No tienes acceso activo a la sesion fiscal de esta empresa.');
+        }
+
+        $billingRole = $accessPolicy->fiscalRoleFor($membership);
 
         return $this->open([
             'email' => $user->email,
@@ -102,14 +108,5 @@ class CoreBillingSessionBroker
             ->orderByDesc('is_default')
             ->orderBy('id')
             ->first();
-    }
-
-    private function billingRoleFor(string $platformRole): string
-    {
-        return match ($platformRole) {
-            'owner', 'admin', 'tenant_admin', 'company_admin', 'billing_admin', 'fiscal_admin' => 'company_admin',
-            'viewer', 'read_only' => 'viewer',
-            default => 'billing_user',
-        };
     }
 }
