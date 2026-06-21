@@ -14,7 +14,7 @@ const props = defineProps({
     },
     user: {
         type: Object,
-        required: true,
+        default: null,
     },
 });
 
@@ -29,6 +29,7 @@ const roleLabel = computed(() => ({
     billing_user: 'Cajero',
     viewer: 'Contador / lectura',
 }[props.invitation?.role] ?? props.invitation?.role ?? 'Rol pendiente'));
+const loginHref = computed(() => `/login?redirect=${encodeURIComponent(`/invitations/${props.token}`)}`);
 
 const statusLabel = computed(() => ({
     pending: 'Pendiente',
@@ -104,7 +105,11 @@ async function acceptInvitation() {
                         </div>
                     </div>
 
-                    <p v-if="user.email !== invitation.email" class="mt-5 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm font-medium text-amber-800 dark:border-warning-soft dark:bg-warning-soft dark:text-warning">
+                    <p v-if="!user" class="mt-5 rounded-md border border-sky-200 bg-sky-50 p-4 text-sm font-medium text-sky-800 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-200">
+                        Inicia sesion con {{ invitation.email }} para aceptar esta invitacion.
+                    </p>
+
+                    <p v-else-if="user.email !== invitation.email" class="mt-5 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm font-medium text-amber-800 dark:border-warning-soft dark:bg-warning-soft dark:text-warning">
                         Esta invitacion es para {{ invitation.email }} y tu sesion actual es {{ user.email }}.
                     </p>
 
@@ -114,10 +119,14 @@ async function acceptInvitation() {
                     </p>
 
                     <div class="mt-6 flex flex-wrap justify-end gap-3">
-                        <Link href="/" class="inline-flex items-center justify-center rounded-lg bg-slate-100 px-5 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-200 dark:bg-surface-muted dark:text-text dark:hover:bg-surface-raised">
+                        <Link v-if="user" href="/" class="inline-flex items-center justify-center rounded-lg bg-slate-100 px-5 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-200 dark:bg-surface-muted dark:text-text dark:hover:bg-surface-raised">
                             Ir a mis apps
                         </Link>
+                        <Link v-else :href="loginHref" class="inline-flex items-center justify-center rounded-lg bg-sky-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-sky-500">
+                            Iniciar sesion
+                        </Link>
                         <button
+                            v-if="user"
                             type="button"
                             class="inline-flex items-center justify-center rounded-lg bg-sky-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-50"
                             :disabled="loading || !canAccept || user.email !== invitation.email"

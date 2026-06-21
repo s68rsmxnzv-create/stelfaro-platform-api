@@ -70,11 +70,12 @@ Route::domain(config('platform.hosts.admin'))
 
 Route::domain(config('platform.hosts.platform'))
     ->group(function (): void {
+        Route::get('/invitations/{token}', PlatformInvitationPageController::class)
+            ->name('platform.invitations.accept');
+
         Route::middleware(['auth', 'verified'])->group(function (): void {
             Route::get('/', PlatformRedirectController::class)->name('portal.home');
             Route::get('/dashboard', PlatformRedirectController::class)->name('dashboard');
-            Route::get('/invitations/{token}', PlatformInvitationPageController::class)
-                ->name('platform.invitations.accept');
         });
 
         Route::middleware('auth')->group(function (): void {

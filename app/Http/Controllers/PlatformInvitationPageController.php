@@ -28,10 +28,10 @@ class PlatformInvitationPageController extends Controller
                     'slug' => $invitation->tenant?->slug,
                 ],
             ] : null,
-            'user' => [
+            'user' => $request->user() ? [
                 'email' => $request->user()->email,
                 'name' => $request->user()->name,
-            ],
+            ] : null,
         ]);
     }
 }

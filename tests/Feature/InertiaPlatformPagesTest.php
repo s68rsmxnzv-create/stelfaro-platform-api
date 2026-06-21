@@ -85,6 +85,33 @@ class InertiaPlatformPagesTest extends TestCase
             );
     }
 
+    public function test_platform_invitation_accept_page_renders_for_guests(): void
+    {
+        $tenant = Tenant::query()->create([
+            'slug' => 'cliente-demo',
+            'name' => 'Cliente Demo',
+        ]);
+        $token = 'guest-invitation-token';
+        UserInvitation::query()->create([
+            'tenant_id' => $tenant->id,
+            'email' => 'contador@example.test',
+            'role' => 'viewer',
+            'token_hash' => hash('sha256', $token),
+            'expires_at' => now()->addDay(),
+            'status' => 'pending',
+        ]);
+
+        $this
+            ->get("https://platform.stelfaro.com/invitations/{$token}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Invitations/Accept')
+                ->where('invitation.email', 'contador@example.test')
+                ->where('invitation.tenant.name', 'Cliente Demo')
+                ->where('user', null)
+            );
+    }
+
     public function test_facturacion_page_renders(): void
     {
         $this->actingAs(User::factory()->create())
