@@ -23,9 +23,11 @@ return [
             fn (string $email): string => strtolower(trim($email)),
             explode(',', (string) env('PLATFORM_FISCAL_ADMIN_EMAILS', ''))
         ))),
-        'membership_roles' => PlatformRoles::globalAdminRoles(),
-        'platform_membership_roles' => PlatformRoles::globalAdminRoles(),
-        'fiscal_membership_roles' => [PlatformRoles::PLATFORM_OWNER],
+        'platform_roles' => PlatformRoles::globalAdminRoles(),
+        'fiscal_platform_roles' => [PlatformRoles::PLATFORM_OWNER],
+        'membership_roles' => [],
+        'platform_membership_roles' => [],
+        'fiscal_membership_roles' => ['fiscal_admin'],
     ],
 
     'roles' => [

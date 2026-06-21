@@ -15,7 +15,7 @@ class PlatformAccessPolicyTest extends TestCase
     public function test_platform_owner_can_manage_global_users(): void
     {
         $policy = app(PlatformAccessPolicy::class);
-        $user = $this->userWithMembership('platform_owner');
+        $user = User::factory()->create(['platform_role' => 'platform_owner']);
 
         $this->assertTrue($policy->canViewGlobalUsers($user));
         $this->assertTrue($policy->canCreateGlobalUsers($user));
@@ -41,10 +41,19 @@ class PlatformAccessPolicyTest extends TestCase
         $this->assertFalse($policy->canCreateGlobalUsers($user));
     }
 
+    public function test_company_owner_cannot_manage_global_users_without_platform_role(): void
+    {
+        $policy = app(PlatformAccessPolicy::class);
+        $user = $this->userWithMembership('owner');
+
+        $this->assertFalse($policy->canViewGlobalUsers($user));
+        $this->assertFalse($policy->canCreateGlobalUsers($user));
+    }
+
     public function test_platform_admin_is_reserved_and_cannot_manage_global_users_yet(): void
     {
         $policy = app(PlatformAccessPolicy::class);
-        $user = $this->userWithMembership('platform_admin');
+        $user = User::factory()->create(['platform_role' => 'platform_admin']);
 
         $this->assertFalse($policy->canViewGlobalUsers($user));
         $this->assertFalse($policy->canCreateGlobalUsers($user));

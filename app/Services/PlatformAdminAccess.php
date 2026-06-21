@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\User;
+use App\Support\Platform\PlatformRoles;
 
 class PlatformAdminAccess
 {
@@ -24,6 +25,18 @@ class PlatformAdminAccess
 
         if (in_array($email, $adminEmails, true)) {
             return true;
+        }
+
+        $platformRoles = (array) ($scope === 'platform'
+            ? config('platform.admin.platform_roles', PlatformRoles::globalAdminRoles())
+            : config("platform.admin.{$scope}_platform_roles", []));
+
+        if ($user->platform_role !== null && in_array($user->platform_role, $platformRoles, true)) {
+            return true;
+        }
+
+        if ($scope === 'platform') {
+            return false;
         }
 
         $adminRoles = config("platform.admin.{$scope}_membership_roles", config('platform.admin.membership_roles', []));

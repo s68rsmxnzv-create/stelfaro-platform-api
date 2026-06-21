@@ -89,10 +89,7 @@ class PlatformAccessPolicy
             return true;
         }
 
-        return $user->memberships()
-            ->where('status', 'active')
-            ->where('role', PlatformRoles::PLATFORM_OWNER)
-            ->exists();
+        return $user->platform_role === PlatformRoles::PLATFORM_OWNER;
     }
 
     private function hasPlatformOwnerBootstrapEmail(User $user): bool
@@ -112,10 +109,12 @@ class PlatformAccessPolicy
             return false;
         }
 
-        return $user->memberships()
-            ->where('status', 'active')
-            ->whereIn('role', PlatformRoles::globalAdminRoles())
-            ->exists();
+        if ($this->hasPlatformOwnerBootstrapEmail($user)) {
+            return true;
+        }
+
+        return $user->platform_role !== null
+            && PlatformRoles::isGlobalAdminRole($user->platform_role);
     }
 
     private function hasTenantUserAdminRole(?User $user, Tenant|int $tenant): bool

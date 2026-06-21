@@ -23,6 +23,7 @@ class GlobalUserController extends Controller
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
+                    'platform_role' => $user->platform_role,
                     'memberships' => $user->memberships
                         ->map(fn ($membership): array => [
                             'id' => $membership->id,

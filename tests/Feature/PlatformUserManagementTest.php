@@ -15,7 +15,7 @@ class PlatformUserManagementTest extends TestCase
 
     public function test_platform_owner_can_list_global_users(): void
     {
-        $owner = $this->userWithRole('platform_owner');
+        $owner = User::factory()->create(['platform_role' => 'platform_owner']);
         User::factory()->create(['email' => 'cliente@example.test']);
 
         $this->actingAs($owner)
@@ -42,6 +42,15 @@ class PlatformUserManagementTest extends TestCase
         $companyAdmin = $this->userWithRole('company_admin');
 
         $this->actingAs($companyAdmin)
+            ->getJson('/api/v1/admin/platform/users')
+            ->assertForbidden();
+    }
+
+    public function test_company_owner_cannot_list_global_users_without_platform_role(): void
+    {
+        $companyOwner = $this->userWithRole('owner');
+
+        $this->actingAs($companyOwner)
             ->getJson('/api/v1/admin/platform/users')
             ->assertForbidden();
     }
