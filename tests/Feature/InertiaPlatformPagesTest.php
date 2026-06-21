@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\PlatformApp;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Models\UserInvitation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -52,6 +53,35 @@ class InertiaPlatformPagesTest extends TestCase
                 ->component('Apps/Taller/BillingWorkspace')
                 ->where('app.id', 'taller')
                 ->where('module', 'dashboard')
+            );
+    }
+
+    public function test_platform_invitation_accept_page_renders(): void
+    {
+        $tenant = Tenant::query()->create([
+            'slug' => 'cliente-demo',
+            'name' => 'Cliente Demo',
+        ]);
+        $token = 'invitation-token';
+        UserInvitation::query()->create([
+            'tenant_id' => $tenant->id,
+            'email' => 'contador@example.test',
+            'role' => 'viewer',
+            'token_hash' => hash('sha256', $token),
+            'expires_at' => now()->addDay(),
+            'status' => 'pending',
+        ]);
+        $user = User::factory()->create(['email' => 'contador@example.test']);
+
+        $this->actingAs($user)
+            ->get("https://platform.stelfaro.com/invitations/{$token}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Invitations/Accept')
+                ->where('invitation.email', 'contador@example.test')
+                ->where('invitation.role', 'viewer')
+                ->where('invitation.tenant.name', 'Cliente Demo')
+                ->where('user.email', 'contador@example.test')
             );
     }
 

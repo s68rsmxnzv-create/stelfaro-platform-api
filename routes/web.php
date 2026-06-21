@@ -10,6 +10,7 @@ use App\Http\Controllers\CoreBillingSessionController;
 use App\Http\Controllers\PlatformAdmin\CoreSessionController;
 use App\Http\Controllers\PlatformAdmin\NotificationProxyController;
 use App\Http\Controllers\PlatformAdmin\TenantAppOnboardingController;
+use App\Http\Controllers\PlatformInvitationPageController;
 use App\Http\Controllers\PlatformPortalController;
 use App\Http\Controllers\PlatformRedirectController;
 use App\Http\Controllers\ProfileController;
@@ -71,6 +72,8 @@ Route::domain(config('platform.hosts.platform'))
         Route::middleware(['auth', 'verified'])->group(function (): void {
             Route::get('/', PlatformRedirectController::class)->name('portal.home');
             Route::get('/dashboard', PlatformRedirectController::class)->name('dashboard');
+            Route::get('/invitations/{token}', PlatformInvitationPageController::class)
+                ->name('platform.invitations.accept');
         });
 
         Route::middleware('auth')->group(function (): void {
