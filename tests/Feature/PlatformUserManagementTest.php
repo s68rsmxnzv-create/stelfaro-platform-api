@@ -134,6 +134,61 @@ class PlatformUserManagementTest extends TestCase
         ]);
     }
 
+    public function test_platform_owner_can_create_company_owner_with_temporary_password(): void
+    {
+        $platformOwner = User::factory()->create(['platform_role' => 'platform_owner']);
+        $tenant = Tenant::query()->create([
+            'slug' => 'cliente-nuevo',
+            'name' => 'Cliente Nuevo',
+        ]);
+        $technicalMembership = $platformOwner->memberships()->create([
+            'tenant_id' => $tenant->id,
+            'role' => 'owner',
+            'status' => 'active',
+            'is_default' => true,
+            'metadata' => ['source' => 'platform_admin_onboarding'],
+        ]);
+
+        $response = $this->actingAs($platformOwner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/users", [
+                'name' => 'Owner Cliente',
+                'email' => 'owner.cliente@example.test',
+                'role' => 'owner',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('user.email', 'owner.cliente@example.test')
+            ->assertJsonPath('user.must_change_password', true)
+            ->assertJsonPath('created', true);
+
+        $this->assertNotEmpty($response->json('temporary_password'));
+        $this->assertDatabaseHas('users', [
+            'email' => 'owner.cliente@example.test',
+            'must_change_password' => true,
+        ]);
+        $this->assertDatabaseHas('user_tenant_memberships', [
+            'tenant_id' => $tenant->id,
+            'role' => 'owner',
+            'status' => 'active',
+            'is_default' => true,
+        ]);
+        $this->assertSame('removed', $technicalMembership->refresh()->status);
+        $this->assertFalse($technicalMembership->is_default);
+    }
+
+    public function test_company_admin_cannot_create_company_owner_directly(): void
+    {
+        [$companyAdmin, $tenant] = $this->userWithTenantRole('company_admin');
+
+        $this->actingAs($companyAdmin)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/users", [
+                'name' => 'Owner No Permitido',
+                'email' => 'owner.no@example.test',
+                'role' => 'owner',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('role');
+    }
+
     public function test_billing_user_cannot_create_users_directly(): void
     {
         [$billingUser, $tenant] = $this->userWithTenantRole('billing_user');

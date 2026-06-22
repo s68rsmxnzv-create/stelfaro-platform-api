@@ -4,6 +4,7 @@ namespace App\Services\Platform;
 
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\PlatformAccessPolicy;
 use App\Services\UserTenantMembershipManager;
 use App\Support\Platform\PlatformRoles;
 use Illuminate\Support\Facades\DB;
@@ -14,6 +15,7 @@ class DirectTenantUserService
 {
     public function __construct(
         private readonly UserTenantMembershipManager $memberships,
+        private readonly PlatformAccessPolicy $accessPolicy,
     ) {}
 
     /**
@@ -22,7 +24,7 @@ class DirectTenantUserService
     public function create(Tenant $tenant, string $name, string $email, string $role, User $creator): array
     {
         $email = strtolower(trim($email));
-        $this->ensureAssignableRole($role);
+        $this->ensureAssignableRole($role, $creator);
 
         return DB::transaction(function () use ($tenant, $name, $email, $role, $creator): array {
             $user = User::query()->where('email', $email)->lockForUpdate()->first();
@@ -63,6 +65,10 @@ class DirectTenantUserService
                     ],
                 ])->save();
             } else {
+                if ($role === PlatformRoles::OWNER) {
+                    $this->replaceExistingTenantOwners($tenant, $user, $creator);
+                }
+
                 $this->memberships->create($user, $tenant, $role, [
                     'created_by' => $creator->id,
                     'created_directly_at' => now()->toISOString(),
@@ -77,13 +83,44 @@ class DirectTenantUserService
         });
     }
 
-    private function ensureAssignableRole(string $role): void
+    private function ensureAssignableRole(string $role, User $creator): void
     {
+        if ($role === PlatformRoles::OWNER) {
+            if ($this->accessPolicy->hasPlatformOwnerRole($creator)) {
+                return;
+            }
+
+            throw ValidationException::withMessages([
+                'role' => ['Solo platform_owner puede asignar el rol owner.'],
+            ]);
+        }
+
         if (! in_array($role, [PlatformRoles::COMPANY_ADMIN, PlatformRoles::BILLING_ADMIN, PlatformRoles::BILLING_USER, PlatformRoles::VIEWER], true)) {
             throw ValidationException::withMessages([
                 'role' => ['El rol no puede ser asignado.'],
             ]);
         }
+    }
+
+    private function replaceExistingTenantOwners(Tenant $tenant, User $newOwner, User $creator): void
+    {
+        $tenant->memberships()
+            ->where('role', PlatformRoles::OWNER)
+            ->where('status', 'active')
+            ->where('user_id', '!=', $newOwner->id)
+            ->get()
+            ->each(function ($membership) use ($creator, $newOwner): void {
+                $membership->forceFill([
+                    'status' => 'removed',
+                    'is_default' => false,
+                    'metadata' => [
+                        ...($membership->metadata ?? []),
+                        'replaced_by' => $newOwner->id,
+                        'replaced_by_platform_owner' => $creator->id,
+                        'replaced_directly_at' => now()->toISOString(),
+                    ],
+                ])->save();
+            });
     }
 
     private function temporaryPassword(): string

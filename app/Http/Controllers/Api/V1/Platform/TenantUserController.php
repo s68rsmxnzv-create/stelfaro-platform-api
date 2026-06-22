@@ -108,6 +108,7 @@ class TenantUserController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email:rfc', 'max:255'],
             'role' => ['required', 'string', Rule::in([
+                PlatformRoles::OWNER,
                 PlatformRoles::COMPANY_ADMIN,
                 PlatformRoles::BILLING_ADMIN,
                 PlatformRoles::BILLING_USER,
