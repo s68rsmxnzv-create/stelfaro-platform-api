@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Platform;
 use App\Http\Controllers\Controller;
 use App\Models\Tenant;
 use App\Models\UserInvitation;
+use App\Services\Platform\DirectTenantUserService;
 use App\Services\Platform\UserInvitationService;
 use App\Services\PlatformAccessPolicy;
 use App\Support\Platform\PlatformRoles;
@@ -82,6 +83,45 @@ class TenantUserController extends Controller
         return response()->json([
             'invitation' => $this->invitationPayload($result['invitation']),
             'token' => $result['token'],
+        ], 201);
+    }
+
+    public function store(
+        Request $request,
+        Tenant $tenant,
+        PlatformAccessPolicy $policy,
+        DirectTenantUserService $users,
+    ): JsonResponse {
+        abort_unless($policy->canInviteTenantUsers($request->user(), $tenant), 403);
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email:rfc', 'max:255'],
+            'role' => ['required', 'string', Rule::in([
+                PlatformRoles::COMPANY_ADMIN,
+                PlatformRoles::BILLING_ADMIN,
+                PlatformRoles::BILLING_USER,
+                PlatformRoles::VIEWER,
+            ])],
+        ]);
+
+        $result = $users->create(
+            $tenant,
+            (string) $validated['name'],
+            (string) $validated['email'],
+            (string) $validated['role'],
+            $request->user(),
+        );
+
+        return response()->json([
+            'user' => [
+                'id' => $result['user']->id,
+                'name' => $result['user']->name,
+                'email' => $result['user']->email,
+                'must_change_password' => (bool) $result['user']->must_change_password,
+            ],
+            'temporary_password' => $result['temporary_password'],
+            'created' => $result['created'],
         ], 201);
     }
 

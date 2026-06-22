@@ -44,7 +44,19 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        $session = $this->sessionResolver->resolve($request->user());
+        $user = $request->user()->fresh();
+
+        if ($user->must_change_password) {
+            $target = 'https://'.config('platform.hosts.platform').'/change-temporary-password';
+
+            if ($request->header('X-Inertia')) {
+                return Inertia::location($target);
+            }
+
+            return redirect($target);
+        }
+
+        $session = $this->sessionResolver->resolve($user);
         $target = $session['default_app']['local_path'] ?? 'https://'.config('platform.hosts.platform');
 
         if ($request->header('X-Inertia')) {

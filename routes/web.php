@@ -14,10 +14,11 @@ use App\Http\Controllers\PlatformInvitationPageController;
 use App\Http\Controllers\PlatformPortalController;
 use App\Http\Controllers\PlatformRedirectController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Middleware\EnsurePasswordIsChanged;
 use Illuminate\Support\Facades\Route;
 
 Route::domain(config('platform.hosts.taller'))
-    ->middleware(['auth', 'verified'])
+    ->middleware(['auth', 'verified', EnsurePasswordIsChanged::class])
     ->group(function (): void {
         Route::get('/', [PlatformPortalController::class, 'taller'])->name('apps.taller');
         Route::get('/recepcion', [PlatformPortalController::class, 'tallerReception'])->name('apps.taller.reception');
@@ -36,7 +37,7 @@ Route::domain(config('platform.hosts.taller'))
     });
 
 Route::domain(config('platform.hosts.facturacion'))
-    ->middleware(['auth', 'verified'])
+    ->middleware(['auth', 'verified', EnsurePasswordIsChanged::class])
     ->group(function (): void {
         Route::get('/', [PlatformPortalController::class, 'facturacion'])->name('apps.facturacion');
         Route::get('/configuracion', [PlatformPortalController::class, 'facturacionSettings'])->name('apps.facturacion.settings');
@@ -48,7 +49,7 @@ Route::domain(config('platform.hosts.facturacion'))
 
 Route::domain(config('platform.hosts.admin'))
     ->prefix('platform-api/v1')
-    ->middleware(['auth', 'verified'])
+    ->middleware(['auth', 'verified', EnsurePasswordIsChanged::class])
     ->group(function (): void {
         Route::get('/me', PlatformSessionController::class);
         Route::get('/admin/core/session', CoreSessionController::class);
@@ -56,6 +57,7 @@ Route::domain(config('platform.hosts.admin'))
         Route::post('/admin/platform/tenants', [TenantAppOnboardingController::class, 'store']);
         Route::get('/admin/platform/tenants/by-core-empresa/{coreEmpresaId}', [TenantLookupController::class, 'byCoreEmpresa']);
         Route::get('/platform/tenants/{tenant}/users', [TenantUserController::class, 'index']);
+        Route::post('/platform/tenants/{tenant}/users', [TenantUserController::class, 'store']);
         Route::post('/platform/tenants/{tenant}/invitations', [TenantUserController::class, 'invite']);
         Route::post('/platform/invitations/{invitation}/resend', [TenantInvitationController::class, 'resend']);
         Route::get('/platform/invitations/{invitation}/delivery', [TenantInvitationController::class, 'delivery']);
@@ -73,12 +75,12 @@ Route::domain(config('platform.hosts.platform'))
         Route::get('/invitations/{token}', PlatformInvitationPageController::class)
             ->name('platform.invitations.accept');
 
-        Route::middleware(['auth', 'verified'])->group(function (): void {
+        Route::middleware(['auth', 'verified', EnsurePasswordIsChanged::class])->group(function (): void {
             Route::get('/', PlatformRedirectController::class)->name('portal.home');
             Route::get('/dashboard', PlatformRedirectController::class)->name('dashboard');
         });
 
-        Route::middleware('auth')->group(function (): void {
+        Route::middleware(['auth', EnsurePasswordIsChanged::class])->group(function (): void {
             Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
             Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
             Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');

@@ -11,6 +11,7 @@ use App\Http\Controllers\PlatformAdmin\CoreProxyController;
 use App\Http\Controllers\PlatformAdmin\CoreSessionController;
 use App\Http\Controllers\PlatformAdmin\NotificationProxyController;
 use App\Http\Controllers\PlatformAdmin\TenantAppOnboardingController;
+use App\Http\Middleware\EnsurePasswordIsChanged;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function (): void {
@@ -21,7 +22,7 @@ Route::prefix('v1')->group(function (): void {
         'timestamp' => now()->toISOString(),
     ]));
 
-    Route::middleware(['web', 'auth', 'verified'])->group(function (): void {
+    Route::middleware(['web', 'auth', 'verified', EnsurePasswordIsChanged::class])->group(function (): void {
         Route::get('me', PlatformSessionController::class);
         Route::patch('me/active-membership/{membership}', [TenantMembershipController::class, 'setActive']);
         Route::get('admin/platform/users', [GlobalUserController::class, 'index']);
@@ -30,6 +31,7 @@ Route::prefix('v1')->group(function (): void {
         Route::get('admin/platform/apps', [TenantAppOnboardingController::class, 'apps']);
         Route::post('admin/platform/tenants', [TenantAppOnboardingController::class, 'store']);
         Route::get('platform/tenants/{tenant}/users', [TenantUserController::class, 'index']);
+        Route::post('platform/tenants/{tenant}/users', [TenantUserController::class, 'store']);
         Route::post('platform/tenants/{tenant}/invitations', [TenantUserController::class, 'invite']);
         Route::post('platform/invitations/{token}/accept', [TenantInvitationController::class, 'accept']);
         Route::post('platform/invitations/{invitation}/resend', [TenantInvitationController::class, 'resend']);

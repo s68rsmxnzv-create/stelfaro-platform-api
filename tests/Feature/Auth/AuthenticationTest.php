@@ -6,6 +6,7 @@ use App\Models\PlatformApp;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Inertia\Support\Header;
 use Tests\TestCase;
 
@@ -85,6 +86,56 @@ class AuthenticationTest extends TestCase
         $response
             ->assertStatus(409)
             ->assertHeader(Header::LOCATION, 'https://taller.stelfaro.com');
+    }
+
+    public function test_temporary_password_user_must_change_password_after_login(): void
+    {
+        auth()->guard('web')->logout();
+
+        $user = User::factory()->create([
+            'password' => Hash::make('Temporal123'),
+            'must_change_password' => true,
+        ]);
+        $this->assertTrue($user->fresh()->must_change_password);
+
+        $response = $this
+            ->withHeader('X-Inertia', 'true')
+            ->post('https://platform.stelfaro.com/login', [
+                'email' => $user->email,
+                'password' => 'Temporal123',
+            ]);
+
+        $this->assertAuthenticated();
+        $response
+            ->assertStatus(409)
+            ->assertHeader(Header::LOCATION, 'https://platform.stelfaro.com/change-temporary-password');
+
+        $this->flushHeaders()
+            ->actingAs($user->fresh())
+            ->get('https://platform.stelfaro.com')
+            ->assertRedirect('https://platform.stelfaro.com/change-temporary-password');
+    }
+
+    public function test_temporary_password_can_be_changed(): void
+    {
+        $user = User::factory()->create([
+            'password' => Hash::make('Temporal123'),
+            'must_change_password' => true,
+        ]);
+
+        $this->actingAs($user)
+            ->put('https://platform.stelfaro.com/change-temporary-password', [
+                'current_password' => 'Temporal123',
+                'password' => 'new-password',
+                'password_confirmation' => 'new-password',
+            ])
+            ->assertRedirect('https://platform.stelfaro.com');
+
+        $user->refresh();
+
+        $this->assertFalse($user->must_change_password);
+        $this->assertNotNull($user->password_changed_at);
+        $this->assertTrue(Hash::check('new-password', $user->password));
     }
 
     public function test_users_can_not_authenticate_with_invalid_password(): void

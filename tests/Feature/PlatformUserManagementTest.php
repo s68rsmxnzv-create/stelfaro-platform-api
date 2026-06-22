@@ -107,6 +107,46 @@ class PlatformUserManagementTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_company_owner_can_create_user_with_temporary_password(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+
+        $response = $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/users", [
+                'name' => 'Cajero Demo',
+                'email' => 'cajero@example.test',
+                'role' => 'billing_user',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('user.email', 'cajero@example.test')
+            ->assertJsonPath('user.must_change_password', true)
+            ->assertJsonPath('created', true);
+
+        $this->assertNotEmpty($response->json('temporary_password'));
+        $this->assertDatabaseHas('users', [
+            'email' => 'cajero@example.test',
+            'must_change_password' => true,
+        ]);
+        $this->assertDatabaseHas('user_tenant_memberships', [
+            'tenant_id' => $tenant->id,
+            'role' => 'billing_user',
+            'status' => 'active',
+        ]);
+    }
+
+    public function test_billing_user_cannot_create_users_directly(): void
+    {
+        [$billingUser, $tenant] = $this->userWithTenantRole('billing_user');
+
+        $this->actingAs($billingUser)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/users", [
+                'name' => 'Nuevo Usuario',
+                'email' => 'nuevo@example.test',
+                'role' => 'viewer',
+            ])
+            ->assertForbidden();
+    }
+
     public function test_invited_user_can_accept_pending_invitation(): void
     {
         $this->fakeNotifications();
