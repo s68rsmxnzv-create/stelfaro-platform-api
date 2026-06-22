@@ -29,6 +29,8 @@ class TenantUserController extends Controller
                     'id' => $membership->user?->id,
                     'name' => $membership->user?->name,
                     'email' => $membership->user?->email,
+                    'must_change_password' => (bool) $membership->user?->must_change_password,
+                    'password_changed_at' => $membership->user?->password_changed_at?->toISOString(),
                 ],
                 'role' => $membership->role,
                 'status' => $membership->status,
