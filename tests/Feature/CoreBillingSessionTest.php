@@ -106,6 +106,51 @@ class CoreBillingSessionTest extends TestCase
             && $request['platform_user_id'] === $user->id);
     }
 
+    public function test_core_billing_session_sends_default_fiscal_assignment(): void
+    {
+        config([
+            'services.dte_core.base_url' => 'https://core.test/api/v1',
+            'services.dte_core.internal_token' => 'internal-secret',
+        ]);
+
+        Http::fake([
+            'https://core.test/api/v1/internal/auth/billing-session' => Http::response([
+                'token' => 'core-token',
+                'token_type' => 'Bearer',
+            ]),
+        ]);
+
+        $tenant = Tenant::query()->create([
+            'slug' => 'cliente-caja',
+            'name' => 'Cliente Caja',
+            'metadata' => ['core_empresa_id' => 123],
+        ]);
+        $user = User::factory()->create();
+        $membership = $user->memberships()->create([
+            'tenant_id' => $tenant->id,
+            'role' => 'billing_user',
+            'status' => 'active',
+            'is_default' => true,
+        ]);
+        $membership->fiscalAssignments()->create([
+            'core_empresa_id' => 123,
+            'core_sucursal_id' => 10,
+            'core_punto_venta_id' => 20,
+            'is_default' => true,
+            'status' => 'active',
+        ]);
+
+        $this->actingAs($user)
+            ->getJson('https://taller.stelfaro.com/platform/core-billing-session')
+            ->assertOk();
+
+        Http::assertSent(fn ($request) => $request->url() === 'https://core.test/api/v1/internal/auth/billing-session'
+            && $request['empresas'][0]['sucursales'] === [10]
+            && $request['empresas'][0]['puntos_venta'] === [20]
+            && $request['empresas'][0]['default_sucursal_id'] === 10
+            && $request['empresas'][0]['default_punto_venta_id'] === 20);
+    }
+
     public function test_suspended_user_membership_cannot_open_core_billing_session(): void
     {
         config([

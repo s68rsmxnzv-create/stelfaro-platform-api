@@ -20,7 +20,7 @@ class TenantUserController extends Controller
         abort_unless($policy->canViewTenantUsers($request->user(), $tenant), 403);
 
         $memberships = $tenant->memberships()
-            ->with('user')
+            ->with('user', 'fiscalAssignments')
             ->orderBy('role')
             ->get()
             ->map(fn ($membership): array => [
@@ -35,6 +35,14 @@ class TenantUserController extends Controller
                 'role' => $membership->role,
                 'status' => $membership->status,
                 'is_default' => (bool) $membership->is_default,
+                'fiscal_assignments' => $membership->fiscalAssignments->map(fn ($assignment): array => [
+                    'id' => $assignment->id,
+                    'core_empresa_id' => $assignment->core_empresa_id,
+                    'core_sucursal_id' => $assignment->core_sucursal_id,
+                    'core_punto_venta_id' => $assignment->core_punto_venta_id,
+                    'is_default' => (bool) $assignment->is_default,
+                    'status' => $assignment->status,
+                ])->values(),
             ])
             ->values();
 

@@ -23,6 +23,12 @@ class CoreBillingSessionBroker
 
         $empresaId = app(TenantFiscalLinkResolver::class)->coreEmpresaId($tenant);
         $accessPolicy = app(PlatformAccessPolicy::class);
+        $assignments = $membership->fiscalAssignments()
+            ->where('status', 'active')
+            ->orderByDesc('is_default')
+            ->orderBy('id')
+            ->get();
+        $defaultAssignment = $assignments->first();
 
         if (! $accessPolicy->canAccessFiscalSession($user, $membership)) {
             throw new RuntimeException('No tienes acceso activo a la sesion fiscal de esta empresa.');
@@ -43,6 +49,10 @@ class CoreBillingSessionBroker
                 'id' => (int) $empresaId,
                 'role' => $billingRole,
                 'active' => true,
+                'sucursales' => $assignments->pluck('core_sucursal_id')->unique()->values()->all(),
+                'puntos_venta' => $assignments->pluck('core_punto_venta_id')->unique()->values()->all(),
+                'default_sucursal_id' => $defaultAssignment?->core_sucursal_id,
+                'default_punto_venta_id' => $defaultAssignment?->core_punto_venta_id,
             ]],
         ]);
     }

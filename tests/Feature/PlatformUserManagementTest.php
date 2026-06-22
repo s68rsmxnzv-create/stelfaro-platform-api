@@ -342,6 +342,108 @@ class PlatformUserManagementTest extends TestCase
             ->assertJsonPath('membership.status', 'removed');
     }
 
+    public function test_company_owner_can_view_tenant_fiscal_scope(): void
+    {
+        config([
+            'services.dte_core.base_url' => 'https://core.test/api/v1',
+            'services.dte_core.internal_token' => 'internal-secret',
+        ]);
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        $tenant->forceFill(['metadata' => ['core_empresa_id' => 123]])->save();
+
+        Http::fake([
+            'https://core.test/api/v1/internal/billing/companies/123/fiscal-scope' => Http::response($this->fiscalScopePayload()),
+        ]);
+
+        $this->actingAs($owner)
+            ->getJson("/api/v1/platform/tenants/{$tenant->id}/fiscal-scope")
+            ->assertOk()
+            ->assertJsonPath('empresa.id', 123)
+            ->assertJsonPath('sucursales.0.codigo', 'M001')
+            ->assertJsonPath('sucursales.0.puntos_venta.0.codigo', 'P001');
+    }
+
+    public function test_company_owner_can_assign_member_fiscal_scope(): void
+    {
+        config([
+            'services.dte_core.base_url' => 'https://core.test/api/v1',
+            'services.dte_core.internal_token' => 'internal-secret',
+        ]);
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        $tenant->forceFill(['metadata' => ['core_empresa_id' => 123]])->save();
+        [$member] = $this->userWithTenantRole('billing_user', $tenant);
+        $membership = $member->memberships()->where('tenant_id', $tenant->id)->firstOrFail();
+
+        Http::fake([
+            'https://core.test/api/v1/internal/billing/companies/123/fiscal-scope' => Http::response($this->fiscalScopePayload()),
+        ]);
+
+        $this->actingAs($owner)
+            ->putJson("/api/v1/platform/memberships/{$membership->id}/fiscal-assignments", [
+                'assignments' => [[
+                    'sucursal_id' => 10,
+                    'punto_venta_id' => 20,
+                    'is_default' => true,
+                ]],
+            ])
+            ->assertOk()
+            ->assertJsonPath('assignments.0.core_empresa_id', 123)
+            ->assertJsonPath('assignments.0.core_sucursal_id', 10)
+            ->assertJsonPath('assignments.0.core_punto_venta_id', 20)
+            ->assertJsonPath('assignments.0.is_default', true);
+
+        $this->assertDatabaseHas('user_fiscal_assignments', [
+            'membership_id' => $membership->id,
+            'core_empresa_id' => 123,
+            'core_sucursal_id' => 10,
+            'core_punto_venta_id' => 20,
+            'is_default' => true,
+            'status' => 'active',
+        ]);
+    }
+
+    public function test_fiscal_assignment_rejects_point_from_another_branch(): void
+    {
+        config([
+            'services.dte_core.base_url' => 'https://core.test/api/v1',
+            'services.dte_core.internal_token' => 'internal-secret',
+        ]);
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        $tenant->forceFill(['metadata' => ['core_empresa_id' => 123]])->save();
+        [$member] = $this->userWithTenantRole('billing_user', $tenant);
+        $membership = $member->memberships()->where('tenant_id', $tenant->id)->firstOrFail();
+
+        Http::fake([
+            'https://core.test/api/v1/internal/billing/companies/123/fiscal-scope' => Http::response($this->fiscalScopePayload()),
+        ]);
+
+        $this->actingAs($owner)
+            ->putJson("/api/v1/platform/memberships/{$membership->id}/fiscal-assignments", [
+                'assignments' => [[
+                    'sucursal_id' => 10,
+                    'punto_venta_id' => 99,
+                ]],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('assignments.0.punto_venta_id');
+    }
+
+    public function test_billing_user_cannot_assign_member_fiscal_scope(): void
+    {
+        [$billingUser, $tenant] = $this->userWithTenantRole('billing_user');
+        [$member] = $this->userWithTenantRole('viewer', $tenant);
+        $membership = $member->memberships()->where('tenant_id', $tenant->id)->firstOrFail();
+
+        $this->actingAs($billingUser)
+            ->putJson("/api/v1/platform/memberships/{$membership->id}/fiscal-assignments", [
+                'assignments' => [[
+                    'sucursal_id' => 10,
+                    'punto_venta_id' => 20,
+                ]],
+            ])
+            ->assertForbidden();
+    }
+
     public function test_user_can_change_active_tenant_to_active_membership_only(): void
     {
         [$user, $tenant] = $this->userWithTenantRole('billing_user');
@@ -381,6 +483,32 @@ class PlatformUserManagementTest extends TestCase
                 'recipient_email' => 'cajero@example.test',
             ]]),
         ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function fiscalScopePayload(): array
+    {
+        return [
+            'empresa' => [
+                'id' => 123,
+                'nombre_comercial' => 'Cliente Demo',
+                'razon_social' => 'Cliente Demo SA',
+            ],
+            'sucursales' => [[
+                'id' => 10,
+                'nombre' => 'Casa matriz',
+                'codigo' => 'M001',
+                'puntos_venta' => [[
+                    'id' => 20,
+                    'sucursal_id' => 10,
+                    'nombre' => 'Caja principal',
+                    'codigo' => 'P001',
+                    'tipo' => 'fisico',
+                ]],
+            ]],
+        ];
     }
 
     private function userWithRole(string $role): User

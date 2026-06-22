@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\Platform\TenantFiscalAssignmentController;
 use App\Http\Controllers\Api\V1\Platform\TenantInvitationController;
 use App\Http\Controllers\Api\V1\Platform\TenantLookupController;
 use App\Http\Controllers\Api\V1\Platform\TenantMembershipController;
@@ -57,11 +58,13 @@ Route::domain(config('platform.hosts.admin'))
         Route::post('/admin/platform/tenants', [TenantAppOnboardingController::class, 'store']);
         Route::get('/admin/platform/tenants/by-core-empresa/{coreEmpresaId}', [TenantLookupController::class, 'byCoreEmpresa']);
         Route::get('/platform/tenants/{tenant}/users', [TenantUserController::class, 'index']);
+        Route::get('/platform/tenants/{tenant}/fiscal-scope', [TenantFiscalAssignmentController::class, 'scope']);
         Route::post('/platform/tenants/{tenant}/users', [TenantUserController::class, 'store']);
         Route::post('/platform/tenants/{tenant}/invitations', [TenantUserController::class, 'invite']);
         Route::post('/platform/invitations/{invitation}/resend', [TenantInvitationController::class, 'resend']);
         Route::get('/platform/invitations/{invitation}/delivery', [TenantInvitationController::class, 'delivery']);
         Route::patch('/platform/memberships/{membership}/role', [TenantMembershipController::class, 'updateRole']);
+        Route::put('/platform/memberships/{membership}/fiscal-assignments', [TenantFiscalAssignmentController::class, 'store']);
         Route::patch('/platform/memberships/{membership}/suspend', [TenantMembershipController::class, 'suspend']);
         Route::patch('/platform/memberships/{membership}/reactivate', [TenantMembershipController::class, 'reactivate']);
         Route::delete('/platform/memberships/{membership}', [TenantMembershipController::class, 'destroy']);
