@@ -172,6 +172,9 @@ class PlatformAdminTenantAppOnboardingTest extends TestCase
             'tenant_id' => $response->json('tenant.id'),
             'user_id' => $admin->id,
         ]);
+        $this->assertDatabaseMissing('tenant_subscriptions', [
+            'tenant_id' => $response->json('tenant.id'),
+        ]);
     }
 
     public function test_production_onboarding_sends_temporary_password_by_email_without_exposing_it(): void
@@ -223,11 +226,18 @@ class PlatformAdminTenantAppOnboardingTest extends TestCase
         $response->assertCreated()
             ->assertJsonPath('tenant.owner.email', 'gaby@stelfaro.com')
             ->assertJsonPath('tenant.owner.temporary_password', null)
-            ->assertJsonPath('tenant.owner.temporary_password_delivery.id', 77);
+            ->assertJsonPath('tenant.owner.temporary_password_delivery.id', 77)
+            ->assertJsonPath('tenant.subscription.status', 'trialing');
 
         $this->assertDatabaseHas('tenants', [
             'id' => $response->json('tenant.id'),
             'metadata->environment' => '01',
+        ]);
+        $this->assertDatabaseHas('tenant_subscriptions', [
+            'tenant_id' => $response->json('tenant.id'),
+            'subscription_plan_id' => null,
+            'status' => 'trialing',
+            'billing_cycle' => 'manual',
         ]);
         Http::assertSent(fn ($request): bool => $request->url() === 'https://notifications.test/api/v1/platform/temporary-passwords/email'
             && $request->hasHeader('Authorization', 'Bearer notifications-secret')

@@ -8,6 +8,7 @@ use App\Models\Tenant;
 use App\Services\CoreFiscalCompanyValidator;
 use App\Services\Platform\DirectTenantUserService;
 use App\Services\Platform\TemporaryPasswordNotificationClient;
+use App\Services\Platform\TenantSubscriptionManager;
 use App\Services\PlatformAdminAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,6 +24,7 @@ class TenantAppOnboardingController extends Controller
         private readonly CoreFiscalCompanyValidator $fiscalCompanyValidator,
         private readonly DirectTenantUserService $tenantUsers,
         private readonly TemporaryPasswordNotificationClient $temporaryPasswords,
+        private readonly TenantSubscriptionManager $subscriptions,
     ) {}
 
     public function apps(Request $request): JsonResponse
@@ -158,7 +160,11 @@ class TenantAppOnboardingController extends Controller
                 );
             }
 
-            return $tenant->load('appAccesses.app', 'memberships');
+            if (($validated['environment'] ?? null) === '01' && $request->user()) {
+                $this->subscriptions->startProductionTrial($tenant, $request->user(), 3);
+            }
+
+            return $tenant->load('appAccesses.app', 'memberships', 'subscription');
         });
 
         return response()->json([
@@ -173,6 +179,11 @@ class TenantAppOnboardingController extends Controller
                     ])
                     ->values(),
                 'owner' => $ownerCredentials,
+                'subscription' => $tenant->subscription ? [
+                    'status' => $tenant->subscription->status,
+                    'trial_ends_at' => $tenant->subscription->trial_ends_at?->toISOString(),
+                    'current_period_ends_at' => $tenant->subscription->current_period_ends_at?->toISOString(),
+                ] : null,
             ],
         ], 201);
     }
