@@ -6,8 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\PlatformApp;
 use App\Models\Tenant;
 use App\Services\CoreFiscalCompanyValidator;
+use App\Services\Platform\DirectTenantUserService;
 use App\Services\PlatformAdminAccess;
-use App\Services\UserTenantMembershipManager;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,7 +20,7 @@ class TenantAppOnboardingController extends Controller
     public function __construct(
         private readonly PlatformAdminAccess $adminAccess,
         private readonly CoreFiscalCompanyValidator $fiscalCompanyValidator,
-        private readonly UserTenantMembershipManager $membershipManager,
+        private readonly DirectTenantUserService $tenantUsers,
     ) {}
 
     public function apps(Request $request): JsonResponse
@@ -50,6 +50,9 @@ class TenantAppOnboardingController extends Controller
             'app_keys' => ['nullable', 'array'],
             'app_keys.*' => ['string', 'max:80'],
             'make_default' => ['sometimes', 'boolean'],
+            'owner_name' => ['nullable', 'string', 'max:255'],
+            'owner_email' => ['nullable', 'email:rfc', 'max:255'],
+            'environment' => ['nullable', 'string', 'in:00,01'],
         ]);
         try {
             $this->fiscalCompanyValidator->validateActiveEmpresa((int) $validated['core_empresa_id']);
@@ -80,7 +83,8 @@ class TenantAppOnboardingController extends Controller
 
         abort_unless($apps->has('facturacion'), 422, 'La app Facturacion debe existir y estar activa.');
 
-        $tenant = DB::transaction(function () use ($request, $validated, $selectedKeys, $defaultAppKey, $apps): Tenant {
+        $ownerCredentials = null;
+        $tenant = DB::transaction(function () use ($request, $validated, $selectedKeys, $defaultAppKey, $apps, &$ownerCredentials): Tenant {
             $defaultApp = $apps->get($defaultAppKey) ?? $apps->get('facturacion');
             $tenant = Tenant::query()->create([
                 'slug' => $this->uniqueTenantSlug((string) ($validated['slug'] ?? $validated['name'])),
@@ -108,12 +112,32 @@ class TenantAppOnboardingController extends Controller
                 ]);
             });
 
-            if ($request->user()) {
-                $this->membershipManager->create(
-                    $request->user(),
+            if (! empty($validated['owner_email']) && $request->user()) {
+                $temporaryPassword = $this->testingOwnerPassword((string) $validated['owner_email'], (string) $tenant->slug);
+                $result = $this->tenantUsers->create(
                     $tenant,
+                    (string) ($validated['owner_name'] ?: $validated['name']),
+                    (string) $validated['owner_email'],
                     'owner',
-                    ['source' => 'platform_admin_onboarding'],
+                    $request->user(),
+                    (string) $temporaryPassword,
+                    (bool) ($validated['make_default'] ?? false),
+                );
+                $ownerCredentials = [
+                    'email' => $result['user']->email,
+                    'name' => $result['user']->name,
+                    'temporary_password' => $result['temporary_password'],
+                    'must_change_password' => (bool) $result['user']->must_change_password,
+                    'created' => $result['created'],
+                ];
+            } elseif ($request->user()) {
+                $this->tenantUsers->create(
+                    $tenant,
+                    $request->user()->name,
+                    $request->user()->email,
+                    'owner',
+                    $request->user(),
+                    null,
                     (bool) ($validated['make_default'] ?? false),
                 );
             }
@@ -132,6 +156,7 @@ class TenantAppOnboardingController extends Controller
                         'is_default' => (bool) $access->is_default,
                     ])
                     ->values(),
+                'owner' => $ownerCredentials,
             ],
         ], 201);
     }
@@ -162,5 +187,13 @@ class TenantAppOnboardingController extends Controller
         }
 
         return $candidate;
+    }
+
+    private function testingOwnerPassword(string $email, string $tenantSlug): string
+    {
+        $prefix = Str::upper(Str::substr((string) preg_replace('/[^A-Za-z0-9]/', '', Str::before($email, '@')), 0, 4)) ?: 'USER';
+        $tenantCode = Str::upper(Str::substr((string) preg_replace('/[^A-Za-z0-9]/', '', $tenantSlug), 0, 4)) ?: 'TEMP';
+
+        return 'Sf-'.$prefix.'-'.$tenantCode.'-'.random_int(1000, 9999);
     }
 }

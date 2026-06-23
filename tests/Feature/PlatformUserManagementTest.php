@@ -6,6 +6,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Models\UserInvitation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -372,6 +373,36 @@ class PlatformUserManagementTest extends TestCase
             ->patchJson("/api/v1/platform/memberships/{$ownerMembership->id}/role", [
                 'role' => 'viewer',
             ])
+            ->assertForbidden();
+    }
+
+    public function test_platform_owner_can_reset_company_owner_temporary_password(): void
+    {
+        $platformOwner = User::factory()->create(['platform_role' => 'platform_owner']);
+        [$companyOwner, $tenant] = $this->userWithTenantRole('owner');
+        $membership = $companyOwner->memberships()->where('tenant_id', $tenant->id)->firstOrFail();
+
+        $response = $this->actingAs($platformOwner)
+            ->postJson("/api/v1/platform/memberships/{$membership->id}/temporary-password")
+            ->assertOk()
+            ->assertJsonPath('user.email', $companyOwner->email)
+            ->assertJsonPath('user.must_change_password', true);
+
+        $temporaryPassword = (string) $response->json('temporary_password');
+        $this->assertMatchesRegularExpression('/^Sf-[A-Z0-9]{1,4}-[A-Z0-9]{1,4}-[0-9]{4}$/', $temporaryPassword);
+        $this->assertTrue(Hash::check($temporaryPassword, $companyOwner->refresh()->password));
+        $this->assertTrue($companyOwner->must_change_password);
+        $this->assertNull($companyOwner->password_changed_at);
+    }
+
+    public function test_company_admin_cannot_reset_company_owner_temporary_password(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        [$companyAdmin] = $this->userWithTenantRole('company_admin', $tenant);
+        $ownerMembership = $owner->memberships()->where('tenant_id', $tenant->id)->firstOrFail();
+
+        $this->actingAs($companyAdmin)
+            ->postJson("/api/v1/platform/memberships/{$ownerMembership->id}/temporary-password")
             ->assertForbidden();
     }
 

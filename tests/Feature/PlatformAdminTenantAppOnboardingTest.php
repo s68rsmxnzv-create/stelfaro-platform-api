@@ -134,6 +134,46 @@ class PlatformAdminTenantAppOnboardingTest extends TestCase
         ]);
     }
 
+    public function test_admin_onboarding_creates_company_owner_from_fiscal_email(): void
+    {
+        Config::set('platform.admin.emails', ['owner@stelfaro.test']);
+        $this->fakeActiveCoreEmpresa(123);
+        $admin = User::factory()->create(['email' => 'owner@stelfaro.test']);
+        PlatformApp::query()->create([
+            'key' => 'facturacion',
+            'name' => 'Facturación',
+            'host' => 'facturacion.stelfaro.com',
+        ]);
+
+        $response = $this->actingAs($admin)->postJson('/api/v1/admin/platform/tenants', [
+            'core_empresa_id' => 123,
+            'core_tenant_id' => 456,
+            'name' => 'Gabriela Demo',
+            'app_keys' => ['facturacion'],
+            'owner_name' => 'Gabriela Demo',
+            'owner_email' => 'gaby@stelfaro.com',
+            'environment' => '00',
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('tenant.owner.email', 'gaby@stelfaro.com')
+            ->assertJsonPath('tenant.owner.must_change_password', true);
+
+        $this->assertMatchesRegularExpression('/^Sf-GABY-GABR-[0-9]{4}$/', (string) $response->json('tenant.owner.temporary_password'));
+        $owner = User::query()->where('email', 'gaby@stelfaro.com')->firstOrFail();
+
+        $this->assertDatabaseHas('user_tenant_memberships', [
+            'tenant_id' => $response->json('tenant.id'),
+            'user_id' => $owner->id,
+            'role' => 'owner',
+            'status' => 'active',
+        ]);
+        $this->assertDatabaseMissing('user_tenant_memberships', [
+            'tenant_id' => $response->json('tenant.id'),
+            'user_id' => $admin->id,
+        ]);
+    }
+
     public function test_admin_onboarding_rejects_inactive_core_company_link(): void
     {
         Config::set('platform.admin.emails', ['owner@stelfaro.test']);

@@ -21,23 +21,23 @@ class DirectTenantUserService
     /**
      * @return array{user: User, temporary_password: string|null, created: bool}
      */
-    public function create(Tenant $tenant, string $name, string $email, string $role, User $creator): array
+    public function create(Tenant $tenant, string $name, string $email, string $role, User $creator, ?string $temporaryPassword = null, bool $makeDefault = false): array
     {
         $email = strtolower(trim($email));
         $this->ensureAssignableRole($role, $creator);
 
-        return DB::transaction(function () use ($tenant, $name, $email, $role, $creator): array {
+        return DB::transaction(function () use ($tenant, $name, $email, $role, $creator, $temporaryPassword, $makeDefault): array {
             $user = User::query()->where('email', $email)->lockForUpdate()->first();
             $created = false;
-            $temporaryPassword = null;
+            $createdPassword = null;
 
             if (! $user) {
-                $temporaryPassword = $this->temporaryPassword();
+                $createdPassword = $temporaryPassword ?: $this->temporaryPassword();
                 $user = User::query()->create([
                     'name' => trim($name),
                     'email' => $email,
                     'email_verified_at' => now(),
-                    'password' => $temporaryPassword,
+                    'password' => $createdPassword,
                     'must_change_password' => true,
                 ]);
                 $created = true;
@@ -72,12 +72,12 @@ class DirectTenantUserService
                 $this->memberships->create($user, $tenant, $role, [
                     'created_by' => $creator->id,
                     'created_directly_at' => now()->toISOString(),
-                ]);
+                ], $makeDefault);
             }
 
             return [
                 'user' => $user->refresh(),
-                'temporary_password' => $temporaryPassword,
+                'temporary_password' => $createdPassword,
                 'created' => $created,
             ];
         });

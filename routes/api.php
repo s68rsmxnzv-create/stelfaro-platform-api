@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\Platform\TenantFiscalAssignmentController;
 use App\Http\Controllers\Api\V1\Platform\TenantInvitationController;
 use App\Http\Controllers\Api\V1\Platform\TenantLookupController;
 use App\Http\Controllers\Api\V1\Platform\TenantMembershipController;
+use App\Http\Controllers\Api\V1\Platform\TenantPurgeController;
 use App\Http\Controllers\Api\V1\Platform\TenantUserController;
 use App\Http\Controllers\Api\V1\PlatformSessionController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
@@ -28,6 +29,8 @@ Route::prefix('v1')->group(function (): void {
         Route::patch('me/active-membership/{membership}', [TenantMembershipController::class, 'setActive']);
         Route::get('admin/platform/users', [GlobalUserController::class, 'index']);
         Route::get('admin/platform/tenants/by-core-empresa/{coreEmpresaId}', [TenantLookupController::class, 'byCoreEmpresa']);
+        Route::delete('admin/platform/tenants/by-core-empresa/{coreEmpresaId}', [TenantPurgeController::class, 'destroyByCoreEmpresa']);
+        Route::post('admin/platform/tenants/by-core-empresa/{coreEmpresaId}/purge', [TenantPurgeController::class, 'destroyByCoreEmpresa']);
         Route::get('admin/core/session', CoreSessionController::class);
         Route::get('admin/platform/apps', [TenantAppOnboardingController::class, 'apps']);
         Route::post('admin/platform/tenants', [TenantAppOnboardingController::class, 'store']);
@@ -39,6 +42,7 @@ Route::prefix('v1')->group(function (): void {
         Route::post('platform/invitations/{invitation}/resend', [TenantInvitationController::class, 'resend']);
         Route::get('platform/invitations/{invitation}/delivery', [TenantInvitationController::class, 'delivery']);
         Route::patch('platform/memberships/{membership}/role', [TenantMembershipController::class, 'updateRole']);
+        Route::post('platform/memberships/{membership}/temporary-password', [TenantMembershipController::class, 'resetTemporaryPassword']);
         Route::put('platform/memberships/{membership}/fiscal-assignments', [TenantFiscalAssignmentController::class, 'store']);
         Route::patch('platform/memberships/{membership}/suspend', [TenantMembershipController::class, 'suspend']);
         Route::patch('platform/memberships/{membership}/reactivate', [TenantMembershipController::class, 'reactivate']);

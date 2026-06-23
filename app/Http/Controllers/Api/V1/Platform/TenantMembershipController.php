@@ -8,6 +8,7 @@ use App\Services\PlatformAccessPolicy;
 use App\Support\Platform\PlatformRoles;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class TenantMembershipController extends Controller
@@ -79,6 +80,32 @@ class TenantMembershipController extends Controller
         return response()->json(['membership' => $this->payload($membership->refresh())]);
     }
 
+    public function resetTemporaryPassword(Request $request, UserTenantMembership $membership, PlatformAccessPolicy $policy): JsonResponse
+    {
+        $membership->load('tenant', 'user');
+        abort_unless($policy->canSuspendTenantMember($request->user(), $membership->tenant), 403);
+        $this->abortIfProtectedOwner($request, $membership, $policy);
+        abort_unless($membership->user !== null, 404, 'La membresia no tiene usuario vinculado.');
+
+        $temporaryPassword = $this->temporaryPassword($membership->user->email, $membership->tenant->slug);
+        $membership->user->forceFill([
+            'password' => $temporaryPassword,
+            'must_change_password' => true,
+            'password_changed_at' => null,
+        ])->save();
+
+        return response()->json([
+            'membership' => $this->payload($membership->refresh()),
+            'user' => [
+                'id' => $membership->user->id,
+                'name' => $membership->user->name,
+                'email' => $membership->user->email,
+                'must_change_password' => true,
+            ],
+            'temporary_password' => $temporaryPassword,
+        ]);
+    }
+
     private function abortIfProtectedOwner(Request $request, UserTenantMembership $membership, PlatformAccessPolicy $policy): void
     {
         if ($membership->role === PlatformRoles::OWNER && ! $policy->hasPlatformOwnerRole($request->user())) {
@@ -96,5 +123,13 @@ class TenantMembershipController extends Controller
             'status' => $membership->status,
             'is_default' => (bool) $membership->is_default,
         ];
+    }
+
+    private function temporaryPassword(string $email, string $tenantSlug): string
+    {
+        $prefix = Str::upper(Str::substr((string) preg_replace('/[^A-Za-z0-9]/', '', Str::before($email, '@')), 0, 4)) ?: 'USER';
+        $tenantCode = Str::upper(Str::substr((string) preg_replace('/[^A-Za-z0-9]/', '', $tenantSlug), 0, 4)) ?: 'TEMP';
+
+        return 'Sf-'.$prefix.'-'.$tenantCode.'-'.random_int(1000, 9999);
     }
 }
