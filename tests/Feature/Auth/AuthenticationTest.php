@@ -88,6 +88,45 @@ class AuthenticationTest extends TestCase
             ->assertHeader(Header::LOCATION, 'https://taller.stelfaro.com');
     }
 
+    public function test_platform_owner_login_prefers_admin_over_company_default_app(): void
+    {
+        $facturacion = PlatformApp::query()->create([
+            'key' => 'facturacion',
+            'name' => 'Facturación',
+            'host' => 'facturacion.stelfaro.com',
+            'default_path' => '/',
+        ]);
+        $tenant = Tenant::query()->create([
+            'slug' => 'empresa-platform-owner',
+            'name' => 'Empresa Platform Owner',
+            'primary_app_id' => $facturacion->id,
+        ]);
+        $tenant->appAccesses()->create([
+            'platform_app_id' => $facturacion->id,
+            'is_default' => true,
+        ]);
+        $user = User::factory()->create([
+            'platform_role' => 'platform_owner',
+        ]);
+        $user->memberships()->create([
+            'tenant_id' => $tenant->id,
+            'role' => 'owner',
+            'is_default' => true,
+        ]);
+
+        $response = $this
+            ->withHeader('X-Inertia', 'true')
+            ->post('https://platform.stelfaro.com/login', [
+                'email' => $user->email,
+                'password' => 'password',
+            ]);
+
+        $this->assertAuthenticated();
+        $response
+            ->assertStatus(409)
+            ->assertHeader(Header::LOCATION, 'https://admin.stelfaro.com');
+    }
+
     public function test_temporary_password_user_must_change_password_after_login(): void
     {
         auth()->guard('web')->logout();

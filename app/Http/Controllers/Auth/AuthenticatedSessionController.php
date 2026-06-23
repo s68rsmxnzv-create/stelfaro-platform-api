@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Services\PlatformAdminAccess;
 use App\Services\PlatformSessionResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,6 +17,7 @@ class AuthenticatedSessionController extends Controller
 {
     public function __construct(
         private readonly PlatformSessionResolver $sessionResolver,
+        private readonly PlatformAdminAccess $platformAdminAccess,
     ) {}
 
     /**
@@ -56,8 +58,12 @@ class AuthenticatedSessionController extends Controller
             return redirect($target);
         }
 
-        $session = $this->sessionResolver->resolve($user);
-        $target = $session['default_app']['local_path'] ?? 'https://'.config('platform.hosts.platform');
+        if ($this->platformAdminAccess->allows($user)) {
+            $target = 'https://'.config('platform.hosts.admin');
+        } else {
+            $session = $this->sessionResolver->resolve($user);
+            $target = $session['default_app']['local_path'] ?? 'https://'.config('platform.hosts.platform');
+        }
 
         if ($request->header('X-Inertia')) {
             return Inertia::location($target);
