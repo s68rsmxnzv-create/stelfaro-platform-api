@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\Platform\TenantFiscalAssignmentController;
 use App\Http\Controllers\Api\V1\Platform\TenantInvitationController;
 use App\Http\Controllers\Api\V1\Platform\TenantLookupController;
 use App\Http\Controllers\Api\V1\Platform\TenantMembershipController;
+use App\Http\Controllers\Api\V1\Platform\SubscriptionController;
 use App\Http\Controllers\Api\V1\Platform\TenantUserController;
 use App\Http\Controllers\Api\V1\PlatformSessionController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
@@ -54,6 +55,10 @@ Route::domain(config('platform.hosts.admin'))
     ->group(function (): void {
         Route::get('/me', PlatformSessionController::class);
         Route::get('/admin/core/session', CoreSessionController::class);
+        Route::get('/admin/platform/subscriptions', [SubscriptionController::class, 'index']);
+        Route::put('/admin/platform/tenants/{tenant}/subscription', [SubscriptionController::class, 'update']);
+        Route::get('/admin/platform/tenants/by-core-empresa/{coreEmpresaId}/subscription', [SubscriptionController::class, 'showByCoreEmpresa']);
+        Route::put('/admin/platform/tenants/by-core-empresa/{coreEmpresaId}/subscription', [SubscriptionController::class, 'updateByCoreEmpresa']);
         Route::get('/admin/platform/apps', [TenantAppOnboardingController::class, 'apps']);
         Route::post('/admin/platform/tenants', [TenantAppOnboardingController::class, 'store']);
         Route::get('/admin/platform/tenants/by-core-empresa/{coreEmpresaId}', [TenantLookupController::class, 'byCoreEmpresa']);

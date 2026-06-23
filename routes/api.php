@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\Platform\GlobalUserController;
+use App\Http\Controllers\Api\V1\Platform\SubscriptionController;
 use App\Http\Controllers\Api\V1\Platform\TenantFiscalAssignmentController;
 use App\Http\Controllers\Api\V1\Platform\TenantInvitationController;
 use App\Http\Controllers\Api\V1\Platform\TenantLookupController;
@@ -28,6 +29,10 @@ Route::prefix('v1')->group(function (): void {
         Route::get('me', PlatformSessionController::class);
         Route::patch('me/active-membership/{membership}', [TenantMembershipController::class, 'setActive']);
         Route::get('admin/platform/users', [GlobalUserController::class, 'index']);
+        Route::get('admin/platform/subscriptions', [SubscriptionController::class, 'index']);
+        Route::put('admin/platform/tenants/{tenant}/subscription', [SubscriptionController::class, 'update']);
+        Route::get('admin/platform/tenants/by-core-empresa/{coreEmpresaId}/subscription', [SubscriptionController::class, 'showByCoreEmpresa']);
+        Route::put('admin/platform/tenants/by-core-empresa/{coreEmpresaId}/subscription', [SubscriptionController::class, 'updateByCoreEmpresa']);
         Route::get('admin/platform/tenants/by-core-empresa/{coreEmpresaId}', [TenantLookupController::class, 'byCoreEmpresa']);
         Route::delete('admin/platform/tenants/by-core-empresa/{coreEmpresaId}', [TenantPurgeController::class, 'destroyByCoreEmpresa']);
         Route::post('admin/platform/tenants/by-core-empresa/{coreEmpresaId}/purge', [TenantPurgeController::class, 'destroyByCoreEmpresa']);
