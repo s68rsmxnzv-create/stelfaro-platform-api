@@ -41,7 +41,7 @@ class PlatformRedirectTest extends TestCase
             ->assertRedirect('https://taller.stelfaro.com');
     }
 
-    public function test_dashboard_redirects_platform_owner_to_admin_even_with_company_app(): void
+    public function test_dashboard_redirects_platform_owner_to_company_default_app_when_assigned(): void
     {
         $facturacion = PlatformApp::query()->create([
             'key' => 'facturacion',
@@ -65,6 +65,17 @@ class PlatformRedirectTest extends TestCase
             'tenant_id' => $tenant->id,
             'role' => 'owner',
             'is_default' => true,
+        ]);
+
+        $this->actingAs($user)
+            ->get('https://platform.stelfaro.com/dashboard')
+            ->assertRedirect('https://facturacion.stelfaro.com');
+    }
+
+    public function test_dashboard_redirects_platform_owner_to_admin_when_no_company_app_exists(): void
+    {
+        $user = User::factory()->create([
+            'platform_role' => 'platform_owner',
         ]);
 
         $this->actingAs($user)

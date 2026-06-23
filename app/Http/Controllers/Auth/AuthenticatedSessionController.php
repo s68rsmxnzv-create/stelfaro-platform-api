@@ -58,12 +58,12 @@ class AuthenticatedSessionController extends Controller
             return redirect($target);
         }
 
-        if ($this->platformAdminAccess->allows($user)) {
-            $target = 'https://'.config('platform.hosts.admin');
-        } else {
-            $session = $this->sessionResolver->resolve($user);
-            $target = $session['default_app']['local_path'] ?? 'https://'.config('platform.hosts.platform');
-        }
+        $session = $this->sessionResolver->resolve($user);
+        $target = $session['default_app']['local_path'] ?? (
+            $this->platformAdminAccess->allows($user)
+                ? 'https://'.config('platform.hosts.admin')
+                : 'https://'.config('platform.hosts.platform')
+        );
 
         if ($request->header('X-Inertia')) {
             return Inertia::location($target);

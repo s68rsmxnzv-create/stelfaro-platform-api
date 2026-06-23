@@ -16,10 +16,6 @@ class PlatformRedirectController extends Controller
 
     public function __invoke(Request $request): RedirectResponse
     {
-        if ($this->platformAdminAccess->allows($request->user())) {
-            return redirect('https://'.config('platform.hosts.admin'));
-        }
-
         $session = $this->sessionResolver->resolve($request->user());
         $defaultApp = $session['default_app'] ?? null;
 
