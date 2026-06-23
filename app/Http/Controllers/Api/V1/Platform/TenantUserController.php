@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Tenant;
 use App\Models\UserInvitation;
 use App\Services\Platform\DirectTenantUserService;
+use App\Services\Platform\TemporaryPasswordNotificationClient;
+use App\Services\Platform\TenantEnvironmentResolver;
 use App\Services\Platform\UserInvitationService;
 use App\Services\PlatformAccessPolicy;
 use App\Support\Platform\PlatformRoles;
@@ -101,6 +103,8 @@ class TenantUserController extends Controller
         Tenant $tenant,
         PlatformAccessPolicy $policy,
         DirectTenantUserService $users,
+        TenantEnvironmentResolver $environmentResolver,
+        TemporaryPasswordNotificationClient $temporaryPasswords,
     ): JsonResponse {
         abort_unless($policy->canInviteTenantUsers($request->user(), $tenant), 403);
 
@@ -123,6 +127,19 @@ class TenantUserController extends Controller
             (string) $validated['role'],
             $request->user(),
         );
+        $delivery = null;
+        $visibleTemporaryPassword = $result['temporary_password'];
+
+        if ($environmentResolver->isProduction($tenant) && $result['created'] && $result['temporary_password']) {
+            $delivery = $temporaryPasswords->send(
+                $tenant,
+                $result['user'],
+                (string) $validated['role'],
+                (string) $result['temporary_password'],
+                'direct_user_creation',
+            );
+            $visibleTemporaryPassword = null;
+        }
 
         return response()->json([
             'user' => [
@@ -131,7 +148,8 @@ class TenantUserController extends Controller
                 'email' => $result['user']->email,
                 'must_change_password' => (bool) $result['user']->must_change_password,
             ],
-            'temporary_password' => $result['temporary_password'],
+            'temporary_password' => $visibleTemporaryPassword,
+            'temporary_password_delivery' => $delivery,
             'created' => $result['created'],
         ], 201);
     }

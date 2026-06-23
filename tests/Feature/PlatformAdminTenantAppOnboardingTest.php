@@ -174,6 +174,68 @@ class PlatformAdminTenantAppOnboardingTest extends TestCase
         ]);
     }
 
+    public function test_production_onboarding_sends_temporary_password_by_email_without_exposing_it(): void
+    {
+        Config::set('platform.admin.emails', ['owner@stelfaro.test']);
+        config([
+            'services.notifications.base_url' => 'https://notifications.test/api/v1',
+            'services.notifications.internal_token' => 'notifications-secret',
+        ]);
+        $this->fakeActiveCoreEmpresa(123);
+        $admin = User::factory()->create(['email' => 'owner@stelfaro.test']);
+        PlatformApp::query()->create([
+            'key' => 'facturacion',
+            'name' => 'Facturación',
+            'host' => 'facturacion.stelfaro.com',
+        ]);
+
+        Http::fake([
+            'https://core.test/api/v1/internal/auth/billing-session' => Http::response([
+                'token' => 'backoffice-token',
+                'token_type' => 'Bearer',
+                'expires_at' => null,
+            ]),
+            'https://core.test/api/v1/billing/context' => Http::response([
+                'empresas' => [[
+                    'id' => 123,
+                    'nombre_comercial' => 'Empresa Validada',
+                    'lifecycle_status' => 'active',
+                ]],
+            ]),
+            'https://notifications.test/api/v1/platform/temporary-passwords/email' => Http::response(['data' => [
+                'id' => 77,
+                'status' => 'pending',
+                'purpose' => 'platform_temporary_password',
+                'recipient_email' => 'gaby@stelfaro.com',
+            ]], 202),
+        ]);
+
+        $response = $this->actingAs($admin)->postJson('/api/v1/admin/platform/tenants', [
+            'core_empresa_id' => 123,
+            'core_tenant_id' => 456,
+            'name' => 'Gabriela Produccion',
+            'app_keys' => ['facturacion'],
+            'owner_name' => 'Gabriela Produccion',
+            'owner_email' => 'gaby@stelfaro.com',
+            'environment' => '01',
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('tenant.owner.email', 'gaby@stelfaro.com')
+            ->assertJsonPath('tenant.owner.temporary_password', null)
+            ->assertJsonPath('tenant.owner.temporary_password_delivery.id', 77);
+
+        $this->assertDatabaseHas('tenants', [
+            'id' => $response->json('tenant.id'),
+            'metadata->environment' => '01',
+        ]);
+        Http::assertSent(fn ($request): bool => $request->url() === 'https://notifications.test/api/v1/platform/temporary-passwords/email'
+            && $request->hasHeader('Authorization', 'Bearer notifications-secret')
+            && $request['recipient']['email'] === 'gaby@stelfaro.com'
+            && str_starts_with((string) $request['temporary_password']['value'], 'Sf-GABY-GABR-')
+            && $request['temporary_password']['reason'] === 'tenant_onboarding');
+    }
+
     public function test_admin_onboarding_rejects_inactive_core_company_link(): void
     {
         Config::set('platform.admin.emails', ['owner@stelfaro.test']);

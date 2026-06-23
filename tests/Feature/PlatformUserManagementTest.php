@@ -135,6 +135,42 @@ class PlatformUserManagementTest extends TestCase
         ]);
     }
 
+    public function test_production_tenant_user_creation_sends_temporary_password_by_email(): void
+    {
+        config([
+            'services.notifications.base_url' => 'https://notifications.test/api/v1',
+            'services.notifications.internal_token' => 'notifications-secret',
+        ]);
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        $tenant->forceFill(['metadata' => ['environment' => '01']])->save();
+
+        Http::fake([
+            'https://notifications.test/api/v1/platform/temporary-passwords/email' => Http::response(['data' => [
+                'id' => 88,
+                'status' => 'pending',
+                'purpose' => 'platform_temporary_password',
+                'recipient_email' => 'cajero@example.test',
+            ]], 202),
+        ]);
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/users", [
+                'name' => 'Cajero Demo',
+                'email' => 'cajero@example.test',
+                'role' => 'billing_user',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('user.email', 'cajero@example.test')
+            ->assertJsonPath('temporary_password', null)
+            ->assertJsonPath('temporary_password_delivery.id', 88);
+
+        Http::assertSent(fn ($request): bool => $request->url() === 'https://notifications.test/api/v1/platform/temporary-passwords/email'
+            && $request->hasHeader('Authorization', 'Bearer notifications-secret')
+            && $request['recipient']['email'] === 'cajero@example.test'
+            && $request['user']['role'] === 'billing_user'
+            && $request['temporary_password']['reason'] === 'direct_user_creation');
+    }
+
     public function test_platform_owner_can_create_company_owner_with_temporary_password(): void
     {
         $platformOwner = User::factory()->create(['platform_role' => 'platform_owner']);

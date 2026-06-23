@@ -7,6 +7,7 @@ use App\Models\PlatformApp;
 use App\Models\Tenant;
 use App\Services\CoreFiscalCompanyValidator;
 use App\Services\Platform\DirectTenantUserService;
+use App\Services\Platform\TemporaryPasswordNotificationClient;
 use App\Services\PlatformAdminAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,6 +22,7 @@ class TenantAppOnboardingController extends Controller
         private readonly PlatformAdminAccess $adminAccess,
         private readonly CoreFiscalCompanyValidator $fiscalCompanyValidator,
         private readonly DirectTenantUserService $tenantUsers,
+        private readonly TemporaryPasswordNotificationClient $temporaryPasswords,
     ) {}
 
     public function apps(Request $request): JsonResponse
@@ -95,6 +97,7 @@ class TenantAppOnboardingController extends Controller
                     'source' => 'platform_admin_onboarding',
                     'core_empresa_id' => (int) $validated['core_empresa_id'],
                     'core_tenant_id' => $validated['core_tenant_id'] ?? null,
+                    'environment' => $validated['environment'] ?? null,
                 ],
             ]);
 
@@ -123,10 +126,23 @@ class TenantAppOnboardingController extends Controller
                     (string) $temporaryPassword,
                     (bool) ($validated['make_default'] ?? false),
                 );
+                $delivery = null;
+
+                if (($validated['environment'] ?? null) === '01' && $result['created'] && $result['temporary_password']) {
+                    $delivery = $this->temporaryPasswords->send(
+                        $tenant,
+                        $result['user'],
+                        'owner',
+                        (string) $result['temporary_password'],
+                        'tenant_onboarding',
+                    );
+                }
+
                 $ownerCredentials = [
                     'email' => $result['user']->email,
                     'name' => $result['user']->name,
-                    'temporary_password' => $result['temporary_password'],
+                    'temporary_password' => ($validated['environment'] ?? null) === '01' ? null : $result['temporary_password'],
+                    'temporary_password_delivery' => $delivery,
                     'must_change_password' => (bool) $result['user']->must_change_password,
                     'created' => $result['created'],
                 ];
