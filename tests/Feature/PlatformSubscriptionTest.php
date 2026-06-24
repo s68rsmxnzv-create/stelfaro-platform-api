@@ -48,6 +48,119 @@ class PlatformSubscriptionTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_tenant_member_can_view_own_subscription_status(): void
+    {
+        $tenant = Tenant::query()->create([
+            'slug' => 'cliente-demo',
+            'name' => 'Cliente Demo',
+            'metadata' => [
+                'core_empresa_id' => 123,
+                'environment' => '01',
+            ],
+        ]);
+        $user = User::factory()->create();
+        $user->memberships()->create([
+            'tenant_id' => $tenant->id,
+            'role' => 'owner',
+            'status' => 'active',
+            'is_default' => true,
+        ]);
+        $plan = SubscriptionPlan::query()->where('key', 'starter')->firstOrFail();
+        $tenant->subscription()->create([
+            'subscription_plan_id' => $plan->id,
+            'status' => 'trialing',
+            'billing_cycle' => 'manual',
+            'price_cents' => 0,
+            'currency' => 'USD',
+            'starts_at' => now(),
+            'trial_ends_at' => now()->addDays(3),
+        ]);
+
+        $this->actingAs($user)
+            ->getJson("/api/v1/platform/tenants/{$tenant->id}/subscription")
+            ->assertOk()
+            ->assertJsonPath('row.tenant.id', $tenant->id)
+            ->assertJsonPath('row.tenant.environment', '01')
+            ->assertJsonPath('row.tenant.core_empresa_id', 123)
+            ->assertJsonPath('row.subscription.status', 'trialing')
+            ->assertJsonPath('row.subscription.plan.key', 'starter');
+    }
+
+    public function test_tenant_member_can_view_own_subscription_status_by_core_company(): void
+    {
+        $tenant = Tenant::query()->create([
+            'slug' => 'cliente-demo',
+            'name' => 'Cliente Demo',
+            'metadata' => [
+                'core_empresa_id' => 123,
+                'environment' => '00',
+            ],
+        ]);
+        $user = User::factory()->create();
+        $user->memberships()->create([
+            'tenant_id' => $tenant->id,
+            'role' => 'owner',
+            'status' => 'active',
+            'is_default' => true,
+        ]);
+
+        $this->actingAs($user)
+            ->getJson('/api/v1/platform/tenants/by-core-empresa/123/subscription')
+            ->assertOk()
+            ->assertJsonPath('row.tenant.id', $tenant->id)
+            ->assertJsonPath('row.tenant.environment', '00')
+            ->assertJsonPath('row.tenant.core_empresa_id', 123)
+            ->assertJsonPath('row.subscription', null);
+    }
+
+    public function test_tenant_member_cannot_view_another_tenant_subscription_status_by_core_company(): void
+    {
+        $tenant = Tenant::query()->create([
+            'slug' => 'cliente-demo',
+            'name' => 'Cliente Demo',
+            'metadata' => ['core_empresa_id' => 123],
+        ]);
+        $otherTenant = Tenant::query()->create([
+            'slug' => 'otro-cliente',
+            'name' => 'Otro Cliente',
+            'metadata' => ['core_empresa_id' => 456],
+        ]);
+        $user = User::factory()->create();
+        $user->memberships()->create([
+            'tenant_id' => $tenant->id,
+            'role' => 'owner',
+            'status' => 'active',
+            'is_default' => true,
+        ]);
+
+        $this->actingAs($user)
+            ->getJson('/api/v1/platform/tenants/by-core-empresa/456/subscription')
+            ->assertForbidden();
+    }
+
+    public function test_tenant_member_cannot_view_another_tenant_subscription_status(): void
+    {
+        $tenant = Tenant::query()->create([
+            'slug' => 'cliente-demo',
+            'name' => 'Cliente Demo',
+        ]);
+        $otherTenant = Tenant::query()->create([
+            'slug' => 'otro-cliente',
+            'name' => 'Otro Cliente',
+        ]);
+        $user = User::factory()->create();
+        $user->memberships()->create([
+            'tenant_id' => $tenant->id,
+            'role' => 'owner',
+            'status' => 'active',
+            'is_default' => true,
+        ]);
+
+        $this->actingAs($user)
+            ->getJson("/api/v1/platform/tenants/{$otherTenant->id}/subscription")
+            ->assertForbidden();
+    }
+
     public function test_platform_owner_can_assign_subscription_and_sync_app_access(): void
     {
         $owner = User::factory()->create(['platform_role' => 'platform_owner']);

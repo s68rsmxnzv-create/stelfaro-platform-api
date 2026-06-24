@@ -8,6 +8,7 @@ use App\Models\Tenant;
 use App\Models\TenantSubscription;
 use App\Services\Platform\TenantSubscriptionManager;
 use App\Services\PlatformAdminAccess;
+use App\Services\PlatformAccessPolicy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -76,6 +77,26 @@ class SubscriptionController extends Controller
         ]);
     }
 
+    public function showForTenant(Request $request, Tenant $tenant, PlatformAccessPolicy $policy): JsonResponse
+    {
+        abort_unless($policy->canViewTenantUsers($request->user(), $tenant), 403);
+
+        return response()->json([
+            'row' => $this->tenantSubscriptionPayload($tenant->load(['subscription.plan', 'appAccesses.app'])),
+        ]);
+    }
+
+    public function showForTenantByCoreEmpresa(Request $request, int $coreEmpresaId, PlatformAccessPolicy $policy): JsonResponse
+    {
+        $tenant = $this->tenantByCoreEmpresa($coreEmpresaId);
+        abort_unless($tenant, 404, 'No existe tenant SaaS para esta empresa fiscal.');
+        abort_unless($policy->canViewTenantUsers($request->user(), $tenant), 403);
+
+        return response()->json([
+            'row' => $this->tenantSubscriptionPayload($tenant->load(['subscription.plan', 'appAccesses.app'])),
+        ]);
+    }
+
     public function updateByCoreEmpresa(
         Request $request,
         int $coreEmpresaId,
@@ -116,6 +137,8 @@ class SubscriptionController extends Controller
                 'name' => $tenant->name,
                 'slug' => $tenant->slug,
                 'status' => $tenant->status,
+                'environment' => data_get($tenant->metadata, 'environment'),
+                'core_empresa_id' => data_get($tenant->metadata, 'core_empresa_id'),
             ],
             'subscription' => $tenant->subscription ? $this->subscriptionPayload($tenant->subscription) : null,
             'apps' => $tenant->appAccesses

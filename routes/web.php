@@ -63,6 +63,8 @@ Route::domain(config('platform.hosts.admin'))
         Route::post('/admin/platform/tenants', [TenantAppOnboardingController::class, 'store']);
         Route::get('/admin/platform/tenants/by-core-empresa/{coreEmpresaId}', [TenantLookupController::class, 'byCoreEmpresa']);
         Route::get('/platform/tenants/{tenant}/users', [TenantUserController::class, 'index']);
+        Route::get('/platform/tenants/{tenant}/subscription', [SubscriptionController::class, 'showForTenant']);
+        Route::get('/platform/tenants/by-core-empresa/{coreEmpresaId}/subscription', [SubscriptionController::class, 'showForTenantByCoreEmpresa']);
         Route::get('/platform/tenants/{tenant}/fiscal-scope', [TenantFiscalAssignmentController::class, 'scope']);
         Route::post('/platform/tenants/{tenant}/users', [TenantUserController::class, 'store']);
         Route::post('/platform/tenants/{tenant}/invitations', [TenantUserController::class, 'invite']);
