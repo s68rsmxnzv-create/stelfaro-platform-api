@@ -17,7 +17,28 @@ class TenantSubscriptionManager
      */
     public function apply(Tenant $tenant, SubscriptionPlan $plan, array $data, User $actor): TenantSubscription
     {
-        return DB::transaction(function () use ($tenant, $plan, $data, $actor): TenantSubscription {
+        return $this->applyWithMetadata($tenant, $plan, $data, $actor, [
+            'updated_by' => $actor->id,
+            'updated_by_email' => $actor->email,
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>  $metadata
+     */
+    public function applySystem(Tenant $tenant, SubscriptionPlan $plan, array $data, array $metadata = []): TenantSubscription
+    {
+        return $this->applyWithMetadata($tenant, $plan, $data, null, $metadata);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>  $metadata
+     */
+    private function applyWithMetadata(Tenant $tenant, SubscriptionPlan $plan, array $data, ?User $actor, array $metadata): TenantSubscription
+    {
+        return DB::transaction(function () use ($tenant, $plan, $data, $actor, $metadata): TenantSubscription {
             $status = (string) ($data['status'] ?? 'trialing');
             $durationDays = isset($data['duration_days']) ? (int) $data['duration_days'] : null;
             $startsAt = $data['starts_at'] ?? now();
@@ -39,8 +60,7 @@ class TenantSubscriptionManager
                     'limits' => $data['limits'] ?? $plan->limits,
                     'metadata' => [
                         ...($tenant->subscription?->metadata ?? []),
-                        'updated_by' => $actor->id,
-                        'updated_by_email' => $actor->email,
+                        ...$metadata,
                     ],
                 ],
             );
@@ -76,7 +96,7 @@ class TenantSubscriptionManager
         );
     }
 
-    private function syncAppAccess(Tenant $tenant, SubscriptionPlan $plan, string $subscriptionStatus, User $actor): void
+    private function syncAppAccess(Tenant $tenant, SubscriptionPlan $plan, string $subscriptionStatus, ?User $actor): void
     {
         $includedKeys = collect($plan->included_app_keys ?? [])
             ->map(fn (mixed $key): string => (string) $key)
@@ -104,7 +124,7 @@ class TenantSubscriptionManager
                     'status' => $enabled ? 'active' : 'suspended',
                     'metadata' => [
                         'source' => 'subscription',
-                        'updated_by' => $actor->id,
+                        ...($actor ? ['updated_by' => $actor->id] : ['updated_by' => 'system']),
                     ],
                 ],
             );
@@ -120,7 +140,7 @@ class TenantSubscriptionManager
                     'metadata' => [
                         ...($access->metadata ?? []),
                         'disabled_by_subscription_at' => now()->toISOString(),
-                        'updated_by' => $actor->id,
+                        ...($actor ? ['updated_by' => $actor->id] : ['updated_by' => 'system']),
                     ],
                 ])->save();
             });

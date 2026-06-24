@@ -1,10 +1,10 @@
 <?php
 
+use App\Http\Controllers\Api\V1\Platform\SubscriptionController;
 use App\Http\Controllers\Api\V1\Platform\TenantFiscalAssignmentController;
 use App\Http\Controllers\Api\V1\Platform\TenantInvitationController;
 use App\Http\Controllers\Api\V1\Platform\TenantLookupController;
 use App\Http\Controllers\Api\V1\Platform\TenantMembershipController;
-use App\Http\Controllers\Api\V1\Platform\SubscriptionController;
 use App\Http\Controllers\Api\V1\Platform\TenantUserController;
 use App\Http\Controllers\Api\V1\PlatformSessionController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
@@ -16,8 +16,12 @@ use App\Http\Controllers\PlatformInvitationPageController;
 use App\Http\Controllers\PlatformPortalController;
 use App\Http\Controllers\PlatformRedirectController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\WompiPaymentReturnController;
 use App\Http\Middleware\EnsurePasswordIsChanged;
 use Illuminate\Support\Facades\Route;
+
+Route::get('/payments/wompi/return', WompiPaymentReturnController::class)
+    ->name('payments.wompi.return');
 
 Route::domain(config('platform.hosts.taller'))
     ->middleware(['auth', 'verified', EnsurePasswordIsChanged::class])

@@ -48,4 +48,12 @@ return [
         'internal_token' => env('NOTIFICATIONS_INTERNAL_TOKEN'),
     ],
 
+    'wompi' => [
+        'app_id' => env('WOMPI_APP_ID'),
+        'api_secret' => env('WOMPI_API_SECRET'),
+        'professional_plan_key' => env('WOMPI_PROFESSIONAL_PLAN_KEY', 'pro'),
+        'professional_annual_price_cents' => (int) env('WOMPI_PROFESSIONAL_ANNUAL_PRICE_CENTS', 19900),
+        'professional_annual_amount' => env('WOMPI_PROFESSIONAL_ANNUAL_AMOUNT'),
+    ],
+
 ];

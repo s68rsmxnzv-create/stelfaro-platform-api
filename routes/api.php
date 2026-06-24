@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\Platform\TenantMembershipController;
 use App\Http\Controllers\Api\V1\Platform\TenantPurgeController;
 use App\Http\Controllers\Api\V1\Platform\TenantUserController;
 use App\Http\Controllers\Api\V1\PlatformSessionController;
+use App\Http\Controllers\Api\V1\WompiWebhookController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\PlatformAdmin\CoreProxyController;
 use App\Http\Controllers\PlatformAdmin\CoreSessionController;
@@ -24,6 +25,8 @@ Route::prefix('v1')->group(function (): void {
         'version' => app()->version(),
         'timestamp' => now()->toISOString(),
     ]));
+
+    Route::post('webhooks/wompi', WompiWebhookController::class);
 
     Route::middleware(['web', 'auth', 'verified', EnsurePasswordIsChanged::class])->group(function (): void {
         Route::get('me', PlatformSessionController::class);
