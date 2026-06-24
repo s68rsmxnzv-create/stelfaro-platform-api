@@ -69,14 +69,27 @@ class WompiPaymentProcessor
             return ['status' => 'ignored', 'http_status' => 200, 'event' => $event];
         }
 
-        if (! $this->amountMatches($event)) {
+        $paymentOffer = $this->paymentOffer($event);
+
+        if (! $paymentOffer) {
+            $event->forceFill(['status' => 'unknown_payment_link'])->save();
+
+            return [
+                'status' => 'unknown_payment_link',
+                'http_status' => 202,
+                'event' => $event,
+                'message' => 'Pago recibido, pero el enlace de pago no esta mapeado a un plan.',
+            ];
+        }
+
+        if (! $this->amountMatches($event, $paymentOffer)) {
             $event->forceFill(['status' => 'amount_mismatch'])->save();
 
             return [
                 'status' => 'amount_mismatch',
                 'http_status' => 202,
                 'event' => $event,
-                'message' => 'El monto recibido no coincide con el monto esperado para Profesional anual.',
+                'message' => 'El monto recibido no coincide con el monto esperado para el plan.',
             ];
         }
 
@@ -93,16 +106,16 @@ class WompiPaymentProcessor
             ];
         }
 
-        return DB::transaction(function () use ($event, $payload, $tenant): array {
+        return DB::transaction(function () use ($event, $payload, $tenant, $paymentOffer): array {
             $plan = SubscriptionPlan::query()
-                ->where('key', (string) config('services.wompi.professional_plan_key', 'pro'))
+                ->where('key', (string) $paymentOffer['plan_key'])
                 ->where('status', 'active')
                 ->firstOrFail();
 
             $subscription = $this->subscriptions->applySystem($tenant, $plan, [
                 'status' => 'active',
                 'billing_cycle' => 'annual',
-                'price_cents' => (int) config('services.wompi.professional_annual_price_cents', 19900),
+                'price_cents' => (int) $paymentOffer['price_cents'],
                 'currency' => 'USD',
                 'starts_at' => now(),
                 'current_period_ends_at' => now()->addYear(),
@@ -115,6 +128,7 @@ class WompiPaymentProcessor
                 'wompi_amount' => $event->amount,
                 'wompi_result' => $event->result,
                 'wompi_is_productive' => $event->is_productive,
+                'wompi_offer_key' => $paymentOffer['key'],
             ]);
 
             $event->forceFill([
@@ -201,9 +215,12 @@ class WompiPaymentProcessor
         return str_contains($result, 'exitosa') && str_contains($result, 'aprobada');
     }
 
-    private function amountMatches(WompiPaymentEvent $event): bool
+    /**
+     * @param  array{expected_amount?: mixed}  $paymentOffer
+     */
+    private function amountMatches(WompiPaymentEvent $event, array $paymentOffer): bool
     {
-        $expected = config('services.wompi.professional_annual_amount');
+        $expected = $paymentOffer['expected_amount'] ?? null;
 
         if ($expected === null || $expected === '') {
             return true;
@@ -214,6 +231,38 @@ class WompiPaymentProcessor
         }
 
         return abs(((float) $event->amount) - ((float) $expected)) < 0.01;
+    }
+
+    /**
+     * @return array{key: string, link_id: string|null, plan_key: string, price_cents: int, expected_amount?: mixed}|null
+     */
+    private function paymentOffer(WompiPaymentEvent $event): ?array
+    {
+        $paymentLinks = config('services.wompi.payment_links', []);
+
+        if (! is_array($paymentLinks)) {
+            return null;
+        }
+
+        foreach ($paymentLinks as $key => $paymentLink) {
+            if (! is_array($paymentLink)) {
+                continue;
+            }
+
+            $linkId = $paymentLink['link_id'] ?? null;
+
+            if ($linkId && $event->payment_link_id && hash_equals((string) $linkId, $event->payment_link_id)) {
+                return [
+                    'key' => (string) $key,
+                    'link_id' => (string) $linkId,
+                    'plan_key' => (string) ($paymentLink['plan_key'] ?? 'pro'),
+                    'price_cents' => (int) ($paymentLink['price_cents'] ?? 0),
+                    'expected_amount' => $paymentLink['expected_amount'] ?? null,
+                ];
+            }
+        }
+
+        return null;
     }
 
     /**

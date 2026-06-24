@@ -61,6 +61,59 @@ class WompiPaymentWebhookTest extends TestCase
         ]);
     }
 
+    public function test_emprendedor_wompi_link_activates_starter_annual_subscription(): void
+    {
+        config([
+            'services.wompi.api_secret' => 'wompi-secret',
+            'services.wompi.payment_links.emprendedor.expected_amount' => '111.87',
+        ]);
+
+        PlatformApp::query()->create(['key' => 'facturacion', 'name' => 'Facturacion']);
+
+        $tenant = Tenant::query()->create([
+            'slug' => 'cliente-emprendedor',
+            'name' => 'Cliente Emprendedor',
+        ]);
+        $user = User::factory()->create(['email' => 'emprendedor@stelfaro.test']);
+        $user->memberships()->create([
+            'tenant_id' => $tenant->id,
+            'role' => 'owner',
+            'status' => 'active',
+            'is_default' => true,
+        ]);
+
+        $payload = $this->approvedPayload([
+            'Monto' => '111.87',
+            'IdTransaccion' => 'txn-emprendedor-123',
+            'IdIntentoPago' => 'attempt-emprendedor-123',
+            'EnlacePago' => [
+                'Id' => 'bdfd9af6-ace2-48b1-92e4-07bd182619db',
+                'IdentificadorEnlaceComercio' => null,
+                'NombreProducto' => 'Emprendedor anual',
+            ],
+            'cliente' => ['Email' => 'emprendedor@stelfaro.test'],
+        ]);
+
+        $this->postWompiWebhook($payload)
+            ->assertOk()
+            ->assertJsonPath('status', 'processed');
+
+        $plan = SubscriptionPlan::query()->where('key', 'starter')->firstOrFail();
+        $this->assertDatabaseHas('tenant_subscriptions', [
+            'tenant_id' => $tenant->id,
+            'subscription_plan_id' => $plan->id,
+            'status' => 'active',
+            'billing_cycle' => 'annual',
+            'price_cents' => 9900,
+        ]);
+        $this->assertDatabaseHas('wompi_payment_events', [
+            'tenant_id' => $tenant->id,
+            'transaction_id' => 'txn-emprendedor-123',
+            'payment_link_id' => 'bdfd9af6-ace2-48b1-92e4-07bd182619db',
+            'status' => 'processed',
+        ]);
+    }
+
     public function test_invalid_wompi_hash_is_rejected_and_not_activated(): void
     {
         config(['services.wompi.api_secret' => 'wompi-secret']);
