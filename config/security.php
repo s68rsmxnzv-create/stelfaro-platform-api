@@ -9,6 +9,7 @@ return [
     'suspicious_input' => [
         'enabled' => env('SECURITY_BLOCK_SUSPICIOUS_INPUT', true),
         'message' => 'Intento bloqueado. En Stelfaro protegemos a nuestros clientes; por aquí no se juega.',
+        'details' => 'Tu IP, navegador, ruta y hora quedaron registrados para auditoría de seguridad.',
         'except' => [
             'api/v1/webhooks/wompi',
         ],

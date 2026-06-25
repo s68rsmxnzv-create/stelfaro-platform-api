@@ -43,7 +43,39 @@ class SecurityHeadersTest extends TestCase
             ])
             ->assertStatus(422)
             ->assertJsonPath('message', 'Intento bloqueado. En Stelfaro protegemos a nuestros clientes; por aquí no se juega.')
+            ->assertJsonPath('details', 'Tu IP, navegador, ruta y hora quedaron registrados para auditoría de seguridad.')
             ->assertJsonPath('field', 'name');
+
+        $this->assertDatabaseHas('security_events', [
+            'user_id' => $user->id,
+            'type' => 'suspicious_input',
+            'severity' => 'high',
+            'field' => 'name',
+            'method' => 'POST',
+        ]);
+    }
+
+    public function test_suspicious_web_payload_gets_custom_block_page_without_framework_details(): void
+    {
+        $this->withHeader('User-Agent', 'Bad Browser 1.0')
+            ->post('/login', [
+                'email' => '<script>alert(1)</script>',
+                'password' => 'password',
+            ])
+            ->assertStatus(422)
+            ->assertSee('Intento bloqueado. En Stelfaro protegemos a nuestros clientes; por aquí no se juega.', false)
+            ->assertSee('Tu IP, navegador, ruta y hora quedaron registrados', false)
+            ->assertDontSee('Symfony', false)
+            ->assertDontSee('Laravel', false)
+            ->assertDontSee('vendor/', false);
+
+        $this->assertDatabaseHas('security_events', [
+            'type' => 'suspicious_input',
+            'severity' => 'high',
+            'field' => 'email',
+            'method' => 'POST',
+            'user_agent' => 'Bad Browser 1.0',
+        ]);
     }
 
     public function test_wompi_webhook_is_not_blocked_by_suspicious_input_filter(): void
