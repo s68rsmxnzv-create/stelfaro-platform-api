@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Services\CoreBillingSessionBroker;
 use App\Services\PlatformAdminAccess;
 use App\Services\PlatformSessionResolver;
 use Illuminate\Http\Request;
@@ -18,6 +19,7 @@ class AuthenticatedSessionController extends Controller
     public function __construct(
         private readonly PlatformSessionResolver $sessionResolver,
         private readonly PlatformAdminAccess $platformAdminAccess,
+        private readonly CoreBillingSessionBroker $coreBillingSessions,
     ) {}
 
     /**
@@ -77,7 +79,11 @@ class AuthenticatedSessionController extends Controller
      */
     public function destroy(Request $request): SymfonyResponse
     {
+        $platformSessionId = $request->session()->getId();
+
         Auth::guard('web')->logout();
+
+        $this->coreBillingSessions->revokePlatformSession($platformSessionId);
 
         $request->session()->invalidate();
 

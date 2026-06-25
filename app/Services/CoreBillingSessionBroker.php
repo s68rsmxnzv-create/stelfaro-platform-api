@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\User;
 use App\Models\UserTenantMembership;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 class CoreBillingSessionBroker
@@ -45,6 +46,7 @@ class CoreBillingSessionBroker
             'platform_tenant_id' => $tenant->id,
             'platform_tenant_slug' => $tenant->slug,
             'platform_tenant_name' => $tenant->name,
+            'platform_session_id' => session()->getId(),
             'empresas' => [[
                 'id' => (int) $empresaId,
                 'role' => $billingRole,
@@ -55,6 +57,34 @@ class CoreBillingSessionBroker
                 'default_punto_venta_id' => $defaultAssignment?->core_punto_venta_id,
             ]],
         ]);
+    }
+
+    public function revokePlatformSession(?string $platformSessionId): void
+    {
+        if (! is_string($platformSessionId) || $platformSessionId === '') {
+            return;
+        }
+
+        $baseUrl = rtrim((string) config('services.dte_core.base_url'), '/');
+        $internalToken = config('services.dte_core.internal_token');
+
+        if ($baseUrl === '' || ! is_string($internalToken) || $internalToken === '') {
+            return;
+        }
+
+        try {
+            Http::acceptJson()
+                ->withToken($internalToken)
+                ->timeout(10)
+                ->post($baseUrl.'/internal/auth/billing-session/revoke', [
+                    'platform_session_id' => $platformSessionId,
+                ]);
+        } catch (\Throwable $exception) {
+            Log::warning('No fue posible revocar sesiones fiscales vinculadas a la sesion de plataforma.', [
+                'platform_session_id' => $platformSessionId,
+                'error' => $exception->getMessage(),
+            ]);
+        }
     }
 
     /**

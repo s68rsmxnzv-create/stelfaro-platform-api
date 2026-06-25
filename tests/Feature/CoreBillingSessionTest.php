@@ -66,6 +66,8 @@ class CoreBillingSessionTest extends TestCase
             && $request['platform_tenant_id'] === $tenant->id
             && $request['platform_tenant_slug'] === 'cliente-demo'
             && $request['platform_tenant_name'] === 'Cliente Demo'
+            && is_string($request['platform_session_id'] ?? null)
+            && $request['platform_session_id'] !== ''
             && $request['empresas'][0]['id'] === 123);
     }
 
