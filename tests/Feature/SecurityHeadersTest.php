@@ -37,6 +37,27 @@ class SecurityHeadersTest extends TestCase
         $this->assertMatchesRegularExpression('/<script[^>]+nonce="[^"]+"/', $html);
     }
 
+    public function test_csp_allows_images_from_platform_and_core_hosts(): void
+    {
+        config([
+            'platform.hosts.platform' => 'platform.stelfaro.com',
+            'platform.hosts.taller' => 'taller.stelfaro.com',
+            'platform.hosts.facturacion' => 'facturacion.stelfaro.com',
+            'platform.hosts.admin' => 'admin.stelfaro.com',
+            'services.dte_core.base_url' => 'https://dte.stelfaro.me/api/v1',
+        ]);
+
+        $response = $this->get('/login')->assertOk();
+        $contentSecurityPolicy = (string) $response->headers->get('Content-Security-Policy');
+
+        $this->assertStringContainsString("img-src 'self' data: blob:", $contentSecurityPolicy);
+        $this->assertStringContainsString('https://platform.stelfaro.com', $contentSecurityPolicy);
+        $this->assertStringContainsString('https://taller.stelfaro.com', $contentSecurityPolicy);
+        $this->assertStringContainsString('https://facturacion.stelfaro.com', $contentSecurityPolicy);
+        $this->assertStringContainsString('https://admin.stelfaro.com', $contentSecurityPolicy);
+        $this->assertStringContainsString('https://dte.stelfaro.me', $contentSecurityPolicy);
+    }
+
     public function test_suspicious_script_payload_is_blocked_with_clear_message(): void
     {
         $tenant = Tenant::query()->create([

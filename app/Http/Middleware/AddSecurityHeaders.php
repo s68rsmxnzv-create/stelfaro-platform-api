@@ -25,6 +25,8 @@ class AddSecurityHeaders
         $response->headers->set('Cross-Origin-Opener-Policy', 'same-origin');
         $response->headers->set('X-Frame-Options', 'DENY');
 
+        $imageSources = implode(' ', $this->imageSources());
+
         $csp = implode('; ', [
             "default-src 'self'",
             "base-uri 'self'",
@@ -32,7 +34,7 @@ class AddSecurityHeaders
             "frame-ancestors 'none'",
             "script-src 'self' 'nonce-{$nonce}' https://pagos.wompi.sv",
             "style-src 'self' 'unsafe-inline'",
-            "img-src 'self' data: blob:",
+            "img-src 'self' data: blob: {$imageSources}",
             "font-src 'self' data:",
             "connect-src 'self' https://pagos.wompi.sv",
             'frame-src https://pagos.wompi.sv',
@@ -46,5 +48,27 @@ class AddSecurityHeaders
         );
 
         return $response;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function imageSources(): array
+    {
+        $sources = collect(config('platform.hosts', []))
+            ->filter(fn ($host): bool => is_string($host) && $host !== '')
+            ->map(fn (string $host): string => 'https://'.trim($host, '/'));
+
+        $coreBaseUrl = config('services.dte_core.base_url');
+        $coreHost = is_string($coreBaseUrl) ? parse_url($coreBaseUrl, PHP_URL_HOST) : null;
+
+        if (is_string($coreHost) && $coreHost !== '') {
+            $sources->push('https://'.$coreHost);
+        }
+
+        return $sources
+            ->unique()
+            ->values()
+            ->all();
     }
 }
