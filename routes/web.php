@@ -16,12 +16,15 @@ use App\Http\Controllers\PlatformInvitationPageController;
 use App\Http\Controllers\PlatformPortalController;
 use App\Http\Controllers\PlatformRedirectController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\WompiPaymentConfirmationController;
 use App\Http\Controllers\WompiPaymentReturnController;
 use App\Http\Middleware\EnsurePasswordIsChanged;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/payments/wompi/return', WompiPaymentReturnController::class)
     ->name('payments.wompi.return');
+Route::get('/payments/wompi/confirmation', WompiPaymentConfirmationController::class)
+    ->name('payments.wompi.confirmation');
 
 Route::domain(config('platform.hosts.taller'))
     ->middleware(['auth', 'verified', EnsurePasswordIsChanged::class])

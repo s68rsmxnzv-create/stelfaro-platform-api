@@ -7,6 +7,7 @@ use App\Models\SubscriptionPlan;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Inertia\Testing\AssertableInertia;
 use Tests\TestCase;
 
 class WompiPaymentWebhookTest extends TestCase
@@ -239,17 +240,63 @@ class WompiPaymentWebhookTest extends TestCase
     {
         $this->get('/payments/wompi/return?esAprobada=true&idTransaccion=txn-123')
             ->assertOk()
-            ->assertSee('Pago recibido')
-            ->assertSee('txn-123');
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->component('Payments/WompiReturn')
+                ->where('title', 'Pago recibido')
+                ->where('transactionId', 'txn-123')
+                ->where('declined', false));
     }
 
     public function test_wompi_return_page_treats_transaction_redirect_as_received(): void
     {
         $this->get('/payments/wompi/return?identificadorEnlaceComercio=PLAN+EMPRENDEDOR&idTransaccion=txn-456')
             ->assertOk()
-            ->assertSee('Pago recibido')
-            ->assertDontSee('Pago no confirmado')
-            ->assertSee('txn-456');
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->component('Payments/WompiReturn')
+                ->where('title', 'Pago recibido')
+                ->where('transactionId', 'txn-456')
+                ->where('declined', false));
+    }
+
+    public function test_wompi_confirmation_page_shows_processed_subscription(): void
+    {
+        $tenant = Tenant::query()->create([
+            'slug' => 'cliente-confirmado',
+            'name' => 'Cliente Confirmado',
+        ]);
+        $plan = SubscriptionPlan::query()->where('key', 'starter')->firstOrFail();
+        $subscription = $tenant->subscription()->create([
+            'subscription_plan_id' => $plan->id,
+            'status' => 'active',
+            'billing_cycle' => 'annual',
+            'price_cents' => 9900,
+            'currency' => 'USD',
+            'starts_at' => now(),
+            'current_period_ends_at' => now()->addYear(),
+        ]);
+        $tenant->wompiPaymentEvents()->create([
+            'tenant_subscription_id' => $subscription->id,
+            'transaction_id' => 'txn-confirmed-123',
+            'payment_link_id' => '3930222',
+            'commerce_identifier' => 'PLAN EMPRENDEDOR',
+            'customer_email' => 'cliente@stelfaro.test',
+            'amount' => '111.87',
+            'result' => 'ExitosaAprobada',
+            'is_productive' => false,
+            'hash_valid' => false,
+            'status' => 'processed',
+            'raw_payload' => [],
+            'processed_at' => now(),
+        ]);
+
+        $this->get('/payments/wompi/confirmation?idTransaccion=txn-confirmed-123')
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->component('Payments/WompiConfirmation')
+                ->where('transactionId', 'txn-confirmed-123')
+                ->where('event.status', 'processed')
+                ->where('event.subscription.plan.key', 'starter')
+                ->where('event.tenant.name', 'Cliente Confirmado'));
     }
 
     /**
