@@ -22,6 +22,12 @@ class AuthenticationTest extends TestCase
         $response->assertStatus(200);
     }
 
+    public function test_platform_sessions_expire_after_45_idle_minutes_and_on_browser_close(): void
+    {
+        $this->assertSame(45, config('session.lifetime'));
+        $this->assertTrue((bool) config('session.expire_on_close'));
+    }
+
     public function test_users_can_authenticate_using_the_login_screen(): void
     {
         $user = User::factory()->create();
