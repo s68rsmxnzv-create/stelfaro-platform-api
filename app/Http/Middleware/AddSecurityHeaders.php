@@ -4,12 +4,15 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Vite;
 use Symfony\Component\HttpFoundation\Response;
 
 class AddSecurityHeaders
 {
     public function handle(Request $request, Closure $next): Response
     {
+        $nonce = Vite::useCspNonce();
+
         $response = $next($request);
 
         if (! config('security.headers.enabled', true)) {
@@ -27,7 +30,7 @@ class AddSecurityHeaders
             "base-uri 'self'",
             "object-src 'none'",
             "frame-ancestors 'none'",
-            "script-src 'self' https://pagos.wompi.sv",
+            "script-src 'self' 'nonce-{$nonce}' https://pagos.wompi.sv",
             "style-src 'self' 'unsafe-inline'",
             "img-src 'self' data: blob:",
             "font-src 'self' data:",

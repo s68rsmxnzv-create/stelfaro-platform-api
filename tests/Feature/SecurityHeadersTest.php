@@ -22,6 +22,21 @@ class SecurityHeadersTest extends TestCase
             ->assertHeader('Content-Security-Policy');
     }
 
+    public function test_login_page_inline_bootstrap_scripts_are_allowed_by_csp_nonce(): void
+    {
+        $response = $this->get('/login')
+            ->assertOk()
+            ->assertSee('component&quot;:&quot;Auth\/Login&quot;', false)
+            ->assertSee('nonce=', false);
+
+        $contentSecurityPolicy = (string) $response->headers->get('Content-Security-Policy');
+        $html = $response->getContent();
+
+        $this->assertStringContainsString("script-src 'self' 'nonce-", $contentSecurityPolicy);
+        $this->assertStringNotContainsString("script-src 'self' 'unsafe-inline'", $contentSecurityPolicy);
+        $this->assertMatchesRegularExpression('/<script[^>]+nonce="[^"]+"/', $html);
+    }
+
     public function test_suspicious_script_payload_is_blocked_with_clear_message(): void
     {
         $tenant = Tenant::query()->create([
