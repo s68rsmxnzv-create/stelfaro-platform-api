@@ -288,8 +288,16 @@ class WompiPaymentWebhookTest extends TestCase
             'raw_payload' => [],
             'processed_at' => now(),
         ]);
+        $user = User::factory()->create();
+        $user->memberships()->create([
+            'tenant_id' => $tenant->id,
+            'role' => 'owner',
+            'status' => 'active',
+            'is_default' => true,
+        ]);
 
-        $this->get('/payments/wompi/confirmation?idTransaccion=txn-confirmed-123')
+        $this->actingAs($user)
+            ->get('/payments/wompi/confirmation?idTransaccion=txn-confirmed-123')
             ->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->component('Payments/WompiConfirmation')
@@ -297,6 +305,48 @@ class WompiPaymentWebhookTest extends TestCase
                 ->where('event.status', 'processed')
                 ->where('event.subscription.plan.key', 'starter')
                 ->where('event.tenant.name', 'Cliente Confirmado'));
+    }
+
+    public function test_public_wompi_confirmation_hides_tenant_and_customer_details(): void
+    {
+        $tenant = Tenant::query()->create([
+            'slug' => 'cliente-privado',
+            'name' => 'Cliente Privado',
+        ]);
+        $plan = SubscriptionPlan::query()->where('key', 'starter')->firstOrFail();
+        $subscription = $tenant->subscription()->create([
+            'subscription_plan_id' => $plan->id,
+            'status' => 'active',
+            'billing_cycle' => 'annual',
+            'price_cents' => 9900,
+            'currency' => 'USD',
+            'starts_at' => now(),
+            'current_period_ends_at' => now()->addYear(),
+        ]);
+        $tenant->wompiPaymentEvents()->create([
+            'tenant_subscription_id' => $subscription->id,
+            'transaction_id' => 'txn-public-123',
+            'payment_link_id' => '3930222',
+            'commerce_identifier' => 'PLAN EMPRENDEDOR',
+            'customer_email' => 'privado@stelfaro.test',
+            'amount' => '111.87',
+            'result' => 'ExitosaAprobada',
+            'is_productive' => false,
+            'hash_valid' => false,
+            'status' => 'processed',
+            'raw_payload' => [],
+            'processed_at' => now(),
+        ]);
+
+        $this->get('/payments/wompi/confirmation?idTransaccion=txn-public-123')
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->component('Payments/WompiConfirmation')
+                ->where('event.status', 'processed')
+                ->where('event.detailsRestricted', true)
+                ->where('event.customerEmail', null)
+                ->where('event.tenant', null)
+                ->where('event.subscription', null));
     }
 
     /**

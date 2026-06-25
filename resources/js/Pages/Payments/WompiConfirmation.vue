@@ -17,7 +17,8 @@ const props = defineProps({
     },
 });
 
-const isProcessed = computed(() => props.event?.status === 'processed' && props.event?.subscription);
+const isProcessed = computed(() => props.event?.status === 'processed');
+const canViewDetails = computed(() => props.event && !props.event.detailsRestricted);
 const title = computed(() => {
     if (isProcessed.value) return 'Suscripción activada';
     if (props.event) return 'Pago en revisión';
@@ -25,7 +26,8 @@ const title = computed(() => {
     return 'Confirmación pendiente';
 });
 const message = computed(() => {
-    if (isProcessed.value) return 'Tu pago fue confirmado y la suscripción ya quedó activa.';
+    if (isProcessed.value && canViewDetails.value) return 'Tu pago fue confirmado y la suscripción ya quedó activa.';
+    if (isProcessed.value) return 'Tu pago fue confirmado. Inicia sesión para ver los detalles de la suscripción.';
     if (props.event) return 'Recibimos el pago, pero todavía estamos completando la activación automática.';
 
     return 'Aún no encontramos la notificación de Wompi. Normalmente llega en pocos segundos.';
@@ -33,6 +35,7 @@ const message = computed(() => {
 const planName = computed(() => {
     const key = props.event?.subscription?.plan?.key;
 
+    if (!canViewDetails.value) return 'Confirmado';
     if (key === 'starter') return 'Emprendedor';
     if (key === 'pro') return 'Profesional';
 
@@ -100,11 +103,11 @@ function formatDate(value) {
                 </section>
                 <section class="rounded-md border border-slate-200 p-4 dark:border-line">
                     <p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-muted">Vigente hasta</p>
-                    <p class="mt-2 text-xl font-black">{{ validUntil }}</p>
+                    <p class="mt-2 text-xl font-black">{{ canViewDetails ? validUntil : 'Inicia sesión' }}</p>
                 </section>
                 <section class="rounded-md border border-slate-200 p-4 dark:border-line">
                     <p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-muted">Empresa</p>
-                    <p class="mt-2 text-xl font-black">{{ event?.tenant?.name ?? 'Pendiente' }}</p>
+                    <p class="mt-2 text-xl font-black">{{ canViewDetails ? event?.tenant?.name ?? 'Pendiente' : 'Protegida' }}</p>
                 </section>
             </div>
 
@@ -113,7 +116,7 @@ function formatDate(value) {
                     <dt class="font-semibold text-slate-500 dark:text-muted">Transacción</dt>
                     <dd class="break-all font-bold">{{ transactionId || event?.transactionId || 'Pendiente' }}</dd>
                 </div>
-                <div v-if="event?.customerEmail" class="flex flex-col gap-1 sm:flex-row sm:justify-between">
+                <div v-if="canViewDetails && event?.customerEmail" class="flex flex-col gap-1 sm:flex-row sm:justify-between">
                     <dt class="font-semibold text-slate-500 dark:text-muted">Correo</dt>
                     <dd class="break-all font-bold">{{ event.customerEmail }}</dd>
                 </div>
@@ -124,7 +127,7 @@ function formatDate(value) {
             </dl>
 
             <section
-                v-if="isProcessed"
+                v-if="isProcessed && canViewDetails"
                 class="mt-8 rounded-lg border border-slate-200 bg-white p-5 dark:border-line dark:bg-surface"
             >
                 <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
