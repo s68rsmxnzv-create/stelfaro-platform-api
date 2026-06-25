@@ -52,7 +52,7 @@ class WompiPaymentProcessor
             ];
         }
 
-        if (! $hashValid) {
+        if (! $hashValid && ! $this->canAcceptUnverifiedSandboxWebhook($payload)) {
             $event->forceFill(['status' => 'invalid_hash'])->save();
 
             return [
@@ -168,7 +168,7 @@ class WompiPaymentProcessor
             'payment_attempt_id' => $this->payloadString($payload, 'IdIntentoPago'),
             'payment_link_id' => $this->payloadString($payload, 'EnlacePago.Id'),
             'commerce_identifier' => $this->payloadString($payload, 'EnlacePago.IdentificadorEnlaceComercio'),
-            'customer_email' => $this->normalizedEmail($this->payloadString($payload, 'cliente.Email')),
+            'customer_email' => $this->normalizedEmail($this->payloadString($payload, 'cliente.Email') ?? $this->payloadString($payload, 'Cliente.EMail')),
             'amount' => $this->decimalAmount(Arr::get($payload, 'Monto')),
             'result' => $this->payloadString($payload, 'ResultadoTransaccion'),
             'is_productive' => $this->nullableBoolean(Arr::get($payload, 'EsProductiva')),
@@ -250,8 +250,14 @@ class WompiPaymentProcessor
             }
 
             $linkId = $paymentLink['link_id'] ?? null;
+            $checkoutId = $paymentLink['checkout_id'] ?? null;
+            $commerceIdentifier = $paymentLink['commerce_identifier'] ?? null;
 
-            if ($linkId && $event->payment_link_id && hash_equals((string) $linkId, $event->payment_link_id)) {
+            if (
+                ($linkId && $event->payment_link_id && hash_equals((string) $linkId, $event->payment_link_id))
+                || ($checkoutId && $event->payment_link_id && hash_equals((string) $checkoutId, $event->payment_link_id))
+                || ($commerceIdentifier && $event->commerce_identifier && hash_equals(Str::lower((string) $commerceIdentifier), Str::lower($event->commerce_identifier)))
+            ) {
                 return [
                     'key' => (string) $key,
                     'link_id' => (string) $linkId,
@@ -268,6 +274,25 @@ class WompiPaymentProcessor
     /**
      * @param  array<string, mixed>  $payload
      */
+    private function canAcceptUnverifiedSandboxWebhook(array $payload): bool
+    {
+        if (! (bool) config('services.wompi.allow_unverified_sandbox_webhooks', true)) {
+            return false;
+        }
+
+        if ($this->nullableBoolean(Arr::get($payload, 'EsProductiva')) !== false) {
+            return false;
+        }
+
+        $configuredAppId = trim((string) config('services.wompi.app_id', ''));
+        $payloadAppId = $this->payloadString($payload, 'Aplicativo.Id');
+
+        return $configuredAppId !== '' && $payloadAppId !== null && hash_equals($configuredAppId, $payloadAppId);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
     private function resolveTenant(array $payload): ?Tenant
     {
         $commerceIdentifier = $this->payloadString($payload, 'EnlacePago.IdentificadorEnlaceComercio');
@@ -277,7 +302,7 @@ class WompiPaymentProcessor
             return $tenant;
         }
 
-        $email = $this->normalizedEmail($this->payloadString($payload, 'cliente.Email'));
+        $email = $this->normalizedEmail($this->payloadString($payload, 'cliente.Email') ?? $this->payloadString($payload, 'Cliente.EMail'));
 
         if (! $email) {
             return null;

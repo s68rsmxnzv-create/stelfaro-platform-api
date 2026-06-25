@@ -8,12 +8,14 @@ class WompiPaymentReturnController extends Controller
 {
     public function __invoke(Request $request)
     {
-        $approved = filter_var($request->query('esAprobada'), FILTER_VALIDATE_BOOLEAN);
+        $approved = $this->isApprovedRedirect($request);
+        $hasTransaction = trim((string) $request->query('idTransaccion', '')) !== '';
+        $declined = $request->query->has('esAprobada') && ! $approved && ! $hasTransaction;
         $transactionId = e((string) $request->query('idTransaccion', ''));
-        $message = $approved
-            ? 'Pago recibido. Estamos confirmando la transaccion con Wompi para activar tu suscripcion.'
-            : 'No pudimos confirmar un pago aprobado. Si completaste el pago, revisaremos la notificacion de Wompi.';
-        $title = $approved ? 'Pago en confirmacion' : 'Pago no confirmado';
+        $message = $declined
+            ? 'No pudimos confirmar un pago aprobado. Si completaste el pago, revisaremos la notificación de Wompi.'
+            : 'Pago recibido. Estamos confirmando la transacción con Wompi para activar tu suscripción.';
+        $title = $declined ? 'Pago no confirmado' : 'Pago recibido';
 
         return response()->make(<<<HTML
 <!doctype html>
@@ -36,11 +38,25 @@ class WompiPaymentReturnController extends Controller
     <main>
         <h1>{$title}</h1>
         <p>{$message}</p>
-        <p class="meta">Transaccion: {$transactionId}</p>
+        <p class="meta">Transacción: {$transactionId}</p>
         <a href="/">Volver a Stelfaro</a>
     </main>
 </body>
 </html>
 HTML, 200, ['Content-Type' => 'text/html; charset=UTF-8']);
+    }
+
+    private function isApprovedRedirect(Request $request): bool
+    {
+        $approved = filter_var($request->query('esAprobada'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+
+        if ($approved === true) {
+            return true;
+        }
+
+        $message = mb_strtolower((string) $request->query('mensaje', ''));
+        $message = str_replace(['á', 'é', 'í', 'ó', 'ú'], ['a', 'e', 'i', 'o', 'u'], $message);
+
+        return str_contains($message, 'aprobada') || str_contains($message, 'exitosa');
     }
 }

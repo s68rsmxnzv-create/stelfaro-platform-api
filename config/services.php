@@ -51,18 +51,23 @@ return [
     'wompi' => [
         'app_id' => env('WOMPI_APP_ID'),
         'api_secret' => env('WOMPI_API_SECRET'),
+        'allow_unverified_sandbox_webhooks' => env('WOMPI_ALLOW_UNVERIFIED_SANDBOX_WEBHOOKS', true),
         'professional_plan_key' => env('WOMPI_PROFESSIONAL_PLAN_KEY', 'pro'),
         'professional_annual_price_cents' => (int) env('WOMPI_PROFESSIONAL_ANNUAL_PRICE_CENTS', 19900),
         'professional_annual_amount' => env('WOMPI_PROFESSIONAL_ANNUAL_AMOUNT'),
         'payment_links' => [
             'emprendedor' => [
-                'link_id' => env('WOMPI_EMPRENDEDOR_PAYMENT_LINK_ID', 'bdfd9af6-ace2-48b1-92e4-07bd182619db'),
+                'link_id' => env('WOMPI_EMPRENDEDOR_PAYMENT_LINK_ID', '3930222'),
+                'checkout_id' => env('WOMPI_EMPRENDEDOR_CHECKOUT_ID', 'bdfd9af6-ace2-48b1-92e4-07bd182619db'),
+                'commerce_identifier' => env('WOMPI_EMPRENDEDOR_COMMERCE_IDENTIFIER', 'PLAN EMPRENDEDOR'),
                 'plan_key' => env('WOMPI_EMPRENDEDOR_PLAN_KEY', 'starter'),
                 'price_cents' => (int) env('WOMPI_EMPRENDEDOR_ANNUAL_PRICE_CENTS', 9900),
                 'expected_amount' => env('WOMPI_EMPRENDEDOR_ANNUAL_AMOUNT'),
             ],
             'profesional' => [
-                'link_id' => env('WOMPI_PROFESSIONAL_PAYMENT_LINK_ID', '33bcab4e-0036-4477-a0a0-326a4a415c31'),
+                'link_id' => env('WOMPI_PROFESSIONAL_PAYMENT_LINK_ID'),
+                'checkout_id' => env('WOMPI_PROFESSIONAL_CHECKOUT_ID', '33bcab4e-0036-4477-a0a0-326a4a415c31'),
+                'commerce_identifier' => env('WOMPI_PROFESSIONAL_COMMERCE_IDENTIFIER', 'PLAN PROFESIONAL'),
                 'plan_key' => env('WOMPI_PROFESSIONAL_PLAN_KEY', 'pro'),
                 'price_cents' => (int) env('WOMPI_PROFESSIONAL_ANNUAL_PRICE_CENTS', 19900),
                 'expected_amount' => env('WOMPI_PROFESSIONAL_ANNUAL_AMOUNT'),

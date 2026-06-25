@@ -114,6 +114,76 @@ class WompiPaymentWebhookTest extends TestCase
         ]);
     }
 
+    public function test_sandbox_wompi_webhook_without_hash_can_process_when_app_matches(): void
+    {
+        config([
+            'services.wompi.api_secret' => 'wompi-secret',
+            'services.wompi.app_id' => 'app-sandbox-123',
+            'services.wompi.payment_links.emprendedor.link_id' => '3930222',
+            'services.wompi.payment_links.emprendedor.expected_amount' => '111.87',
+        ]);
+
+        PlatformApp::query()->create(['key' => 'facturacion', 'name' => 'Facturacion']);
+
+        $tenant = Tenant::query()->create([
+            'slug' => 'cliente-sandbox',
+            'name' => 'Cliente Sandbox',
+        ]);
+        $user = User::factory()->create(['email' => 'sandbox@stelfaro.test']);
+        $user->memberships()->create([
+            'tenant_id' => $tenant->id,
+            'role' => 'owner',
+            'status' => 'active',
+            'is_default' => true,
+        ]);
+
+        $payload = $this->approvedPayload([
+            'Monto' => '111.87',
+            'IdTransaccion' => 'txn-sandbox-123',
+            'IdIntentoPago' => 'attempt-sandbox-123',
+            'EsProductiva' => false,
+            'Aplicativo' => [
+                'Nombre' => 'Servicio Tecnico El Faro',
+                'Id' => 'app-sandbox-123',
+            ],
+            'EnlacePago' => [
+                'Id' => 3930222,
+                'IdentificadorEnlaceComercio' => 'PLAN EMPRENDEDOR',
+                'NombreProducto' => 'Emprendedor anual',
+            ],
+            'Cliente' => [
+                'Nombre' => 'Cliente Sandbox',
+                'EMail' => 'sandbox@stelfaro.test',
+            ],
+        ]);
+        unset($payload['cliente']);
+
+        $raw = json_encode($payload, JSON_UNESCAPED_SLASHES);
+
+        $this->call('POST', '/api/v1/webhooks/wompi', [], [], [], [
+            'CONTENT_TYPE' => 'application/json',
+        ], $raw)
+            ->assertOk()
+            ->assertJsonPath('status', 'processed');
+
+        $plan = SubscriptionPlan::query()->where('key', 'starter')->firstOrFail();
+        $this->assertDatabaseHas('tenant_subscriptions', [
+            'tenant_id' => $tenant->id,
+            'subscription_plan_id' => $plan->id,
+            'status' => 'active',
+            'billing_cycle' => 'annual',
+            'price_cents' => 9900,
+        ]);
+        $this->assertDatabaseHas('wompi_payment_events', [
+            'tenant_id' => $tenant->id,
+            'transaction_id' => 'txn-sandbox-123',
+            'payment_link_id' => '3930222',
+            'customer_email' => 'sandbox@stelfaro.test',
+            'status' => 'processed',
+            'hash_valid' => false,
+        ]);
+    }
+
     public function test_invalid_wompi_hash_is_rejected_and_not_activated(): void
     {
         config(['services.wompi.api_secret' => 'wompi-secret']);
@@ -169,8 +239,17 @@ class WompiPaymentWebhookTest extends TestCase
     {
         $this->get('/payments/wompi/return?esAprobada=true&idTransaccion=txn-123')
             ->assertOk()
-            ->assertSee('Pago en confirmacion')
+            ->assertSee('Pago recibido')
             ->assertSee('txn-123');
+    }
+
+    public function test_wompi_return_page_treats_transaction_redirect_as_received(): void
+    {
+        $this->get('/payments/wompi/return?identificadorEnlaceComercio=PLAN+EMPRENDEDOR&idTransaccion=txn-456')
+            ->assertOk()
+            ->assertSee('Pago recibido')
+            ->assertDontSee('Pago no confirmado')
+            ->assertSee('txn-456');
     }
 
     /**
