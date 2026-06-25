@@ -45,7 +45,9 @@ class SecurityHeadersTest extends TestCase
             ->assertStatus(422)
             ->assertJsonPath('message', 'Intento bloqueado. En Stelfaro protegemos a nuestros clientes; por aquí no se juega.')
             ->assertJsonPath('details', 'Tu IP, navegador, ruta y hora quedaron registrados para auditoría de seguridad.')
-            ->assertJsonPath('field', 'name');
+            ->assertJsonPath('field', 'name')
+            ->assertJsonPath('audit.ip', '127.0.0.xxx')
+            ->assertJsonPath('audit.route', "POST /api/v1/platform/tenants/{$tenant->id}/users");
 
         $this->assertDatabaseHas('security_events', [
             'user_id' => $user->id,
@@ -75,6 +77,12 @@ class SecurityHeadersTest extends TestCase
             ->assertStatus(422)
             ->assertSee('Intento bloqueado. En Stelfaro protegemos a nuestros clientes; por aquí no se juega.', false)
             ->assertSee('Tu IP, navegador, ruta y hora quedaron registrados', false)
+            ->assertSee('IP detectada', false)
+            ->assertSee('127.0.0.xxx', false)
+            ->assertSee('Bad Browser 1.0', false)
+            ->assertSee('POST /login', false)
+            ->assertSee('Huella', false)
+            ->assertDontSee('<script>alert(1)</script>', false)
             ->assertDontSee('Symfony', false)
             ->assertDontSee('Laravel', false)
             ->assertDontSee('vendor/', false);

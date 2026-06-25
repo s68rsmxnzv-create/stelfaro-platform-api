@@ -47,6 +47,7 @@ class RejectSuspiciousInput
             'details' => config('security.suspicious_input.details'),
             'field' => $match['path'],
             'event_id' => $event?->id,
+            'audit' => $this->auditPreview($request, $event),
         ];
 
         if ($request->expectsJson() || $request->is('api/*') || $request->is('platform-api/*')) {
@@ -95,6 +96,70 @@ class RejectSuspiciousInput
     }
 
     /**
+     * @return array{ip: string, browser: string, route: string, time: string, fingerprint: string}
+     */
+    private function auditPreview(Request $request, ?SecurityEvent $event): array
+    {
+        return [
+            'ip' => $this->maskIp($request->ip()),
+            'browser' => $this->maskUserAgent($request->userAgent()),
+            'route' => $request->method().' /'.ltrim($request->path(), '/'),
+            'time' => now()->timezone(config('app.timezone'))->format('Y-m-d H:i:s T'),
+            'fingerprint' => $event?->fingerprint
+                ? substr($event->fingerprint, 0, 12).'...'
+                : 'registrada',
+        ];
+    }
+
+    private function maskIp(?string $ip): string
+    {
+        if (! $ip) {
+            return 'detectada';
+        }
+
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            $parts = explode('.', $ip);
+
+            return "{$parts[0]}.{$parts[1]}.{$parts[2]}.xxx";
+        }
+
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+            $parts = explode(':', $ip);
+            $visible = implode(':', array_slice($parts, 0, 3));
+
+            return $visible.':xxxx:xxxx';
+        }
+
+        return Str::limit($ip, 8, '').'...';
+    }
+
+    private function maskUserAgent(?string $userAgent): string
+    {
+        $userAgent = trim((string) $userAgent);
+
+        if ($userAgent === '') {
+            return 'detectado';
+        }
+
+        $normalized = $this->safeAuditText($userAgent);
+
+        return Str::limit($normalized, 42, '...');
+    }
+
+    private function safeAuditText(?string $value): string
+    {
+        $value = trim((string) $value);
+
+        if ($value === '') {
+            return '';
+        }
+
+        $normalized = preg_replace('/\s+/', ' ', $value) ?: $value;
+
+        return str_replace(['<', '>'], ['[', ']'], $normalized);
+    }
+
+    /**
      * @param  array{path: string, value: string, pattern: string}  $match
      */
     private function recordSecurityEvent(Request $request, array $match): ?SecurityEvent
@@ -113,7 +178,7 @@ class RejectSuspiciousInput
             'type' => 'suspicious_input',
             'severity' => 'high',
             'ip_address' => $request->ip(),
-            'user_agent' => Str::limit((string) $request->userAgent(), 1000, ''),
+            'user_agent' => Str::limit($this->safeAuditText($request->userAgent()), 1000, ''),
             'method' => $request->method(),
             'url' => Str::limit($request->fullUrl(), 2000, ''),
             'field' => $match['path'],
@@ -122,8 +187,8 @@ class RejectSuspiciousInput
                 'input_sha256' => hash('sha256', $match['value']),
                 'input_length' => strlen($match['value']),
                 'pattern' => $match['pattern'],
-                'referer' => $request->headers->get('referer'),
-                'accept' => $request->headers->get('accept'),
+                'referer' => $this->safeAuditText($request->headers->get('referer')),
+                'accept' => $this->safeAuditText($request->headers->get('accept')),
             ],
         ];
 
