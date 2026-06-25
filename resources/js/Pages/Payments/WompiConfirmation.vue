@@ -47,6 +47,16 @@ const amount = computed(() => {
     }).format(value);
 });
 const validUntil = computed(() => formatDate(props.event?.subscription?.currentPeriodEndsAt));
+const fiscalFields = [
+    'Tipo de documento fiscal',
+    'NIT',
+    'NRC',
+    'Nombre o razón social',
+    'Giro o actividad económica',
+    'Dirección fiscal',
+    'Departamento y municipio',
+    'Correo para envío del CCF',
+];
 
 function formatDate(value) {
     if (!value) return 'Pendiente';
@@ -112,6 +122,44 @@ function formatDate(value) {
                     <dd class="font-bold">{{ event.commerceIdentifier }}</dd>
                 </div>
             </dl>
+
+            <section
+                v-if="isProcessed"
+                class="mt-8 rounded-lg border border-slate-200 bg-white p-5 dark:border-line dark:bg-surface"
+            >
+                <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                        <p class="text-sm font-bold uppercase tracking-wide text-sky-700 dark:text-primary">Factura fiscal</p>
+                        <h2 class="mt-1 text-xl font-black">Generar crédito fiscal</h2>
+                        <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-muted">
+                            Próximamente podrás generar el CCF de esta compra desde aquí. Cuando el comprobante sea emitido correctamente,
+                            este botón dejará de generar nuevos documentos y solo permitirá descargar el comprobante o solicitar reenvío.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        disabled
+                        class="inline-flex shrink-0 justify-center rounded-lg bg-slate-200 px-5 py-3 text-sm font-bold text-slate-500 disabled:cursor-not-allowed dark:bg-surface-muted dark:text-muted"
+                    >
+                        Generar factura
+                    </button>
+                </div>
+
+                <div class="mt-5 grid gap-3 sm:grid-cols-2">
+                    <div
+                        v-for="field in fiscalFields"
+                        :key="field"
+                        class="rounded-md border border-dashed border-slate-200 px-4 py-3 dark:border-line"
+                    >
+                        <p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-muted">{{ field }}</p>
+                        <p class="mt-1 text-sm font-semibold text-slate-400 dark:text-soft">Pendiente</p>
+                    </div>
+                </div>
+
+                <p class="mt-5 rounded-md bg-warning-soft px-4 py-3 text-sm font-semibold text-warning">
+                    Regla pendiente: una transacción pagada solo podrá emitir un CCF una vez. Después de emitido, se habilitará descarga y reenvío.
+                </p>
+            </section>
 
             <div class="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Link
