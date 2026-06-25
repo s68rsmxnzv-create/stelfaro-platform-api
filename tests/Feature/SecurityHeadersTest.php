@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class SecurityHeadersTest extends TestCase
@@ -53,6 +54,15 @@ class SecurityHeadersTest extends TestCase
             'field' => 'name',
             'method' => 'POST',
         ]);
+
+        $event = DB::table('security_events')->latest('id')->first();
+        $metadata = json_decode((string) $event->metadata, true);
+
+        $this->assertArrayHasKey('input_sha256', $metadata);
+        $this->assertArrayHasKey('input_length', $metadata);
+        $this->assertArrayHasKey('pattern', $metadata);
+        $this->assertArrayNotHasKey('input_sample', $metadata);
+        $this->assertStringNotContainsString('<script>', json_encode($metadata));
     }
 
     public function test_suspicious_web_payload_gets_custom_block_page_without_framework_details(): void
