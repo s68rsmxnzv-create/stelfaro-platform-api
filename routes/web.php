@@ -49,6 +49,11 @@ Route::domain(config('platform.hosts.facturacion'))
     ->middleware(['auth', 'verified', EnsurePasswordIsChanged::class])
     ->group(function (): void {
         Route::get('/', [PlatformPortalController::class, 'facturacion'])->name('apps.facturacion');
+        Route::get('/facturacion/{documentSlug?}', [PlatformPortalController::class, 'facturacionBilling'])->name('apps.facturacion.billing');
+        Route::get('/comprobantes', [PlatformPortalController::class, 'facturacionArtifacts'])->name('apps.facturacion.artifacts');
+        Route::get('/eventos-mh/{eventSlug?}', [PlatformPortalController::class, 'facturacionMhEvents'])->name('apps.facturacion.mh-events');
+        Route::get('/respuestas-mh', [PlatformPortalController::class, 'facturacionMhResponses'])->name('apps.facturacion.mh-responses');
+        Route::get('/respuestas-eventos-mh', [PlatformPortalController::class, 'facturacionMhEventResponses'])->name('apps.facturacion.mh-event-responses');
         Route::get('/configuracion', [PlatformPortalController::class, 'facturacionSettings'])->name('apps.facturacion.settings');
         Route::redirect('/configuracion-fiscal', '/configuracion')->name('apps.facturacion.fiscal-settings');
         Route::get('/platform/core-billing-session', CoreBillingSessionController::class)

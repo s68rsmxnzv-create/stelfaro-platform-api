@@ -93,6 +93,68 @@ class PlatformPortalController extends Controller
         ]);
     }
 
+    public function facturacionBilling(?string $documentSlug = null): Response
+    {
+        return $this->renderBillingModule([
+            'app' => [
+                'id' => 'facturacion',
+                'name' => 'Facturación',
+                'description' => 'Emisión libre de DTE, clientes, productos, recepción y entrega automática por correo.',
+            ],
+            'module' => 'billing',
+            'documentSlug' => $documentSlug ?? 'fe',
+        ]);
+    }
+
+    public function facturacionArtifacts(): Response
+    {
+        return $this->renderBillingModule([
+            'app' => [
+                'id' => 'facturacion',
+                'name' => 'Comprobantes',
+                'description' => 'Consulta de documentos fiscales, PDF, JSON y artefactos emitidos.',
+            ],
+            'module' => 'artifacts',
+        ]);
+    }
+
+    public function facturacionMhEvents(?string $eventSlug = null): Response
+    {
+        return $this->renderBillingModule([
+            'app' => [
+                'id' => 'facturacion',
+                'name' => 'Eventos MH',
+                'description' => 'Invalidaciones, contingencias, retornos y eventos operativos conectados al core fiscal.',
+            ],
+            'module' => 'mh-events',
+            'eventSlug' => $eventSlug ?? 'invalidacion',
+        ]);
+    }
+
+    public function facturacionMhResponses(): Response
+    {
+        return $this->renderBillingModule([
+            'app' => [
+                'id' => 'facturacion',
+                'name' => 'Respuestas MH',
+                'description' => 'Trazabilidad de respuestas del Ministerio de Hacienda para documentos transmitidos.',
+            ],
+            'module' => 'mh-responses',
+        ]);
+    }
+
+    public function facturacionMhEventResponses(): Response
+    {
+        return $this->renderBillingModule([
+            'app' => [
+                'id' => 'facturacion',
+                'name' => 'Respuestas eventos MH',
+                'description' => 'Trazabilidad de respuestas del Ministerio de Hacienda para eventos fiscales.',
+            ],
+            'module' => 'mh-event-responses',
+        ]);
+    }
+
     public function facturacionSettings(): Response
     {
         return $this->renderBillingModule([
