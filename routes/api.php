@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Api\V1\Platform\GlobalUserController;
+use App\Http\Controllers\Api\V1\Platform\CatalogCategoryController;
+use App\Http\Controllers\Api\V1\Platform\CatalogItemController;
 use App\Http\Controllers\Api\V1\Platform\SubscriptionController;
 use App\Http\Controllers\Api\V1\Platform\TenantFiscalAssignmentController;
 use App\Http\Controllers\Api\V1\Platform\TenantInvitationController;
@@ -43,6 +45,14 @@ Route::prefix('v1')->group(function (): void {
         Route::get('admin/platform/apps', [TenantAppOnboardingController::class, 'apps']);
         Route::post('admin/platform/tenants', [TenantAppOnboardingController::class, 'store']);
         Route::get('platform/tenants/{tenant}/users', [TenantUserController::class, 'index']);
+        Route::get('platform/tenants/{tenant}/catalog/categories', [CatalogCategoryController::class, 'index']);
+        Route::post('platform/tenants/{tenant}/catalog/categories', [CatalogCategoryController::class, 'store']);
+        Route::patch('platform/tenants/{tenant}/catalog/categories/{category}', [CatalogCategoryController::class, 'update']);
+        Route::delete('platform/tenants/{tenant}/catalog/categories/{category}', [CatalogCategoryController::class, 'destroy']);
+        Route::get('platform/tenants/{tenant}/catalog/items', [CatalogItemController::class, 'index']);
+        Route::post('platform/tenants/{tenant}/catalog/items', [CatalogItemController::class, 'store']);
+        Route::patch('platform/tenants/{tenant}/catalog/items/{item}', [CatalogItemController::class, 'update']);
+        Route::delete('platform/tenants/{tenant}/catalog/items/{item}', [CatalogItemController::class, 'destroy']);
         Route::get('platform/tenants/{tenant}/subscription', [SubscriptionController::class, 'showForTenant']);
         Route::get('platform/tenants/by-core-empresa/{coreEmpresaId}/subscription', [SubscriptionController::class, 'showForTenantByCoreEmpresa']);
         Route::get('platform/tenants/{tenant}/fiscal-scope', [TenantFiscalAssignmentController::class, 'scope']);

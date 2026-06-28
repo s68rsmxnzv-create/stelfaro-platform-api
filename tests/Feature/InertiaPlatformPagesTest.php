@@ -183,6 +183,14 @@ class InertiaPlatformPagesTest extends TestCase
             );
 
         $this->actingAs($user)
+            ->get('https://taller.stelfaro.com/catalogo')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Apps/Taller/BillingWorkspace')
+                ->where('module', 'catalog')
+            );
+
+        $this->actingAs($user)
             ->get('https://taller.stelfaro.com/configuracion-fiscal')
             ->assertRedirect('https://taller.stelfaro.com/configuracion');
 

@@ -50,4 +50,14 @@ class Tenant extends Model
     {
         return $this->hasMany(WompiPaymentEvent::class);
     }
+
+    public function catalogCategories(): HasMany
+    {
+        return $this->hasMany(CatalogCategory::class);
+    }
+
+    public function catalogItems(): HasMany
+    {
+        return $this->hasMany(CatalogItem::class);
+    }
 }

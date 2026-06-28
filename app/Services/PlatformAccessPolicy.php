@@ -25,6 +25,17 @@ class PlatformAccessPolicy
             || $this->activeMembershipFor($user, $tenant) !== null;
     }
 
+    public function canViewTenantCatalog(?User $user, Tenant|int $tenant): bool
+    {
+        return $this->canViewTenantUsers($user, $tenant);
+    }
+
+    public function canManageTenantCatalog(?User $user, Tenant|int $tenant): bool
+    {
+        return $this->hasGlobalAdminRole($user)
+            || $this->hasTenantUserAdminRole($user, $tenant);
+    }
+
     public function canInviteTenantUsers(?User $user, Tenant|int $tenant): bool
     {
         return $this->hasGlobalAdminRole($user)

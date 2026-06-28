@@ -32,6 +32,10 @@ const props = defineProps({
         type: String,
         default: null,
     },
+    platformSession: {
+        type: Object,
+        default: null,
+    },
     canAccessPlatformAdmin: {
         type: Boolean,
         default: false,
@@ -55,6 +59,7 @@ const user = computed(() => page.props.auth?.user ?? null);
 const error = ref(props.coreSessionError || '');
 const authToken = ref(props.coreSession?.token || null);
 const isTaller = computed(() => props.app.id === 'taller');
+const requiresCoreSession = computed(() => !['catalog', 'operational-placeholder'].includes(props.module));
 const appBaseUrl = computed(() => (isTaller.value ? 'https://taller.stelfaro.com' : 'https://facturacion.stelfaro.com'));
 const currentPath = computed(() => new URL(page.url, window.location.origin).pathname);
 const extraNavItems = computed(() => {
@@ -86,7 +91,7 @@ const navigate = ({ event, href }) => {
 
 <template>
     <div class="sf-app-background min-h-screen dark:text-text">
-        <section v-if="error" class="mx-auto max-w-7xl px-5 py-8">
+        <section v-if="error && requiresCoreSession" class="mx-auto max-w-7xl px-5 py-8">
             <div class="rounded-md border border-red-200 bg-red-50 p-5 text-red-700">
                 {{ error }}
             </div>
@@ -104,6 +109,8 @@ const navigate = ({ event, href }) => {
             :can-access-platform-admin="canAccessPlatformAdmin"
             :module="module"
             :platform-admin-url="platformAdminUrl"
+            :platform-session="platformSession"
+            platform-base-url="/api/v1"
             :user="user"
             :app-base-url="appBaseUrl"
             :operational-page="operationalPage"

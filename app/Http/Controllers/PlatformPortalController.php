@@ -53,6 +53,18 @@ class PlatformPortalController extends Controller
         ]);
     }
 
+    public function tallerCatalog(): Response
+    {
+        return $this->renderBillingModule([
+            'app' => [
+                'id' => 'taller',
+                'name' => 'Catálogo',
+                'description' => 'Productos, repuestos, servicios y mano de obra disponibles para operaciones.',
+            ],
+            'module' => 'catalog',
+        ]);
+    }
+
     public function tallerReception(): Response
     {
         return $this->renderOperationalPlaceholder(
@@ -103,6 +115,18 @@ class PlatformPortalController extends Controller
             ],
             'module' => 'billing',
             'documentSlug' => $documentSlug ?? 'fe',
+        ]);
+    }
+
+    public function facturacionCatalog(): Response
+    {
+        return $this->renderBillingModule([
+            'app' => [
+                'id' => 'facturacion',
+                'name' => 'Catálogo',
+                'description' => 'Productos y servicios disponibles para ventas y operaciones.',
+            ],
+            'module' => 'catalog',
         ]);
     }
 
@@ -271,6 +295,7 @@ class PlatformPortalController extends Controller
             'coreBaseUrl' => '/core-api/v1',
             'coreSession' => $coreSession,
             'coreSessionError' => $coreSessionError,
+            'platformSession' => $this->sessionResolver->resolve(request()->user()),
             'canAccessPlatformAdmin' => $this->platformAdminAccess->allows(request()->user()),
             'platformAdminUrl' => 'https://'.config('platform.hosts.admin'),
         ]);
