@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\CatalogItem;
 use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
+use App\Models\InventorySupplier;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -167,6 +168,60 @@ class PlatformInventoryTest extends TestCase
         ]);
     }
 
+    public function test_dte_json_import_preview_matches_supplier_lines_and_fuel_charges(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        InventorySupplier::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Proveedor Uno',
+            'tax_id' => '0614-010101-101-1',
+            'status' => 'active',
+        ]);
+        $item = $this->inventoryItem($tenant, 'GAS-001');
+        $item->forceFill(['name' => 'Gasolina regular', 'unit_code' => '22'])->save();
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/purchases/import-dte-json", [
+                'payload' => $this->supplierDteJson(),
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.supplier.matched.name', 'Proveedor Uno')
+            ->assertJsonPath('data.document.document_type', 'dte_ccf')
+            ->assertJsonPath('data.document.fovial_per_unit', 0.2)
+            ->assertJsonPath('data.document.cotrans_per_unit', 0.1)
+            ->assertJsonPath('data.lines.0.matched_catalog_item.id', $item->id);
+    }
+
+    public function test_purchase_supports_consumables_without_inventory_and_fuel_charges(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        $item = $this->inventoryItem($tenant, 'GAS-002');
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/purchases", [
+                'document_type' => 'dte_ccf',
+                'document_number' => 'ABC-123',
+                'payment_condition' => 'cash',
+                'document_total' => 116,
+                'purchase_date' => '2026-06-30',
+                'is_consumable' => true,
+                'apply_fuel_charges' => true,
+                'fovial_per_unit' => 0.2,
+                'cotrans_per_unit' => 0.1,
+                'lines' => [
+                    ['catalog_item_id' => $item->id, 'quantity' => 10, 'unit_cost' => 10],
+                ],
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.total', '116.00')
+            ->assertJsonPath('data.lines.0.no_inventory', true);
+
+        $item->refresh();
+        $this->assertSame(0.0, (float) $item->stock_quantity);
+        $this->assertDatabaseMissing('inventory_lots', ['catalog_item_id' => $item->id]);
+        $this->assertDatabaseMissing('inventory_movements', ['catalog_item_id' => $item->id, 'reason' => 'purchase']);
+    }
+
     /**
      * @return array{0: User, 1: Tenant}
      */
@@ -214,5 +269,42 @@ class PlatformInventoryTest extends TestCase
             'available_quantity' => $quantity,
             'status' => 'active',
         ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function supplierDteJson(): array
+    {
+        return [
+            'identificacion' => [
+                'tipoDte' => '03',
+                'codigoGeneracion' => 'ABC-123',
+                'numeroControl' => 'DTE-03-M001P001-000000000000123',
+                'fecEmi' => '2026-06-30',
+            ],
+            'emisor' => [
+                'nit' => '0614-010101-101-1',
+                'nrc' => '123456',
+                'nombre' => 'Proveedor Uno',
+            ],
+            'resumen' => [
+                'condicionOperacion' => 1,
+                'totalPagar' => 113.3,
+                'tributos' => [
+                    ['codigo' => 'C8', 'descripcion' => 'FOVIAL', 'valor' => 2],
+                    ['codigo' => '59', 'descripcion' => 'COTRANS', 'valor' => 1],
+                ],
+            ],
+            'cuerpoDocumento' => [
+                [
+                    'numItem' => 1,
+                    'descripcion' => 'Gasolina regular',
+                    'cantidad' => 10,
+                    'uniMedida' => '22',
+                    'ventaGravada' => 100,
+                ],
+            ],
+        ];
     }
 }

@@ -63,6 +63,7 @@ Route::prefix('v1')->group(function (): void {
         Route::patch('platform/tenants/{tenant}/inventory/suppliers/{supplier}', [InventorySupplierController::class, 'update']);
         Route::get('platform/tenants/{tenant}/inventory/purchases', [InventoryPurchaseController::class, 'index']);
         Route::post('platform/tenants/{tenant}/inventory/purchases', [InventoryPurchaseController::class, 'store']);
+        Route::post('platform/tenants/{tenant}/inventory/purchases/import-dte-json', [InventoryPurchaseController::class, 'importDteJson']);
         Route::get('platform/tenants/{tenant}/inventory/purchases/{purchase}', [InventoryPurchaseController::class, 'show']);
         Route::get('platform/tenants/{tenant}/inventory/lots', [InventoryLotController::class, 'index']);
         Route::get('platform/tenants/{tenant}/inventory/movements', [InventoryMovementController::class, 'index']);

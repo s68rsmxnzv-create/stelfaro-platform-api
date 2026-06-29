@@ -22,44 +22,67 @@ class InventoryService
      */
     public function registerPurchase(Tenant $tenant, array $data, ?int $userId = null): InventoryPurchase
     {
-        return DB::transaction(function () use ($tenant, $data, $userId): InventoryPurchase {
-            $subtotal = 0.0;
-            $taxTotal = 0.0;
+        $normalized = app(InventoryPurchaseTaxService::class)->normalizePurchase($tenant, $data);
 
+        return DB::transaction(function () use ($tenant, $data, $normalized, $userId): InventoryPurchase {
             $purchase = InventoryPurchase::query()->create([
                 'tenant_id' => $tenant->id,
                 'inventory_supplier_id' => $data['inventory_supplier_id'] ?? null,
-                'document_type' => $this->blankToNull($data['document_type'] ?? null),
+                'purchase_number' => $this->nextPurchaseNumber($tenant),
+                'document_type' => $this->blankToNull($normalized['document_type'] ?? null),
+                'document_mode' => $normalized['document_mode'],
                 'document_number' => $this->blankToNull($data['document_number'] ?? null),
+                'payment_condition' => $normalized['payment_condition'],
+                'document_total' => $normalized['document_total'],
+                'is_consumable' => $normalized['is_consumable'],
                 'purchase_date' => $data['purchase_date'],
+                'subtotal' => $normalized['subtotal'],
+                'tax_amount' => $normalized['tax_amount'],
+                'tax_perceived' => $normalized['tax_perceived'],
+                'fovial_per_unit' => $normalized['fovial_per_unit'],
+                'cotrans_per_unit' => $normalized['cotrans_per_unit'],
+                'other_non_taxable_total' => $normalized['other_non_taxable_total'],
+                'total' => $normalized['total'],
+                'f07_operation_type' => $normalized['f07_operation_type'],
+                'f07_classification' => $normalized['f07_classification'],
+                'f07_sector' => $normalized['f07_sector'],
+                'f07_cost_expense_type' => $normalized['f07_cost_expense_type'],
+                'supplier_snapshot' => $data['supplier_snapshot'] ?? null,
+                'import_metadata' => $data['import_metadata'] ?? null,
                 'status' => 'registered',
                 'created_by' => $userId,
             ]);
 
-            foreach ($data['lines'] as $line) {
-                $item = $this->lockInventoryItem($tenant, (int) $line['catalog_item_id']);
-                $quantity = $this->positiveQuantity($line['quantity'], 'La cantidad de compra debe ser mayor que cero.');
-                $unitCost = round((float) $line['unit_cost'], 4);
-                if ($unitCost < 0) {
-                    throw new InvalidArgumentException('El costo unitario no puede ser negativo.');
-                }
-
-                $lineSubtotal = round($quantity * $unitCost, 2);
-                $lineTax = round((float) ($line['tax_amount'] ?? 0), 2);
-                $lineTotal = round($lineSubtotal + $lineTax, 2);
-                $subtotal += $lineSubtotal;
-                $taxTotal += $lineTax;
-
+            foreach ($normalized['lines'] as $line) {
+                /** @var CatalogItem $item */
+                $item = $line['item'];
                 $purchaseLine = InventoryPurchaseLine::query()->create([
                     'tenant_id' => $tenant->id,
                     'inventory_purchase_id' => $purchase->id,
                     'catalog_item_id' => $item->id,
-                    'quantity' => $quantity,
-                    'unit_cost' => $unitCost,
-                    'tax_amount' => $lineTax,
-                    'line_total' => $lineTotal,
+                    'description_snapshot' => $line['description_snapshot'],
+                    'unit_code' => $line['unit_code'],
+                    'unit_name' => $line['unit_name'],
+                    'quantity' => $line['quantity'],
+                    'input_unit_cost' => $line['input_unit_cost'],
+                    'unit_cost' => $line['unit_cost'],
+                    'base_unit_cost' => $line['base_unit_cost'],
+                    'tax_unit_amount' => $line['tax_unit_amount'],
+                    'tax_rate' => $line['tax_rate'],
+                    'total_unit_amount' => $line['total_unit_amount'],
+                    'tax_amount' => $line['tax_amount'],
+                    'line_total' => $line['line_total'],
+                    'price_includes_tax' => $line['price_includes_tax'],
+                    'no_inventory' => $line['no_inventory'],
+                    'controls_inventory_snapshot' => $line['controls_inventory_snapshot'],
+                    'inventory_quantity' => $line['inventory_quantity'],
                 ]);
 
+                if ($line['no_inventory']) {
+                    continue;
+                }
+
+                $item = $this->lockInventoryItem($tenant, (int) $line['catalog_item_id']);
                 $lot = InventoryLot::query()->create([
                     'tenant_id' => $tenant->id,
                     'catalog_item_id' => $item->id,
@@ -68,24 +91,19 @@ class InventoryService
                     'inventory_purchase_line_id' => $purchaseLine->id,
                     'lot_code' => $this->nextLotCode($tenant, $item),
                     'received_date' => $purchase->purchase_date,
-                    'unit_cost' => $unitCost,
-                    'initial_quantity' => $quantity,
-                    'available_quantity' => $quantity,
+                    'unit_cost' => $line['unit_cost'],
+                    'initial_quantity' => $line['inventory_quantity'],
+                    'available_quantity' => $line['inventory_quantity'],
                     'status' => 'active',
                 ]);
 
-                $item->stock_quantity = round((float) $item->stock_quantity + $quantity, 3);
+                $item->stock_quantity = round((float) $item->stock_quantity + (float) $line['inventory_quantity'], 3);
                 $item->cost_source = 'real';
                 $item->reference_cost = $this->averageCostForLockedItem($tenant, $item);
                 $item->save();
 
-                $this->movement($tenant, $item, $lot, 'entry', 'purchase', $quantity, $unitCost, (float) $item->stock_quantity, 'purchase', (string) $purchase->id, $purchase->document_number, null, $userId);
+                $this->movement($tenant, $item, $lot, 'entry', 'purchase', (float) $line['inventory_quantity'], (float) $line['unit_cost'], (float) $item->stock_quantity, 'purchase', (string) $purchase->id, $purchase->document_number, $line['description_snapshot'], $userId);
             }
-
-            $purchase->subtotal = round($subtotal, 2);
-            $purchase->tax_amount = round($taxTotal, 2);
-            $purchase->total = round($subtotal + $taxTotal, 2);
-            $purchase->save();
 
             return $purchase->fresh(['supplier', 'lines.catalogItem', 'lines.lots']);
         });
@@ -441,6 +459,14 @@ class InventoryService
         } while ($exists);
 
         return $candidate;
+    }
+
+    private function nextPurchaseNumber(Tenant $tenant): int
+    {
+        return (int) InventoryPurchase::query()
+            ->where('tenant_id', $tenant->id)
+            ->lockForUpdate()
+            ->max('purchase_number') + 1;
     }
 
     private function averageCostForLockedItem(Tenant $tenant, CatalogItem $item): float
