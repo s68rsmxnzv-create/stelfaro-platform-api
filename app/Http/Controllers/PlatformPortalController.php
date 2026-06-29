@@ -65,6 +65,18 @@ class PlatformPortalController extends Controller
         ]);
     }
 
+    public function tallerInventory(): Response
+    {
+        return $this->renderBillingModule([
+            'app' => [
+                'id' => 'taller',
+                'name' => 'Inventario',
+                'description' => 'Existencias, entradas, lotes, kardex, proveedores y ajustes.',
+            ],
+            'module' => 'inventory',
+        ]);
+    }
+
     public function tallerReception(): Response
     {
         return $this->renderOperationalPlaceholder(
@@ -127,6 +139,18 @@ class PlatformPortalController extends Controller
                 'description' => 'Productos y servicios disponibles para ventas y operaciones.',
             ],
             'module' => 'catalog',
+        ]);
+    }
+
+    public function facturacionInventory(): Response
+    {
+        return $this->renderBillingModule([
+            'app' => [
+                'id' => 'facturacion',
+                'name' => 'Inventario',
+                'description' => 'Existencias, entradas, lotes, kardex, proveedores y ajustes.',
+            ],
+            'module' => 'inventory',
         ]);
     }
 

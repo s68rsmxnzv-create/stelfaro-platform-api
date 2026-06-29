@@ -34,6 +34,7 @@ Route::domain(config('platform.hosts.taller'))
         Route::get('/diagnostico', [PlatformPortalController::class, 'tallerDiagnosis'])->name('apps.taller.diagnosis');
         Route::get('/ordenes', [PlatformPortalController::class, 'tallerOrders'])->name('apps.taller.orders');
         Route::get('/catalogo', [PlatformPortalController::class, 'tallerCatalog'])->name('apps.taller.catalog');
+        Route::get('/inventario', [PlatformPortalController::class, 'tallerInventory'])->name('apps.taller.inventory');
         Route::get('/facturacion/{documentSlug?}', [PlatformPortalController::class, 'tallerBilling'])->name('apps.taller.billing');
         Route::get('/comprobantes', [PlatformPortalController::class, 'tallerArtifacts'])->name('apps.taller.artifacts');
         Route::get('/eventos-mh/{eventSlug?}', [PlatformPortalController::class, 'tallerMhEvents'])->name('apps.taller.mh-events');
@@ -51,6 +52,7 @@ Route::domain(config('platform.hosts.facturacion'))
     ->group(function (): void {
         Route::get('/', [PlatformPortalController::class, 'facturacion'])->name('apps.facturacion');
         Route::get('/catalogo', [PlatformPortalController::class, 'facturacionCatalog'])->name('apps.facturacion.catalog');
+        Route::get('/inventario', [PlatformPortalController::class, 'facturacionInventory'])->name('apps.facturacion.inventory');
         Route::get('/facturacion/{documentSlug?}', [PlatformPortalController::class, 'facturacionBilling'])->name('apps.facturacion.billing');
         Route::get('/comprobantes', [PlatformPortalController::class, 'facturacionArtifacts'])->name('apps.facturacion.artifacts');
         Route::get('/eventos-mh/{eventSlug?}', [PlatformPortalController::class, 'facturacionMhEvents'])->name('apps.facturacion.mh-events');
