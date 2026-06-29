@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'tenant_id',
@@ -54,5 +55,15 @@ class CatalogItem extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(CatalogCategory::class, 'catalog_category_id');
+    }
+
+    public function inventoryLots(): HasMany
+    {
+        return $this->hasMany(InventoryLot::class);
+    }
+
+    public function inventoryMovements(): HasMany
+    {
+        return $this->hasMany(InventoryMovement::class);
     }
 }

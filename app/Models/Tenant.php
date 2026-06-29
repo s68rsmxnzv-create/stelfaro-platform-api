@@ -60,4 +60,19 @@ class Tenant extends Model
     {
         return $this->hasMany(CatalogItem::class);
     }
+
+    public function inventorySuppliers(): HasMany
+    {
+        return $this->hasMany(InventorySupplier::class);
+    }
+
+    public function inventoryPurchases(): HasMany
+    {
+        return $this->hasMany(InventoryPurchase::class);
+    }
+
+    public function inventoryReservations(): HasMany
+    {
+        return $this->hasMany(InventoryReservation::class);
+    }
 }
