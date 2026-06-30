@@ -206,6 +206,42 @@ class PlatformInventoryTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('data.lines.0.description', 'Canon Pixma MegaTank G3170 AIO WIFI 11/6 IPM')
+            ->assertJsonPath('data.lines.0.supplier_code', '5805C004AB')
+            ->assertJsonPath('data.lines.0.matched_catalog_item.id', $item->id);
+    }
+
+    public function test_dte_json_import_does_not_match_similar_product_with_different_model(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        $item = $this->inventoryItem($tenant, 'CAN-G3170');
+        $item->forceFill(['name' => 'Canon Pixma MegaTank G3170 AIO WIFI 11/6 IPM'])->save();
+        $payload = $this->supplierDteJson();
+        $payload['cuerpoDocumento'][0]['descripcion'] = 'Canon Pixma MegaTank G2170 AIO WIFI 11/6 IPM';
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/purchases/import-dte-json", [
+                'payload' => $payload,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.lines.0.description', 'Canon Pixma MegaTank G2170 AIO WIFI 11/6 IPM')
+            ->assertJsonPath('data.lines.0.matched_catalog_item', null);
+    }
+
+    public function test_dte_json_import_matches_product_by_supplier_code_against_sku(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        $item = $this->inventoryItem($tenant, '5805C004AB');
+        $item->forceFill(['name' => 'Canon Pixma MegaTank G3170 AIO WIFI 11/6 IPM'])->save();
+        $payload = $this->supplierDteJson();
+        $payload['cuerpoDocumento'][0]['codigo'] = '5805C004AB';
+        $payload['cuerpoDocumento'][0]['descripcion'] = 'Canon Pixma MegaTank G3170 Multifuncional';
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/purchases/import-dte-json", [
+                'payload' => $payload,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.lines.0.supplier_code', '5805C004AB')
             ->assertJsonPath('data.lines.0.matched_catalog_item.id', $item->id);
     }
 

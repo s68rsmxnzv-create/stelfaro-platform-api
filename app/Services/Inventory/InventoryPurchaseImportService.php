@@ -126,14 +126,17 @@ class InventoryPurchaseImportService
 
     private function linePreview(Tenant $tenant, array $line): array
     {
-        $description = $this->cleanLineDescription((string) (Arr::get($line, 'descripcion') ?: 'Linea DTE'));
-        $item = $this->matchItem($tenant, $description);
+        $rawDescription = (string) (Arr::get($line, 'descripcion') ?: 'Linea DTE');
+        $description = $this->cleanLineDescription($rawDescription);
+        $supplierCode = $this->lineCode($line, $rawDescription);
+        $item = $this->matchItem($tenant, $description, $supplierCode);
 
         return [
             'description' => $description,
             'quantity' => round((float) Arr::get($line, 'cantidad', 0), 3),
             'unit_cost' => round($this->unitCost($line), 4),
             'unit_code' => (string) (Arr::get($line, 'uniMedida') ?: '59'),
+            'supplier_code' => $supplierCode,
             'no_inventory' => $this->inferNoInventory($description) || ($item && ! $item->controls_inventory),
             'matched_catalog_item' => $item ? [
                 'id' => $item->id,
@@ -145,7 +148,7 @@ class InventoryPurchaseImportService
         ];
     }
 
-    private function matchItem(Tenant $tenant, string $description): ?CatalogItem
+    private function matchItem(Tenant $tenant, string $description, ?string $supplierCode = null): ?CatalogItem
     {
         $needle = $this->normalizeText($description);
         if ($needle === '') {
@@ -157,37 +160,20 @@ class InventoryPurchaseImportService
             ->where('status', 'active')
             ->get();
 
+        $code = $this->normalizeText((string) $supplierCode);
+        if ($code !== '') {
+            $skuMatch = $items->first(fn (CatalogItem $item): bool => $this->normalizeText((string) $item->sku) === $code);
+            if ($skuMatch) {
+                return $skuMatch;
+            }
+        }
+
         $exact = $items->first(fn (CatalogItem $item): bool => $this->normalizeText($item->name) === $needle);
         if ($exact) {
             return $exact;
         }
 
-        $contains = $items->first(function (CatalogItem $item) use ($needle): bool {
-            $name = $this->normalizeText($item->name);
-
-            return $name !== '' && (str_contains($name, $needle) || str_contains($needle, $name));
-        });
-        if ($contains) {
-            return $contains;
-        }
-
-        $tokens = $this->tokens($description);
-        $best = null;
-        $bestScore = 0.0;
-        foreach ($items as $item) {
-            $itemTokens = $this->tokens($item->name);
-            if ($tokens === [] || $itemTokens === []) {
-                continue;
-            }
-            $overlap = count(array_intersect($tokens, $itemTokens));
-            $score = $overlap / max(count($tokens), count($itemTokens));
-            if ($score > $bestScore) {
-                $best = $item;
-                $bestScore = $score;
-            }
-        }
-
-        return $bestScore >= 0.45 ? $best : null;
+        return null;
     }
 
     private function unitCost(array $line): float
@@ -313,6 +299,25 @@ class InventoryPurchaseImportService
         return $text;
     }
 
+    private function lineCode(array $line, string $rawDescription): ?string
+    {
+        foreach (['codigo', 'codProducto', 'codigoProducto', 'codigoItem', 'codItem', 'sku'] as $key) {
+            $value = trim((string) Arr::get($line, $key, ''));
+            if ($value !== '') {
+                return $value;
+            }
+        }
+
+        $text = trim($rawDescription);
+        if (! str_contains($text, '|')) {
+            return null;
+        }
+
+        [$prefix] = array_map('trim', explode('|', $text, 2));
+
+        return $this->looksLikeSupplierCode($prefix) ? $prefix : null;
+    }
+
     private function looksLikeSupplierCode(string $value): bool
     {
         $code = strtoupper(trim($value));
@@ -344,16 +349,4 @@ class InventoryPurchaseImportService
         return trim((string) preg_replace('/[^A-Z0-9]+/', ' ', strtoupper(Str::ascii($value))));
     }
 
-    /**
-     * @return list<string>
-     */
-    private function tokens(string $value): array
-    {
-        $stop = ['DE', 'DEL', 'LA', 'EL', 'LOS', 'LAS', 'Y', 'CON', 'PARA', 'POR', 'EN', 'UN', 'UNA'];
-
-        return array_values(array_filter(
-            explode(' ', $this->normalizeText($value)),
-            fn (string $token): bool => strlen($token) >= 3 && ! in_array($token, $stop, true)
-        ));
-    }
 }
