@@ -32,6 +32,7 @@ class InventoryPurchaseImportService
 
         $supplier = $this->matchSupplier($tenant, (array) $issuer);
         $fuel = $this->fuelCharges($dte);
+        $taxPerceived = $this->taxPerceived($dte);
 
         return [
             'document' => [
@@ -41,6 +42,10 @@ class InventoryPurchaseImportService
                 'purchase_date' => trim((string) Arr::get($identification, 'fecEmi')) ?: now()->toDateString(),
                 'payment_condition' => ((int) Arr::get($summary, 'condicionOperacion', 1)) === 2 ? 'credit' : 'cash',
                 'document_total' => round((float) (Arr::get($summary, 'totalPagar') ?? Arr::get($summary, 'montoTotalOperacion') ?? 0), 2),
+                'apply_tax_perceived' => $taxPerceived > 0,
+                'tax_perceived_mode' => $taxPerceived > 0 ? 'dte' : 'auto',
+                'tax_perceived_rate' => 1,
+                'tax_perceived_amount' => $taxPerceived,
                 'apply_fuel_charges' => $fuel !== null,
                 'fovial_per_unit' => $fuel['fovial_per_unit'] ?? 0,
                 'cotrans_per_unit' => $fuel['cotrans_per_unit'] ?? 0,
@@ -237,6 +242,22 @@ class InventoryPurchaseImportService
             'fovial_per_unit' => round($fovial / $gallons, 4),
             'cotrans_per_unit' => round($cotrans / $gallons, 4),
         ];
+    }
+
+    private function taxPerceived(array $dte): float
+    {
+        $total = 0.0;
+        foreach ((array) Arr::get($dte, 'resumen.tributos', []) as $tax) {
+            $code = strtoupper(trim((string) Arr::get($tax, 'codigo')));
+            $description = $this->normalizeText((string) Arr::get($tax, 'descripcion'));
+            $value = (float) Arr::get($tax, 'valor', 0);
+
+            if ($value > 0 && ($code === '20' || str_contains($description, 'IVA PERCIB'))) {
+                $total += $value;
+            }
+        }
+
+        return round($total, 2);
     }
 
     private function gallons(mixed $line): float

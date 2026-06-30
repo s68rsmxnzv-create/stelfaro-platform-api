@@ -209,6 +209,23 @@ class PlatformInventoryTest extends TestCase
             ->assertJsonPath('data.lines.0.matched_catalog_item.id', $item->id);
     }
 
+    public function test_dte_json_import_detects_tax_perceived_from_tributes(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        $payload = $this->supplierDteJson();
+        $payload['resumen']['totalPagar'] = 114.3;
+        $payload['resumen']['tributos'][] = ['codigo' => '20', 'descripcion' => 'IVA Percibido', 'valor' => 1];
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/purchases/import-dte-json", [
+                'payload' => $payload,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.document.apply_tax_perceived', true)
+            ->assertJsonPath('data.document.tax_perceived_mode', 'dte')
+            ->assertJsonPath('data.document.tax_perceived_amount', 1);
+    }
+
     public function test_purchase_supports_consumables_without_inventory_and_fuel_charges(): void
     {
         [$owner, $tenant] = $this->userWithTenantRole('owner');
@@ -237,6 +254,31 @@ class PlatformInventoryTest extends TestCase
         $this->assertSame(0.0, (float) $item->stock_quantity);
         $this->assertDatabaseMissing('inventory_lots', ['catalog_item_id' => $item->id]);
         $this->assertDatabaseMissing('inventory_movements', ['catalog_item_id' => $item->id, 'reason' => 'purchase']);
+    }
+
+    public function test_purchase_uses_detected_tax_perceived_amount(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        $item = $this->inventoryItem($tenant, 'IVA-001');
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/purchases", [
+                'document_type' => 'dte_ccf',
+                'document_mode' => 'dte',
+                'document_number' => 'IVA-PERC-1',
+                'payment_condition' => 'cash',
+                'document_total' => 114,
+                'purchase_date' => '2026-06-30',
+                'apply_tax_perceived' => true,
+                'tax_perceived_mode' => 'dte',
+                'tax_perceived_amount' => 1,
+                'lines' => [
+                    ['catalog_item_id' => $item->id, 'quantity' => 1, 'unit_cost' => 100],
+                ],
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.tax_perceived', '1.00')
+            ->assertJsonPath('data.total', '114.00');
     }
 
     /**

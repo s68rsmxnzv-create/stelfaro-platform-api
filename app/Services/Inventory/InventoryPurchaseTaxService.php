@@ -149,6 +149,10 @@ class InventoryPurchaseTaxService
             return 0.0;
         }
 
+        if (array_key_exists('tax_perceived_amount', $data) && $data['tax_perceived_amount'] !== null && $data['tax_perceived_amount'] !== '') {
+            return round(max(0.0, (float) $data['tax_perceived_amount']), 2);
+        }
+
         $mode = strtolower(trim((string) ($data['tax_perceived_mode'] ?? 'auto')));
         $rate = $mode === 'manual' ? (float) ($data['tax_perceived_rate'] ?? 0) / 100 : 0.01;
 
