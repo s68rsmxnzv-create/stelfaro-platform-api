@@ -41,6 +41,8 @@ class InventoryPurchaseImportService
                 'document_number' => trim((string) (Arr::get($identification, 'codigoGeneracion') ?: Arr::get($identification, 'numeroControl'))),
                 'purchase_date' => trim((string) Arr::get($identification, 'fecEmi')) ?: now()->toDateString(),
                 'payment_condition' => ((int) Arr::get($summary, 'condicionOperacion', 1)) === 2 ? 'credit' : 'cash',
+                'subtotal' => $this->summarySubtotal((array) $summary),
+                'tax_amount' => round((float) Arr::get($summary, 'totalIva', 0), 2),
                 'document_total' => round((float) (Arr::get($summary, 'totalPagar') ?? Arr::get($summary, 'montoTotalOperacion') ?? 0), 2),
                 'apply_tax_perceived' => $taxPerceived > 0,
                 'tax_perceived_mode' => $taxPerceived > 0 ? 'dte' : 'auto',
@@ -135,6 +137,7 @@ class InventoryPurchaseImportService
             'description' => $description,
             'quantity' => round((float) Arr::get($line, 'cantidad', 0), 3),
             'unit_cost' => round($this->unitCost($line), 4),
+            'subtotal' => round($this->lineSubtotal($line), 2),
             'unit_code' => (string) (Arr::get($line, 'uniMedida') ?: '59'),
             'supplier_code' => $supplierCode,
             'no_inventory' => $this->inferNoInventory($description) || ($item && ! $item->controls_inventory),
@@ -175,10 +178,7 @@ class InventoryPurchaseImportService
             return 0.0;
         }
 
-        $net = (float) Arr::get($line, 'ventaGravada', 0)
-            + (float) Arr::get($line, 'ventaExenta', 0)
-            + (float) Arr::get($line, 'ventaNoSuj', 0)
-            + (float) Arr::get($line, 'compra', 0);
+        $net = $this->lineSubtotal($line);
         if ($net > 0) {
             return $net / $quantity;
         }
@@ -187,6 +187,23 @@ class InventoryPurchaseImportService
         $discount = max(0.0, (float) Arr::get($line, 'montoDescu', 0));
 
         return $price > 0 ? max(($price * $quantity) - $discount, 0) / $quantity : 0.0;
+    }
+
+    private function lineSubtotal(array $line): float
+    {
+        return (float) Arr::get($line, 'ventaGravada', 0)
+            + (float) Arr::get($line, 'ventaExenta', 0)
+            + (float) Arr::get($line, 'ventaNoSuj', 0)
+            + (float) Arr::get($line, 'compra', 0);
+    }
+
+    private function summarySubtotal(array $summary): float
+    {
+        $subtotal = (float) Arr::get($summary, 'totalGravada', 0)
+            + (float) Arr::get($summary, 'totalExenta', 0)
+            + (float) Arr::get($summary, 'totalNoSuj', 0);
+
+        return round($subtotal > 0 ? $subtotal : (float) Arr::get($summary, 'subTotalVentas', 0), 2);
     }
 
     private function fuelCharges(array $dte): ?array

@@ -68,8 +68,10 @@ class InventoryPurchaseTaxService
                 || in_array((string) $item->item_type, ['service', 'labor'], true);
             $inventoryQuantity = $noInventory ? 0.0 : $this->inventoryQuantity($item, $quantity);
             $inventoryUnitCost = $this->inventoryUnitCost($item, $baseUnit);
-            $lineTax = round($quantity * $taxUnit, 2);
-            $lineSubtotal = round($quantity * $baseUnit, 2);
+            $lineSubtotal = array_key_exists('subtotal', $line) && $line['subtotal'] !== null
+                ? round((float) $line['subtotal'], 2)
+                : round($quantity * $baseUnit, 2);
+            $lineTax = round($lineSubtotal * $taxRate, 2);
 
             $lines[] = [
                 'catalog_item_id' => $item->id,
@@ -85,7 +87,7 @@ class InventoryPurchaseTaxService
                 'tax_rate' => $taxRate,
                 'total_unit_amount' => $totalUnit,
                 'tax_amount' => $lineTax,
-                'line_total' => round($quantity * $totalUnit, 2),
+                'line_total' => round($lineSubtotal + $lineTax, 2),
                 'price_includes_tax' => $priceIncludesTax,
                 'no_inventory' => $noInventory,
                 'controls_inventory_snapshot' => (bool) $item->controls_inventory,
@@ -97,6 +99,9 @@ class InventoryPurchaseTaxService
             $quantityTotal += $quantity;
         }
 
+        $taxTotal = $documentMode === 'dte' && array_key_exists('tax_amount', $data) && $data['tax_amount'] !== null
+            ? round((float) $data['tax_amount'], 2)
+            : round($taxTotal, 2);
         $taxPerceived = $this->taxPerceived((float) $subtotal, $data);
         $fovial = max(0.0, round((float) ($data['fovial_per_unit'] ?? 0), 4));
         $cotrans = max(0.0, round((float) ($data['cotrans_per_unit'] ?? 0), 4));

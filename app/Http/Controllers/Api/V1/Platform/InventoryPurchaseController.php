@@ -49,6 +49,7 @@ class InventoryPurchaseController extends Controller
             'document_mode' => ['nullable', 'string', Rule::in(['manual', 'dte', 'physical'])],
             'document_number' => ['nullable', 'string', 'max:80'],
             'payment_condition' => ['nullable', 'string', Rule::in(['cash', 'credit', 'contado', 'credito'])],
+            'tax_amount' => ['nullable', 'numeric', 'gte:0'],
             'document_total' => ['nullable', 'numeric', 'gte:0'],
             'is_consumable' => ['sometimes', 'boolean'],
             'apply_tax_perceived' => ['sometimes', 'boolean'],
@@ -74,6 +75,7 @@ class InventoryPurchaseController extends Controller
             'lines.*.unit_name' => ['nullable', 'string', 'max:60'],
             'lines.*.quantity' => ['required', 'numeric', 'gt:0'],
             'lines.*.unit_cost' => ['required', 'numeric', 'gte:0'],
+            'lines.*.subtotal' => ['nullable', 'numeric', 'gte:0'],
             'lines.*.price_includes_tax' => ['sometimes', 'boolean'],
             'lines.*.no_inventory' => ['sometimes', 'boolean'],
         ]);

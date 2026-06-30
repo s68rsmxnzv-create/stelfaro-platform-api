@@ -187,8 +187,11 @@ class PlatformInventoryTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.supplier.matched.name', 'Proveedor Uno')
             ->assertJsonPath('data.document.document_type', 'dte_ccf')
+            ->assertJsonPath('data.document.subtotal', 100)
+            ->assertJsonPath('data.document.tax_amount', 13)
             ->assertJsonPath('data.document.fovial_per_unit', 0.2)
             ->assertJsonPath('data.document.cotrans_per_unit', 0.1)
+            ->assertJsonPath('data.lines.0.subtotal', 100)
             ->assertJsonPath('data.lines.0.matched_catalog_item.id', $item->id);
     }
 
@@ -349,6 +352,30 @@ class PlatformInventoryTest extends TestCase
             ->assertJsonPath('data.total', '114.00');
     }
 
+    public function test_dte_purchase_respects_document_tax_rounding(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        $item = $this->inventoryItem($tenant, 'ROUND-001');
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/purchases", [
+                'document_type' => 'dte_ccf',
+                'document_mode' => 'dte',
+                'document_number' => 'ROUND-1',
+                'payment_condition' => 'cash',
+                'tax_amount' => 13.01,
+                'document_total' => 113.01,
+                'purchase_date' => '2026-06-30',
+                'lines' => [
+                    ['catalog_item_id' => $item->id, 'quantity' => 3, 'unit_cost' => 33.3333, 'subtotal' => 100],
+                ],
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.subtotal', '100.00')
+            ->assertJsonPath('data.tax_amount', '13.01')
+            ->assertJsonPath('data.total', '113.01');
+    }
+
     /**
      * @return array{0: User, 1: Tenant}
      */
@@ -417,6 +444,8 @@ class PlatformInventoryTest extends TestCase
             ],
             'resumen' => [
                 'condicionOperacion' => 1,
+                'totalGravada' => 100,
+                'totalIva' => 13,
                 'totalPagar' => 113.3,
                 'tributos' => [
                     ['codigo' => 'C8', 'descripcion' => 'FOVIAL', 'valor' => 2],
