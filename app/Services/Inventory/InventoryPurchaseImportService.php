@@ -246,13 +246,17 @@ class InventoryPurchaseImportService
 
     private function taxPerceived(array $dte): float
     {
+        $summaryAmount = (float) Arr::get($dte, 'resumen.ivaPerci1', 0);
+        if ($summaryAmount > 0) {
+            return round($summaryAmount, 2);
+        }
+
         $total = 0.0;
         foreach ((array) Arr::get($dte, 'resumen.tributos', []) as $tax) {
-            $code = strtoupper(trim((string) Arr::get($tax, 'codigo')));
             $description = $this->normalizeText((string) Arr::get($tax, 'descripcion'));
             $value = (float) Arr::get($tax, 'valor', 0);
 
-            if ($value > 0 && ($code === '20' || str_contains($description, 'IVA PERCIB'))) {
+            if ($value > 0 && str_contains($description, 'IVA PERCIB')) {
                 $total += $value;
             }
         }

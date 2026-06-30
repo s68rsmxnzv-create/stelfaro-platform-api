@@ -214,7 +214,7 @@ class PlatformInventoryTest extends TestCase
         [$owner, $tenant] = $this->userWithTenantRole('owner');
         $payload = $this->supplierDteJson();
         $payload['resumen']['totalPagar'] = 114.3;
-        $payload['resumen']['tributos'][] = ['codigo' => '20', 'descripcion' => 'IVA Percibido', 'valor' => 1];
+        $payload['resumen']['tributos'][] = ['codigo' => 'C5', 'descripcion' => 'IVA Percibido', 'valor' => 1];
 
         $this->actingAs($owner)
             ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/purchases/import-dte-json", [
@@ -224,6 +224,38 @@ class PlatformInventoryTest extends TestCase
             ->assertJsonPath('data.document.apply_tax_perceived', true)
             ->assertJsonPath('data.document.tax_perceived_mode', 'dte')
             ->assertJsonPath('data.document.tax_perceived_amount', 1);
+    }
+
+    public function test_dte_json_import_uses_iva_perci1_without_confusing_regular_iva(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        $payload = $this->supplierDteJson();
+        $payload['resumen']['totalPagar'] = 114.3;
+        $payload['resumen']['ivaPerci1'] = 1;
+        $payload['resumen']['tributos'][] = ['codigo' => '20', 'descripcion' => 'Impuesto al Valor Agregado 13%', 'valor' => 13];
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/purchases/import-dte-json", [
+                'payload' => $payload,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.document.apply_tax_perceived', true)
+            ->assertJsonPath('data.document.tax_perceived_amount', 1);
+    }
+
+    public function test_dte_json_import_does_not_treat_regular_iva_tribute_as_perceived(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        $payload = $this->supplierDteJson();
+        $payload['resumen']['tributos'][] = ['codigo' => '20', 'descripcion' => 'Impuesto al Valor Agregado 13%', 'valor' => 13];
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/purchases/import-dte-json", [
+                'payload' => $payload,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.document.apply_tax_perceived', false)
+            ->assertJsonPath('data.document.tax_perceived_amount', 0);
     }
 
     public function test_purchase_supports_consumables_without_inventory_and_fuel_charges(): void
