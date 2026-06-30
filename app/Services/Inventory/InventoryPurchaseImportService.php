@@ -121,7 +121,7 @@ class InventoryPurchaseImportService
 
     private function linePreview(Tenant $tenant, array $line): array
     {
-        $description = trim((string) (Arr::get($line, 'descripcion') ?: 'Linea DTE'));
+        $description = $this->cleanLineDescription((string) (Arr::get($line, 'descripcion') ?: 'Linea DTE'));
         $item = $this->matchItem($tenant, $description);
 
         return [
@@ -269,6 +269,34 @@ class InventoryPurchaseImportService
 
         return collect(['ENVIO', 'FLETE', 'SERVICIO', 'TRANSPORTE', 'MANEJO', 'CARGO'])
             ->contains(fn (string $token): bool => str_contains($text, $token));
+    }
+
+    private function cleanLineDescription(string $description): string
+    {
+        $text = trim($description);
+        if ($text === '') {
+            return 'Linea DTE';
+        }
+
+        if (str_contains($text, '|')) {
+            [$prefix, $rest] = array_map('trim', explode('|', $text, 2));
+            if ($rest !== '' && $this->looksLikeSupplierCode($prefix)) {
+                return $rest;
+            }
+        }
+
+        return $text;
+    }
+
+    private function looksLikeSupplierCode(string $value): bool
+    {
+        $code = strtoupper(trim($value));
+        if ($code === '' || strlen($code) > 40) {
+            return false;
+        }
+
+        return preg_match('/^[A-Z0-9][A-Z0-9._-]*$/', $code) === 1
+            && preg_match('/\d/', $code) === 1;
     }
 
     private function addressFromIssuer(array $issuer): ?string

@@ -192,6 +192,23 @@ class PlatformInventoryTest extends TestCase
             ->assertJsonPath('data.lines.0.matched_catalog_item.id', $item->id);
     }
 
+    public function test_dte_json_import_strips_supplier_code_prefix_from_description(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        $item = $this->inventoryItem($tenant, 'CAN-001');
+        $item->forceFill(['name' => 'Canon Pixma MegaTank G3170 AIO WIFI 11/6 IPM'])->save();
+        $payload = $this->supplierDteJson();
+        $payload['cuerpoDocumento'][0]['descripcion'] = '5805C004AB|Canon Pixma MegaTank G3170 AIO WIFI 11/6 IPM';
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/purchases/import-dte-json", [
+                'payload' => $payload,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.lines.0.description', 'Canon Pixma MegaTank G3170 AIO WIFI 11/6 IPM')
+            ->assertJsonPath('data.lines.0.matched_catalog_item.id', $item->id);
+    }
+
     public function test_purchase_supports_consumables_without_inventory_and_fuel_charges(): void
     {
         [$owner, $tenant] = $this->userWithTenantRole('owner');
