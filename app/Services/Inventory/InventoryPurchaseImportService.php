@@ -129,7 +129,7 @@ class InventoryPurchaseImportService
         $rawDescription = (string) (Arr::get($line, 'descripcion') ?: 'Linea DTE');
         $description = $this->cleanLineDescription($rawDescription);
         $supplierCode = $this->lineCode($line, $rawDescription);
-        $item = $this->matchItem($tenant, $description, $supplierCode);
+        $item = $this->matchItem($tenant, $description);
 
         return [
             'description' => $description,
@@ -148,7 +148,7 @@ class InventoryPurchaseImportService
         ];
     }
 
-    private function matchItem(Tenant $tenant, string $description, ?string $supplierCode = null): ?CatalogItem
+    private function matchItem(Tenant $tenant, string $description): ?CatalogItem
     {
         $needle = $this->normalizeText($description);
         if ($needle === '') {
@@ -159,14 +159,6 @@ class InventoryPurchaseImportService
             ->where('tenant_id', $tenant->id)
             ->where('status', 'active')
             ->get();
-
-        $code = $this->normalizeText((string) $supplierCode);
-        if ($code !== '') {
-            $skuMatch = $items->first(fn (CatalogItem $item): bool => $this->normalizeText((string) $item->sku) === $code);
-            if ($skuMatch) {
-                return $skuMatch;
-            }
-        }
 
         $exact = $items->first(fn (CatalogItem $item): bool => $this->normalizeText($item->name) === $needle);
         if ($exact) {

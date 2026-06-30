@@ -227,7 +227,7 @@ class PlatformInventoryTest extends TestCase
             ->assertJsonPath('data.lines.0.matched_catalog_item', null);
     }
 
-    public function test_dte_json_import_matches_product_by_supplier_code_against_sku(): void
+    public function test_dte_json_import_preserves_supplier_code_without_matching_it_as_internal_sku(): void
     {
         [$owner, $tenant] = $this->userWithTenantRole('owner');
         $item = $this->inventoryItem($tenant, '5805C004AB');
@@ -242,7 +242,7 @@ class PlatformInventoryTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('data.lines.0.supplier_code', '5805C004AB')
-            ->assertJsonPath('data.lines.0.matched_catalog_item.id', $item->id);
+            ->assertJsonPath('data.lines.0.matched_catalog_item', null);
     }
 
     public function test_dte_json_import_detects_tax_perceived_from_tributes(): void
