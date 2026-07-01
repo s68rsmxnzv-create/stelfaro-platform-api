@@ -394,6 +394,31 @@ class PlatformInventoryTest extends TestCase
             ->assertJsonPath('data.document.tax_perceived_amount', 0);
     }
 
+    public function test_dte_json_import_uses_regular_iva_tribute_when_total_iva_is_missing(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        $payload = $this->supplierDteJson();
+        $payload['resumen']['totalIva'] = 0;
+        $payload['resumen']['totalPagar'] = 10.99;
+        $payload['resumen']['totalGravada'] = 9.73;
+        $payload['resumen']['tributos'] = [
+            ['codigo' => '20', 'descripcion' => 'Impuesto al Valor Agregado 13%', 'valor' => 1.26],
+        ];
+        $payload['cuerpoDocumento'][0]['ventaGravada'] = 9.73;
+        $payload['cuerpoDocumento'][0]['cantidad'] = 1;
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/purchases/import-dte-json", [
+                'payload' => $payload,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.document.subtotal', 9.73)
+            ->assertJsonPath('data.document.tax_amount', 1.26)
+            ->assertJsonPath('data.document.document_total', 10.99)
+            ->assertJsonPath('data.document.apply_tax_perceived', false)
+            ->assertJsonPath('data.import_metadata.tributes.0.codigo', '20');
+    }
+
     public function test_purchase_supports_consumables_without_inventory_and_fuel_charges(): void
     {
         [$owner, $tenant] = $this->userWithTenantRole('owner');

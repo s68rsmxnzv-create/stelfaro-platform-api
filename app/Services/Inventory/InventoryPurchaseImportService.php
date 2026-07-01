@@ -33,6 +33,7 @@ class InventoryPurchaseImportService
         $supplier = $this->matchSupplier($tenant, (array) $issuer);
         $fuel = $this->fuelCharges($dte);
         $taxPerceived = $this->taxPerceived($dte);
+        $regularTax = $this->regularTax($dte);
 
         return [
             'document' => [
@@ -42,7 +43,7 @@ class InventoryPurchaseImportService
                 'purchase_date' => trim((string) Arr::get($identification, 'fecEmi')) ?: now()->toDateString(),
                 'payment_condition' => ((int) Arr::get($summary, 'condicionOperacion', 1)) === 2 ? 'credit' : 'cash',
                 'subtotal' => $this->summarySubtotal((array) $summary),
-                'tax_amount' => round((float) Arr::get($summary, 'totalIva', 0), 2),
+                'tax_amount' => $regularTax,
                 'document_total' => round((float) (Arr::get($summary, 'totalPagar') ?? Arr::get($summary, 'montoTotalOperacion') ?? 0), 2),
                 'apply_tax_perceived' => $taxPerceived > 0,
                 'tax_perceived_mode' => $taxPerceived > 0 ? 'dte' : 'auto',
@@ -73,6 +74,7 @@ class InventoryPurchaseImportService
                 'payload_hash' => hash('sha256', json_encode($dte, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: ''),
                 'tipo_dte' => Arr::get($identification, 'tipoDte'),
                 'numero_control' => Arr::get($identification, 'numeroControl'),
+                'tributes' => $this->tributesSummary((array) Arr::get($dte, 'resumen.tributos', [])),
             ],
         ];
     }
@@ -257,6 +259,48 @@ class InventoryPurchaseImportService
         }
 
         return round($total, 2);
+    }
+
+    private function regularTax(array $dte): float
+    {
+        $summaryAmount = (float) Arr::get($dte, 'resumen.totalIva', 0);
+        if ($summaryAmount > 0) {
+            return round($summaryAmount, 2);
+        }
+
+        $total = 0.0;
+        foreach ((array) Arr::get($dte, 'resumen.tributos', []) as $tax) {
+            $code = strtoupper(trim((string) Arr::get($tax, 'codigo')));
+            $description = $this->normalizeText((string) Arr::get($tax, 'descripcion'));
+            $value = (float) Arr::get($tax, 'valor', 0);
+
+            if ($value <= 0 || str_contains($description, 'PERCIB') || str_contains($description, 'RETEN')) {
+                continue;
+            }
+
+            if ($code === '20' || str_contains($description, 'VALOR AGREGADO') || str_contains($description, 'IVA 13')) {
+                $total += $value;
+            }
+        }
+
+        return round($total, 2);
+    }
+
+    /**
+     * @param  array<int, mixed>  $tributes
+     * @return array<int, array{codigo:string|null,descripcion:string|null,valor:float}>
+     */
+    private function tributesSummary(array $tributes): array
+    {
+        return collect($tributes)
+            ->filter(fn ($tax): bool => is_array($tax))
+            ->map(fn (array $tax): array => [
+                'codigo' => Arr::get($tax, 'codigo'),
+                'descripcion' => Arr::get($tax, 'descripcion'),
+                'valor' => round((float) Arr::get($tax, 'valor', 0), 2),
+            ])
+            ->values()
+            ->all();
     }
 
     private function gallons(mixed $line): float
