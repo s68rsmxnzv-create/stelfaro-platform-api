@@ -26,6 +26,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'reference_cost',
     'cost_source',
     'stock_quantity',
+    'min_stock_quantity',
     'status',
     'metadata',
 ])]
@@ -42,6 +43,7 @@ class CatalogItem extends Model
             'base_price' => 'decimal:2',
             'reference_cost' => 'decimal:4',
             'stock_quantity' => 'decimal:3',
+            'min_stock_quantity' => 'decimal:3',
             'units_per_package' => 'integer',
             'metadata' => 'array',
         ];

@@ -129,6 +129,7 @@ class CatalogItemController extends Controller
             'base_price' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
             'base_price_includes_tax' => ['nullable', 'boolean'],
             'reference_cost' => ['nullable', 'numeric', 'min:0', 'max:999999999.9999'],
+            'min_stock_quantity' => ['nullable', 'numeric', 'min:0', 'max:999999999.999'],
             'status' => ['nullable', 'string', Rule::in(['active', 'inactive'])],
         ];
 
@@ -159,6 +160,7 @@ class CatalogItemController extends Controller
             $validated['base_price_includes_tax'] = (bool) ($validated['base_price_includes_tax'] ?? false);
             $validated['cost_source'] = $referenceCost !== null ? 'reference' : 'none';
             $validated['stock_quantity'] = 0;
+            $validated['min_stock_quantity'] = $validated['min_stock_quantity'] ?? 0;
             $validated['status'] = (string) ($validated['status'] ?? 'active');
         }
 
@@ -234,6 +236,7 @@ class CatalogItemController extends Controller
             'reference_cost' => $item->reference_cost !== null ? (float) $item->reference_cost : null,
             'cost_source' => $item->cost_source,
             'stock_quantity' => (float) $item->stock_quantity,
+            'min_stock_quantity' => (float) $item->min_stock_quantity,
             'status' => $item->status,
             'metadata' => $item->metadata,
             'created_at' => $item->created_at?->toISOString(),

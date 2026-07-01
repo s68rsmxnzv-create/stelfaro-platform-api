@@ -5,11 +5,17 @@ namespace App\Services\Inventory;
 use App\Models\CatalogItem;
 use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
+use App\Models\InventoryPhysicalCount;
+use App\Models\InventoryPhysicalCountLine;
 use App\Models\InventoryPurchase;
 use App\Models\InventoryPurchaseLine;
 use App\Models\InventoryReservation;
 use App\Models\InventoryReservationLine;
+use App\Models\InventorySale;
+use App\Models\InventorySaleLine;
 use App\Models\InventorySaleAllocation;
+use App\Models\InventoryTransfer;
+use App\Models\InventoryTransferLine;
 use App\Models\Tenant;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -17,6 +23,126 @@ use InvalidArgumentException;
 
 class InventoryService
 {
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    public function recordSale(Tenant $tenant, array $data, ?int $userId = null): InventorySale
+    {
+        return DB::transaction(function () use ($tenant, $data, $userId): InventorySale {
+            $sourceType = $this->blankToNull($data['source_type'] ?? null) ?? 'dte';
+            $sourceId = $this->blankToNull($data['source_id'] ?? null);
+            if (! $sourceId) {
+                throw new InvalidArgumentException('La venta necesita identificador de DTE.');
+            }
+
+            $existing = InventorySale::query()
+                ->where('tenant_id', $tenant->id)
+                ->where('source_type', $sourceType)
+                ->where('source_id', $sourceId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($existing) {
+                $fresh = $existing->fresh(['lines.catalogItem']);
+                $fresh->wasRecentlyCreated = false;
+
+                return $fresh;
+            }
+
+            $branch = $this->branchScope($data);
+            $sale = InventorySale::query()->create([
+                'tenant_id' => $tenant->id,
+                ...$branch,
+                'source_type' => $sourceType,
+                'source_id' => $sourceId,
+                'source_number' => $this->blankToNull($data['source_number'] ?? null),
+                'sale_date' => $data['sale_date'] ?? now()->toDateString(),
+                'status' => 'active',
+                'metadata' => $data['metadata'] ?? null,
+                'created_by' => $userId,
+            ]);
+
+            foreach ($data['lines'] as $line) {
+                $item = null;
+                if (! empty($line['catalog_item_id'])) {
+                    $item = CatalogItem::query()
+                        ->where('tenant_id', $tenant->id)
+                        ->find((int) $line['catalog_item_id']);
+                }
+
+                InventorySaleLine::query()->create([
+                    'tenant_id' => $tenant->id,
+                    'inventory_sale_id' => $sale->id,
+                    'catalog_item_id' => $item?->id,
+                    'line_origin' => $this->blankToNull($line['line_origin'] ?? null) ?? ($item ? ($item->controls_inventory ? 'inventory' : 'catalog') : 'free'),
+                    'description_snapshot' => $this->blankToNull($line['description'] ?? null) ?? $item?->name,
+                    'quantity' => $this->positiveQuantity($line['quantity'], 'La cantidad vendida debe ser mayor que cero.'),
+                    'unit_price' => round((float) ($line['unit_price'] ?? 0), 4),
+                    'discount_amount' => round((float) ($line['discount_amount'] ?? 0), 2),
+                    'net_total' => round((float) ($line['net_total'] ?? 0), 2),
+                    'reference_unit_cost' => round((float) ($line['reference_unit_cost'] ?? $item?->reference_cost ?? 0), 4),
+                ]);
+            }
+
+            $fresh = $sale->fresh(['lines.catalogItem']);
+            $fresh->wasRecentlyCreated = true;
+
+            return $fresh;
+        });
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array{sale:InventorySale|null,reservation:InventoryReservation|null}
+     */
+    public function reverseDteSale(Tenant $tenant, array $data, ?int $userId = null): array
+    {
+        return DB::transaction(function () use ($tenant, $data, $userId): array {
+            $sourceId = $this->blankToNull($data['source_id'] ?? null);
+            if (! $sourceId) {
+                throw new InvalidArgumentException('La reversa necesita identificador del DTE invalidado.');
+            }
+
+            $sourceType = $this->blankToNull($data['source_type'] ?? null) ?? 'dte';
+            $eventId = $this->blankToNull($data['event_id'] ?? null);
+            $eventNumber = $this->blankToNull($data['event_number'] ?? null);
+
+            $sale = InventorySale::query()
+                ->where('tenant_id', $tenant->id)
+                ->where('source_type', $sourceType)
+                ->where('source_id', $sourceId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($sale && $sale->status !== 'reversed') {
+                $sale->status = 'reversed';
+                $sale->reversed_at = now();
+                $sale->save();
+            }
+
+            $reservation = InventoryReservation::query()
+                ->where('tenant_id', $tenant->id)
+                ->where('source_type', $sourceType)
+                ->where('source_id', $sourceId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($reservation && $reservation->status === InventoryReservation::STATUS_CONFIRMED) {
+                $reservation = $this->reverseConfirmedReservation($tenant, $reservation, [
+                    'source_type' => 'mh_invalidation',
+                    'source_id' => $eventId,
+                    'source_number' => $eventNumber,
+                    'notes' => $this->blankToNull($data['notes'] ?? null) ?? 'Reversa automática por invalidación tipo 2 aceptada por MH.',
+                ], $userId);
+            }
+
+            return [
+                'sale' => $sale?->fresh(['lines.catalogItem']),
+                'reservation' => $reservation?->fresh(['lines.catalogItem', 'lines.allocations.lot']),
+            ];
+        });
+    }
+
     /**
      * @param  array<string, mixed>  $data
      */
@@ -416,7 +542,7 @@ class InventoryService
                     'status' => 'active',
                 ]);
                 $item->stock_quantity = round((float) $item->stock_quantity + $quantity, 3);
-                $reason = 'manual_adjustment';
+                $reason = $this->blankToNull($data['reason'] ?? null) ?? 'manual_adjustment';
             } else {
                 $available = $this->availableQuantityForItem($tenant, $item, $branch['core_sucursal_id']);
                 if ($available < $quantity) {
@@ -424,7 +550,7 @@ class InventoryService
                 }
                 $lot = $this->consumeAdjustmentFromOldestLot($tenant, $item, $quantity, $branch['core_sucursal_id']);
                 $item->stock_quantity = round((float) $item->stock_quantity - $quantity, 3);
-                $reason = 'manual_adjustment';
+                $reason = $this->blankToNull($data['reason'] ?? null) ?? 'manual_adjustment';
             }
 
             $item->reference_cost = $this->averageCostForLockedItem($tenant, $item);
@@ -432,6 +558,161 @@ class InventoryService
             $item->save();
 
             return $this->movement($tenant, $branch, $item, $lot, $direction, $reason, $quantity, $unitCost, $this->availableQuantityForItem($tenant, $item, $branch['core_sucursal_id']), 'adjustment', null, null, $this->blankToNull($data['notes'] ?? null), $userId);
+        });
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    public function physicalCount(Tenant $tenant, array $data, ?int $userId = null): InventoryPhysicalCount
+    {
+        return DB::transaction(function () use ($tenant, $data, $userId): InventoryPhysicalCount {
+            $branch = $this->branchScope($data);
+            $count = InventoryPhysicalCount::query()->create([
+                'tenant_id' => $tenant->id,
+                ...$branch,
+                'count_date' => $data['count_date'] ?? now()->toDateString(),
+                'status' => 'applied',
+                'notes' => $this->blankToNull($data['notes'] ?? null),
+                'created_by' => $userId,
+            ]);
+
+            foreach ($data['lines'] as $line) {
+                $item = $this->lockInventoryItem($tenant, (int) $line['catalog_item_id']);
+                $system = $this->availableQuantityForItem($tenant, $item, $branch['core_sucursal_id']);
+                $counted = round((float) $line['counted_quantity'], 3);
+                $difference = round($counted - $system, 3);
+
+                InventoryPhysicalCountLine::query()->create([
+                    'tenant_id' => $tenant->id,
+                    'inventory_physical_count_id' => $count->id,
+                    'catalog_item_id' => $item->id,
+                    'system_quantity' => $system,
+                    'counted_quantity' => $counted,
+                    'difference_quantity' => $difference,
+                ]);
+
+                if ($difference > 0) {
+                    $this->adjust($tenant, [
+                        ...$branch,
+                        'catalog_item_id' => $item->id,
+                        'direction' => 'entry',
+                        'quantity' => $difference,
+                        'unit_cost' => $item->reference_cost,
+                        'reason' => 'physical_count',
+                        'notes' => 'Conteo físico #'.$count->id,
+                    ], $userId);
+                } elseif ($difference < 0) {
+                    $this->adjust($tenant, [
+                        ...$branch,
+                        'catalog_item_id' => $item->id,
+                        'direction' => 'exit',
+                        'quantity' => abs($difference),
+                        'unit_cost' => $item->reference_cost,
+                        'reason' => 'physical_count',
+                        'notes' => 'Conteo físico #'.$count->id,
+                    ], $userId);
+                }
+            }
+
+            return $count->fresh(['lines.catalogItem']);
+        });
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    public function transfer(Tenant $tenant, array $data, ?int $userId = null): InventoryTransfer
+    {
+        return DB::transaction(function () use ($tenant, $data, $userId): InventoryTransfer {
+            $from = $this->branchScope([
+                'core_sucursal_id' => $data['from_core_sucursal_id'],
+                'core_sucursal_code' => $data['from_core_sucursal_code'] ?? null,
+                'core_sucursal_name' => $data['from_core_sucursal_name'] ?? null,
+            ]);
+            $to = $this->branchScope([
+                'core_sucursal_id' => $data['to_core_sucursal_id'],
+                'core_sucursal_code' => $data['to_core_sucursal_code'] ?? null,
+                'core_sucursal_name' => $data['to_core_sucursal_name'] ?? null,
+            ]);
+
+            if ($from['core_sucursal_id'] === null || $to['core_sucursal_id'] === null || $from['core_sucursal_id'] === $to['core_sucursal_id']) {
+                throw new InvalidArgumentException('Selecciona sucursales origen y destino diferentes.');
+            }
+
+            $transfer = InventoryTransfer::query()->create([
+                'tenant_id' => $tenant->id,
+                'from_core_sucursal_id' => $from['core_sucursal_id'],
+                'from_core_sucursal_code' => $from['core_sucursal_code'],
+                'from_core_sucursal_name' => $from['core_sucursal_name'],
+                'to_core_sucursal_id' => $to['core_sucursal_id'],
+                'to_core_sucursal_code' => $to['core_sucursal_code'],
+                'to_core_sucursal_name' => $to['core_sucursal_name'],
+                'transfer_number' => $this->nextTransferNumber($tenant),
+                'transfer_date' => $data['transfer_date'] ?? now()->toDateString(),
+                'status' => 'applied',
+                'notes' => $this->blankToNull($data['notes'] ?? null),
+                'created_by' => $userId,
+            ]);
+
+            foreach ($data['lines'] as $line) {
+                $item = $this->lockInventoryItem($tenant, (int) $line['catalog_item_id']);
+                $quantity = $this->positiveQuantity($line['quantity'], 'La cantidad a transferir debe ser mayor que cero.');
+                $available = $this->availableQuantityForItem($tenant, $item, $from['core_sucursal_id']);
+                if ($available < $quantity) {
+                    throw new InvalidArgumentException($this->insufficientStockMessage($tenant, $item, $quantity, $available, $from));
+                }
+
+                $remaining = $quantity;
+                $weightedCost = 0.0;
+                $lots = InventoryLot::query()
+                    ->where('tenant_id', $tenant->id)
+                    ->where('catalog_item_id', $item->id)
+                    ->where('core_sucursal_id', $from['core_sucursal_id'])
+                    ->where('available_quantity', '>', 0)
+                    ->orderByRaw('COALESCE(received_date, DATE(created_at)) asc')
+                    ->orderBy('id')
+                    ->lockForUpdate()
+                    ->get();
+
+                foreach ($lots as $lot) {
+                    if ($remaining <= 0) {
+                        break;
+                    }
+                    $take = min($remaining, (float) $lot->available_quantity);
+                    $lot->available_quantity = round((float) $lot->available_quantity - $take, 3);
+                    $lot->status = (float) $lot->available_quantity > 0 ? 'active' : 'depleted';
+                    $lot->save();
+
+                    $destinationLot = InventoryLot::query()->create([
+                        'tenant_id' => $tenant->id,
+                        ...$to,
+                        'catalog_item_id' => $item->id,
+                        'lot_code' => $this->nextLotCode($tenant, $item, 'TRF'),
+                        'received_date' => $transfer->transfer_date,
+                        'unit_cost' => $lot->unit_cost,
+                        'initial_quantity' => $take,
+                        'available_quantity' => $take,
+                        'status' => 'active',
+                    ]);
+
+                    $weightedCost += $take * (float) $lot->unit_cost;
+                    $remaining = round($remaining - $take, 3);
+
+                    $this->movement($tenant, $from, $item, $lot, 'exit', 'transfer_out', $take, (float) $lot->unit_cost, $this->availableQuantityForItem($tenant, $item, $from['core_sucursal_id']), 'transfer', (string) $transfer->id, $transfer->transfer_number, $transfer->notes, $userId);
+                    $this->movement($tenant, $to, $item, $destinationLot, 'entry', 'transfer_in', $take, (float) $lot->unit_cost, $this->availableQuantityForItem($tenant, $item, $to['core_sucursal_id']), 'transfer', (string) $transfer->id, $transfer->transfer_number, $transfer->notes, $userId);
+                }
+
+                InventoryTransferLine::query()->create([
+                    'tenant_id' => $tenant->id,
+                    'inventory_transfer_id' => $transfer->id,
+                    'catalog_item_id' => $item->id,
+                    'quantity' => $quantity,
+                    'unit_cost' => $quantity > 0 ? round($weightedCost / $quantity, 4) : 0,
+                ]);
+            }
+
+            return $transfer->fresh(['lines.catalogItem']);
         });
     }
 
@@ -498,6 +779,11 @@ class InventoryService
             ->where('tenant_id', $tenant->id)
             ->lockForUpdate()
             ->max('purchase_number') + 1;
+    }
+
+    private function nextTransferNumber(Tenant $tenant): string
+    {
+        return 'TRF-'.str_pad((string) ((int) InventoryTransfer::query()->where('tenant_id', $tenant->id)->count() + 1), 8, '0', STR_PAD_LEFT);
     }
 
     private function averageCostForLockedItem(Tenant $tenant, CatalogItem $item): float

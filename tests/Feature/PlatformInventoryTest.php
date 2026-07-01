@@ -498,6 +498,232 @@ class PlatformInventoryTest extends TestCase
             ->assertJsonPath('data.total', '113.01');
     }
 
+    public function test_record_sale_tracks_inventory_catalog_and_free_lines_for_reports(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        $inventory = $this->inventoryItem($tenant, 'INV-REP');
+        $catalog = CatalogItem::query()->create([
+            'tenant_id' => $tenant->id,
+            'sku' => 'CAT-REP',
+            'name' => 'Servicio catalogado',
+            'item_type' => 'service',
+            'controls_inventory' => false,
+            'base_price' => 20,
+            'stock_quantity' => 0,
+            'status' => 'active',
+        ]);
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/sales", [
+                'source_type' => 'dte',
+                'source_id' => 'DTE-REP-1',
+                'source_number' => 'DTE-01-REP',
+                'sale_date' => '2026-07-01',
+                'lines' => [
+                    ['catalog_item_id' => $inventory->id, 'line_origin' => 'inventory', 'description' => $inventory->name, 'quantity' => 2, 'unit_price' => 25, 'net_total' => 50, 'reference_unit_cost' => 10],
+                    ['catalog_item_id' => $catalog->id, 'line_origin' => 'catalog', 'description' => $catalog->name, 'quantity' => 1, 'unit_price' => 20, 'net_total' => 20],
+                    ['line_origin' => 'free', 'description' => 'Descripcion libre', 'quantity' => 3, 'unit_price' => 5, 'net_total' => 15],
+                ],
+            ])
+            ->assertCreated();
+
+        $this->actingAs($owner)
+            ->getJson("/api/v1/platform/tenants/{$tenant->id}/inventory/reports/sales?from=2026-07-01&to=2026-07-01")
+            ->assertOk()
+            ->assertJsonFragment(['name' => $inventory->name, 'quantity' => '2.000', 'sales_total' => 50])
+            ->assertJsonFragment(['name' => $catalog->name, 'quantity' => '1.000', 'sales_total' => 20])
+            ->assertJsonFragment(['name' => 'Descripcion libre', 'quantity' => '3.000', 'sales_total' => 15]);
+    }
+
+    public function test_reverse_by_source_marks_sale_and_restores_confirmed_reservation(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        $item = $this->inventoryItem($tenant, 'REV-SRC');
+        $lot = $this->lot($tenant, $item, 'L-REV-SRC', '2026-07-01', 1, 9);
+        $item->forceFill(['stock_quantity' => 1, 'reference_cost' => 9, 'cost_source' => 'real'])->save();
+
+        $reserve = $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/reservations", [
+                'idempotency_key' => 'reverse-by-source',
+                'lines' => [
+                    ['catalog_item_id' => $item->id, 'quantity' => 1],
+                ],
+            ])
+            ->assertCreated()
+            ->json('data');
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/reservations/{$reserve['id']}/confirm", [
+                'source_type' => 'dte',
+                'source_id' => '900',
+                'source_number' => 'DTE-900',
+            ])
+            ->assertOk();
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/sales", [
+                'source_type' => 'dte',
+                'source_id' => '900',
+                'source_number' => 'DTE-900',
+                'lines' => [
+                    ['catalog_item_id' => $item->id, 'line_origin' => 'inventory', 'quantity' => 1, 'net_total' => 25],
+                ],
+            ])
+            ->assertCreated();
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/sales/reverse-by-source", [
+                'source_type' => 'dte',
+                'source_id' => '900',
+                'event_id' => 'EV-900',
+                'event_number' => 'ANU-900',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.sale.status', 'reversed')
+            ->assertJsonPath('data.reservation.status', 'reversed');
+
+        $item->refresh();
+        $lot->refresh();
+        $this->assertSame(1.0, (float) $item->stock_quantity);
+        $this->assertSame(1.0, (float) $lot->available_quantity);
+        $this->assertDatabaseHas('inventory_movements', [
+            'tenant_id' => $tenant->id,
+            'catalog_item_id' => $item->id,
+            'reason' => 'reversal',
+            'reference_type' => 'mh_invalidation',
+            'reference_id' => 'EV-900',
+        ]);
+    }
+
+    public function test_physical_count_adjusts_branch_stock(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        $item = $this->inventoryItem($tenant, 'COUNT-001');
+        $this->lot($tenant, $item, 'L-COUNT', '2026-07-01', 5, 4, [
+            'core_sucursal_id' => 1,
+            'core_sucursal_code' => 'M001',
+            'core_sucursal_name' => 'Casa matriz',
+        ]);
+        $item->forceFill(['stock_quantity' => 5, 'reference_cost' => 4, 'cost_source' => 'real'])->save();
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/counts", [
+                'core_sucursal_id' => 1,
+                'core_sucursal_code' => 'M001',
+                'core_sucursal_name' => 'Casa matriz',
+                'count_date' => '2026-07-01',
+                'lines' => [
+                    ['catalog_item_id' => $item->id, 'counted_quantity' => 3],
+                ],
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.lines.0.difference_quantity', '-2.000');
+
+        $item->refresh();
+        $this->assertSame(3.0, (float) $item->stock_quantity);
+        $this->assertDatabaseHas('inventory_movements', [
+            'tenant_id' => $tenant->id,
+            'catalog_item_id' => $item->id,
+            'movement_type' => 'exit',
+            'reason' => 'physical_count',
+        ]);
+    }
+
+    public function test_transfer_moves_stock_between_branches_without_changing_total(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        $item = $this->inventoryItem($tenant, 'TRF-001');
+        $this->lot($tenant, $item, 'L-TRF', '2026-07-01', 5, 7, [
+            'core_sucursal_id' => 1,
+            'core_sucursal_code' => 'M001',
+            'core_sucursal_name' => 'Casa matriz',
+        ]);
+        $item->forceFill(['stock_quantity' => 5, 'reference_cost' => 7, 'cost_source' => 'real'])->save();
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/transfers", [
+                'from_core_sucursal_id' => 1,
+                'from_core_sucursal_code' => 'M001',
+                'from_core_sucursal_name' => 'Casa matriz',
+                'to_core_sucursal_id' => 2,
+                'to_core_sucursal_code' => 'S002',
+                'to_core_sucursal_name' => 'Sucursal dos',
+                'lines' => [
+                    ['catalog_item_id' => $item->id, 'quantity' => 2],
+                ],
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.lines.0.quantity', '2.000');
+
+        $item->refresh();
+        $this->assertSame(5.0, (float) $item->stock_quantity);
+        $this->assertSame(3.0, (float) InventoryLot::query()->where('catalog_item_id', $item->id)->where('core_sucursal_id', 1)->sum('available_quantity'));
+        $this->assertSame(2.0, (float) InventoryLot::query()->where('catalog_item_id', $item->id)->where('core_sucursal_id', 2)->sum('available_quantity'));
+        $this->assertDatabaseHas('inventory_movements', ['catalog_item_id' => $item->id, 'reason' => 'transfer_out']);
+        $this->assertDatabaseHas('inventory_movements', ['catalog_item_id' => $item->id, 'reason' => 'transfer_in']);
+    }
+
+    public function test_stock_alerts_report_items_below_minimum(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        $item = $this->inventoryItem($tenant, 'MIN-001');
+        $item->forceFill(['min_stock_quantity' => 5])->save();
+        $this->lot($tenant, $item, 'L-MIN', '2026-07-01', 2, 3);
+        $item->forceFill(['stock_quantity' => 2])->save();
+
+        $this->actingAs($owner)
+            ->getJson("/api/v1/platform/tenants/{$tenant->id}/inventory/reports/stock-alerts")
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => $item->id,
+                'sku' => 'MIN-001',
+                'below_minimum' => true,
+            ]);
+    }
+
+    public function test_purchase_annex_report_exposes_tax_purchase_base_data(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        $supplier = InventorySupplier::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Proveedor Anexo',
+            'tax_id' => '0614-010101-101-1',
+            'nrc' => '123456-7',
+            'status' => 'active',
+        ]);
+        $item = $this->inventoryItem($tenant, 'ANEXO-001');
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/purchases", [
+                'inventory_supplier_id' => $supplier->id,
+                'document_type' => 'dte_ccf',
+                'document_mode' => 'dte',
+                'document_number' => 'DTE-03-ANEXO',
+                'payment_condition' => 'cash',
+                'tax_amount' => 13,
+                'document_total' => 113,
+                'purchase_date' => '2026-07-01',
+                'fiscal_profile' => 'administrative_expense',
+                'fiscal_sector' => 2,
+                'import_metadata' => ['codigoGeneracion' => 'ANEXO-UUID'],
+                'lines' => [
+                    ['catalog_item_id' => $item->id, 'quantity' => 1, 'unit_cost' => 100, 'subtotal' => 100],
+                ],
+            ])
+            ->assertCreated();
+
+        $this->actingAs($owner)
+            ->getJson("/api/v1/platform/tenants/{$tenant->id}/inventory/reports/purchase-annex?from=2026-07-01&to=2026-07-01")
+            ->assertOk()
+            ->assertJsonFragment([
+                'document_number' => 'DTE-03-ANEXO',
+                'supplier_name' => 'Proveedor Anexo',
+                'supplier_tax_id' => '0614-010101-101-1',
+                'f07_sector' => 2,
+            ])
+            ->assertJsonPath('data.0.import_metadata.codigoGeneracion', 'ANEXO-UUID');
+    }
+
     /**
      * @return array{0: User, 1: Tenant}
      */
