@@ -26,6 +26,9 @@ class InventoryMovementController extends Controller
         if ($request->filled('catalog_item_id')) {
             $query->where('catalog_item_id', (int) $request->query('catalog_item_id'));
         }
+        if ($request->filled('core_sucursal_id')) {
+            $query->where('core_sucursal_id', (int) $request->query('core_sucursal_id'));
+        }
         if ($request->filled('movement_type')) {
             $query->where('movement_type', (string) $request->query('movement_type'));
         }
@@ -42,6 +45,9 @@ class InventoryMovementController extends Controller
 
         $data = $request->validate([
             'catalog_item_id' => ['required', 'integer', Rule::exists('catalog_items', 'id')->where(fn ($query) => $query->where('tenant_id', $tenant->id)->where('controls_inventory', true))],
+            'core_sucursal_id' => ['nullable', 'integer', 'min:1'],
+            'core_sucursal_code' => ['nullable', 'string', 'max:30'],
+            'core_sucursal_name' => ['nullable', 'string', 'max:160'],
             'direction' => ['required', 'string', Rule::in(['entry', 'exit'])],
             'quantity' => ['required', 'numeric', 'gt:0'],
             'unit_cost' => ['nullable', 'numeric', 'gte:0'],

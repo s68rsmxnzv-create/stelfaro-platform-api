@@ -25,9 +25,11 @@ class InventoryService
         $normalized = app(InventoryPurchaseTaxService::class)->normalizePurchase($tenant, $data);
 
         return DB::transaction(function () use ($tenant, $data, $normalized, $userId): InventoryPurchase {
+            $branch = $this->branchScope($data);
             $purchase = InventoryPurchase::query()->create([
                 'tenant_id' => $tenant->id,
                 'inventory_supplier_id' => $data['inventory_supplier_id'] ?? null,
+                ...$branch,
                 'purchase_number' => $this->nextPurchaseNumber($tenant),
                 'document_type' => $this->blankToNull($normalized['document_type'] ?? null),
                 'document_mode' => $normalized['document_mode'],
@@ -85,6 +87,7 @@ class InventoryService
                 $item = $this->lockInventoryItem($tenant, (int) $line['catalog_item_id']);
                 $lot = InventoryLot::query()->create([
                     'tenant_id' => $tenant->id,
+                    ...$branch,
                     'catalog_item_id' => $item->id,
                     'inventory_supplier_id' => $purchase->inventory_supplier_id,
                     'inventory_purchase_id' => $purchase->id,
@@ -102,7 +105,8 @@ class InventoryService
                 $item->reference_cost = $this->averageCostForLockedItem($tenant, $item);
                 $item->save();
 
-                $this->movement($tenant, $item, $lot, 'entry', 'purchase', (float) $line['inventory_quantity'], (float) $line['unit_cost'], (float) $item->stock_quantity, 'purchase', (string) $purchase->id, $purchase->document_number, $line['description_snapshot'], $userId);
+                $branchBalance = $this->availableQuantityForItem($tenant, $item, $branch['core_sucursal_id']);
+                $this->movement($tenant, $branch, $item, $lot, 'entry', 'purchase', (float) $line['inventory_quantity'], (float) $line['unit_cost'], $branchBalance, 'purchase', (string) $purchase->id, $purchase->document_number, $line['description_snapshot'], $userId);
             }
 
             return $purchase->fresh(['supplier', 'lines.catalogItem', 'lines.lots']);
@@ -116,6 +120,7 @@ class InventoryService
     {
         return DB::transaction(function () use ($tenant, $data, $userId): InventoryReservation {
             $key = trim((string) $data['idempotency_key']);
+            $branch = $this->branchScope($data);
             $existing = InventoryReservation::query()
                 ->where('tenant_id', $tenant->id)
                 ->where('idempotency_key', $key)
@@ -128,6 +133,7 @@ class InventoryService
 
             $reservation = InventoryReservation::query()->create([
                 'tenant_id' => $tenant->id,
+                ...$branch,
                 'idempotency_key' => $key,
                 'status' => InventoryReservation::STATUS_RESERVED,
                 'source_type' => $this->blankToNull($data['source_type'] ?? null),
@@ -146,8 +152,9 @@ class InventoryService
 
             foreach ($quantitiesByItem as $itemId => $quantity) {
                 $item = $this->lockInventoryItem($tenant, (int) $itemId);
-                if ((float) $item->stock_quantity < $quantity) {
-                    throw new InvalidArgumentException("Stock insuficiente para {$item->name}.");
+                $available = $this->availableQuantityForItem($tenant, $item, $branch['core_sucursal_id']);
+                if ($available < $quantity) {
+                    throw new InvalidArgumentException($this->insufficientStockMessage($tenant, $item, $quantity, $available, $branch));
                 }
             }
 
@@ -165,6 +172,11 @@ class InventoryService
                 $lots = InventoryLot::query()
                     ->where('tenant_id', $tenant->id)
                     ->where('catalog_item_id', $item->id)
+                    ->when(
+                        $branch['core_sucursal_id'] !== null,
+                        fn ($query) => $query->where('core_sucursal_id', $branch['core_sucursal_id']),
+                        fn ($query) => $query->whereNull('core_sucursal_id')
+                    )
                     ->where('available_quantity', '>', 0)
                     ->orderByRaw('COALESCE(received_date, DATE(created_at)) asc')
                     ->orderBy('id')
@@ -187,6 +199,7 @@ class InventoryService
 
                     InventorySaleAllocation::query()->create([
                         'tenant_id' => $tenant->id,
+                        ...$branch,
                         'inventory_reservation_line_id' => $lineModel->id,
                         'catalog_item_id' => $item->id,
                         'inventory_lot_id' => $lot->id,
@@ -198,7 +211,8 @@ class InventoryService
                 }
 
                 if ($remaining > 0) {
-                    throw new InvalidArgumentException("Stock insuficiente para {$item->name}.");
+                    $available = $this->availableQuantityForItem($tenant, $item, $branch['core_sucursal_id']);
+                    throw new InvalidArgumentException($this->insufficientStockMessage($tenant, $item, (float) $lineModel->quantity, $available, $branch));
                 }
 
                 $item->stock_quantity = round((float) $item->stock_quantity - (float) $lineModel->quantity, 3);
@@ -237,13 +251,18 @@ class InventoryService
                 foreach ($line->allocations as $allocation) {
                     $this->movement(
                         $tenant,
+                        [
+                            'core_sucursal_id' => $reservation->core_sucursal_id,
+                            'core_sucursal_code' => $reservation->core_sucursal_code,
+                            'core_sucursal_name' => $reservation->core_sucursal_name,
+                        ],
                         $item,
                         $allocation->lot,
                         'exit',
                         'sale',
                         (float) $allocation->quantity,
                         (float) $allocation->unit_cost,
-                        (float) $item->stock_quantity,
+                        $this->availableQuantityForItem($tenant, $item, $reservation->core_sucursal_id),
                         $sourceType,
                         $sourceId,
                         $sourceNumber,
@@ -343,13 +362,18 @@ class InventoryService
 
                     $this->movement(
                         $tenant,
+                        [
+                            'core_sucursal_id' => $reservation->core_sucursal_id,
+                            'core_sucursal_code' => $reservation->core_sucursal_code,
+                            'core_sucursal_name' => $reservation->core_sucursal_name,
+                        ],
                         $item,
                         $lot,
                         'entry',
                         'reversal',
                         (float) $allocation->quantity,
                         (float) $allocation->unit_cost,
-                        (float) $item->stock_quantity,
+                        $this->availableQuantityForItem($tenant, $item, $reservation->core_sucursal_id),
                         $sourceType,
                         $sourceId,
                         $sourceNumber,
@@ -374,6 +398,7 @@ class InventoryService
     {
         return DB::transaction(function () use ($tenant, $data, $userId): InventoryMovement {
             $item = $this->lockInventoryItem($tenant, (int) $data['catalog_item_id']);
+            $branch = $this->branchScope($data);
             $quantity = $this->positiveQuantity($data['quantity'], 'La cantidad de ajuste debe ser mayor que cero.');
             $direction = (string) $data['direction'];
             $unitCost = isset($data['unit_cost']) ? round((float) $data['unit_cost'], 4) : (float) ($item->reference_cost ?? 0);
@@ -381,6 +406,7 @@ class InventoryService
             if ($direction === 'entry') {
                 $lot = InventoryLot::query()->create([
                     'tenant_id' => $tenant->id,
+                    ...$branch,
                     'catalog_item_id' => $item->id,
                     'lot_code' => $this->nextLotCode($tenant, $item, 'AJU'),
                     'received_date' => now()->toDateString(),
@@ -392,10 +418,11 @@ class InventoryService
                 $item->stock_quantity = round((float) $item->stock_quantity + $quantity, 3);
                 $reason = 'manual_adjustment';
             } else {
-                if ((float) $item->stock_quantity < $quantity) {
-                    throw new InvalidArgumentException("Stock insuficiente para {$item->name}.");
+                $available = $this->availableQuantityForItem($tenant, $item, $branch['core_sucursal_id']);
+                if ($available < $quantity) {
+                    throw new InvalidArgumentException($this->insufficientStockMessage($tenant, $item, $quantity, $available, $branch));
                 }
-                $lot = $this->consumeAdjustmentFromOldestLot($tenant, $item, $quantity);
+                $lot = $this->consumeAdjustmentFromOldestLot($tenant, $item, $quantity, $branch['core_sucursal_id']);
                 $item->stock_quantity = round((float) $item->stock_quantity - $quantity, 3);
                 $reason = 'manual_adjustment';
             }
@@ -404,7 +431,7 @@ class InventoryService
             $item->cost_source = 'real';
             $item->save();
 
-            return $this->movement($tenant, $item, $lot, $direction, $reason, $quantity, $unitCost, (float) $item->stock_quantity, 'adjustment', null, null, $this->blankToNull($data['notes'] ?? null), $userId);
+            return $this->movement($tenant, $branch, $item, $lot, $direction, $reason, $quantity, $unitCost, $this->availableQuantityForItem($tenant, $item, $branch['core_sucursal_id']), 'adjustment', null, null, $this->blankToNull($data['notes'] ?? null), $userId);
         });
     }
 
@@ -422,10 +449,14 @@ class InventoryService
         return $item;
     }
 
-    private function movement(Tenant $tenant, CatalogItem $item, ?InventoryLot $lot, string $type, string $reason, float $quantity, ?float $unitCost, ?float $balanceAfter, ?string $referenceType, ?string $referenceId, ?string $referenceNumber, ?string $notes, ?int $userId): InventoryMovement
+    /**
+     * @param  array{core_sucursal_id:int|null,core_sucursal_code:string|null,core_sucursal_name:string|null}  $branch
+     */
+    private function movement(Tenant $tenant, array $branch, CatalogItem $item, ?InventoryLot $lot, string $type, string $reason, float $quantity, ?float $unitCost, ?float $balanceAfter, ?string $referenceType, ?string $referenceId, ?string $referenceNumber, ?string $notes, ?int $userId): InventoryMovement
     {
         return InventoryMovement::query()->create([
             'tenant_id' => $tenant->id,
+            ...$branch,
             'catalog_item_id' => $item->id,
             'inventory_lot_id' => $lot?->id,
             'movement_type' => $type,
@@ -486,13 +517,18 @@ class InventoryService
         return round((float) ($totals?->cost ?? 0) / $qty, 4);
     }
 
-    private function consumeAdjustmentFromOldestLot(Tenant $tenant, CatalogItem $item, float $quantity): ?InventoryLot
+    private function consumeAdjustmentFromOldestLot(Tenant $tenant, CatalogItem $item, float $quantity, ?int $branchId): ?InventoryLot
     {
         $remaining = $quantity;
         $firstLot = null;
         $lots = InventoryLot::query()
             ->where('tenant_id', $tenant->id)
             ->where('catalog_item_id', $item->id)
+            ->when(
+                $branchId !== null,
+                fn ($query) => $query->where('core_sucursal_id', $branchId),
+                fn ($query) => $query->whereNull('core_sucursal_id')
+            )
             ->where('available_quantity', '>', 0)
             ->orderByRaw('COALESCE(received_date, DATE(created_at)) asc')
             ->orderBy('id')
@@ -512,10 +548,80 @@ class InventoryService
         }
 
         if ($remaining > 0) {
-            throw new InvalidArgumentException("Stock insuficiente para {$item->name}.");
+            $available = $this->availableQuantityForItem($tenant, $item, $branchId);
+            throw new InvalidArgumentException($this->insufficientStockMessage($tenant, $item, $quantity, $available, [
+                'core_sucursal_id' => $branchId,
+                'core_sucursal_code' => null,
+                'core_sucursal_name' => null,
+            ]));
         }
 
         return $firstLot;
+    }
+
+    private function availableQuantityForItem(Tenant $tenant, CatalogItem $item, ?int $branchId): float
+    {
+        return round((float) InventoryLot::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('catalog_item_id', $item->id)
+            ->when(
+                $branchId !== null,
+                fn ($query) => $query->where('core_sucursal_id', $branchId),
+                fn ($query) => $query->whereNull('core_sucursal_id')
+            )
+            ->where('available_quantity', '>', 0)
+            ->sum('available_quantity'), 3);
+    }
+
+    /**
+     * @param  array{core_sucursal_id:int|null,core_sucursal_code:string|null,core_sucursal_name:string|null}  $branch
+     */
+    private function insufficientStockMessage(Tenant $tenant, CatalogItem $item, float $needed, float $available, array $branch): string
+    {
+        $branchLabel = $branch['core_sucursal_code'] ?: $branch['core_sucursal_name'] ?: 'la sucursal seleccionada';
+        $otherStock = InventoryLot::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('catalog_item_id', $item->id)
+            ->where('available_quantity', '>', 0)
+            ->when(
+                $branch['core_sucursal_id'] !== null,
+                fn ($query) => $query->where(function ($inner) use ($branch): void {
+                    $inner->where('core_sucursal_id', '!=', $branch['core_sucursal_id'])
+                        ->orWhereNull('core_sucursal_id');
+                }),
+                fn ($query) => $query->whereNotNull('core_sucursal_id')
+            )
+            ->selectRaw("COALESCE(core_sucursal_code, core_sucursal_name, 'Sin asignar') as branch_label, SUM(available_quantity) as qty")
+            ->groupBy('branch_label')
+            ->orderByDesc('qty')
+            ->limit(3)
+            ->get()
+            ->map(fn ($row): string => "{$row->branch_label}: ".round((float) $row->qty, 3))
+            ->implode(', ');
+
+        $message = "Stock insuficiente para {$item->name} en {$branchLabel}. Disponible: {$available}; requerido: {$needed}.";
+        if ($otherStock !== '') {
+            $message .= " En otras sucursales: {$otherStock}.";
+        }
+
+        return $message;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array{core_sucursal_id:int|null,core_sucursal_code:string|null,core_sucursal_name:string|null}
+     */
+    private function branchScope(array $data): array
+    {
+        $branchId = isset($data['core_sucursal_id']) && $data['core_sucursal_id'] !== ''
+            ? (int) $data['core_sucursal_id']
+            : null;
+
+        return [
+            'core_sucursal_id' => $branchId && $branchId > 0 ? $branchId : null,
+            'core_sucursal_code' => $this->blankToNull($data['core_sucursal_code'] ?? null),
+            'core_sucursal_name' => $this->blankToNull($data['core_sucursal_name'] ?? null),
+        ];
     }
 
     private function positiveQuantity(mixed $value, string $message): float

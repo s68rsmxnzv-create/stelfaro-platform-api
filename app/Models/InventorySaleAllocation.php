@@ -6,12 +6,13 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['tenant_id', 'inventory_reservation_line_id', 'catalog_item_id', 'inventory_lot_id', 'quantity', 'unit_cost'])]
+#[Fillable(['tenant_id', 'core_sucursal_id', 'core_sucursal_code', 'core_sucursal_name', 'inventory_reservation_line_id', 'catalog_item_id', 'inventory_lot_id', 'quantity', 'unit_cost'])]
 class InventorySaleAllocation extends Model
 {
     protected function casts(): array
     {
         return [
+            'core_sucursal_id' => 'integer',
             'quantity' => 'decimal:3',
             'unit_cost' => 'decimal:4',
         ];

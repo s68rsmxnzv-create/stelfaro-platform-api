@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['tenant_id', 'idempotency_key', 'status', 'source_type', 'source_id', 'source_number', 'metadata', 'confirmed_at', 'released_at', 'created_by'])]
+#[Fillable(['tenant_id', 'core_sucursal_id', 'core_sucursal_code', 'core_sucursal_name', 'idempotency_key', 'status', 'source_type', 'source_id', 'source_number', 'metadata', 'confirmed_at', 'released_at', 'reversed_at', 'created_by'])]
 class InventoryReservation extends Model
 {
     public const STATUS_RESERVED = 'reserved';
@@ -19,6 +19,7 @@ class InventoryReservation extends Model
     {
         return [
             'metadata' => 'array',
+            'core_sucursal_id' => 'integer',
             'confirmed_at' => 'datetime',
             'released_at' => 'datetime',
             'reversed_at' => 'datetime',

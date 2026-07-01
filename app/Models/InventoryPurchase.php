@@ -10,6 +10,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable([
     'tenant_id',
     'inventory_supplier_id',
+    'core_sucursal_id',
+    'core_sucursal_code',
+    'core_sucursal_name',
     'purchase_number',
     'document_type',
     'document_mode',
@@ -40,6 +43,7 @@ class InventoryPurchase extends Model
     {
         return [
             'purchase_number' => 'integer',
+            'core_sucursal_id' => 'integer',
             'purchase_date' => 'date',
             'document_total' => 'decimal:2',
             'is_consumable' => 'boolean',

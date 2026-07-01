@@ -20,6 +20,9 @@ class InventoryReservationController extends Controller
 
         $data = $request->validate([
             'idempotency_key' => ['required', 'string', 'max:120'],
+            'core_sucursal_id' => ['nullable', 'integer', 'min:1'],
+            'core_sucursal_code' => ['nullable', 'string', 'max:30'],
+            'core_sucursal_name' => ['nullable', 'string', 'max:160'],
             'source_type' => ['nullable', 'string', 'max:40'],
             'source_id' => ['nullable', 'string', 'max:80'],
             'source_number' => ['nullable', 'string', 'max:120'],

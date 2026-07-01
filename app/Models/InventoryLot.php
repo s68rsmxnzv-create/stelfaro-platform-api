@@ -7,12 +7,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['tenant_id', 'catalog_item_id', 'inventory_supplier_id', 'inventory_purchase_id', 'inventory_purchase_line_id', 'lot_code', 'received_date', 'unit_cost', 'initial_quantity', 'available_quantity', 'status'])]
+#[Fillable(['tenant_id', 'core_sucursal_id', 'core_sucursal_code', 'core_sucursal_name', 'catalog_item_id', 'inventory_supplier_id', 'inventory_purchase_id', 'inventory_purchase_line_id', 'lot_code', 'received_date', 'unit_cost', 'initial_quantity', 'available_quantity', 'status'])]
 class InventoryLot extends Model
 {
     protected function casts(): array
     {
         return [
+            'core_sucursal_id' => 'integer',
             'received_date' => 'date',
             'unit_cost' => 'decimal:4',
             'initial_quantity' => 'decimal:3',

@@ -24,6 +24,9 @@ class InventoryLotController extends Controller
         if ($request->filled('catalog_item_id')) {
             $query->where('catalog_item_id', (int) $request->query('catalog_item_id'));
         }
+        if ($request->filled('core_sucursal_id')) {
+            $query->where('core_sucursal_id', (int) $request->query('core_sucursal_id'));
+        }
         if ($request->boolean('available_only')) {
             $query->where('available_quantity', '>', 0);
         }

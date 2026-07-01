@@ -92,6 +92,103 @@ class PlatformInventoryTest extends TestCase
         $this->assertSame(15.0, (float) $salidas[1]->unit_cost);
     }
 
+    public function test_inventory_reservation_consumes_only_selected_branch(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        $item = $this->inventoryItem($tenant, 'BR-001');
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/purchases", [
+                'core_sucursal_id' => 1,
+                'core_sucursal_code' => 'M001',
+                'core_sucursal_name' => 'Casa matriz',
+                'purchase_date' => '2026-07-01',
+                'lines' => [
+                    ['catalog_item_id' => $item->id, 'quantity' => 2, 'unit_cost' => 10],
+                ],
+            ])
+            ->assertCreated();
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/purchases", [
+                'core_sucursal_id' => 2,
+                'core_sucursal_code' => 'S002',
+                'core_sucursal_name' => 'Sucursal dos',
+                'purchase_date' => '2026-07-01',
+                'lines' => [
+                    ['catalog_item_id' => $item->id, 'quantity' => 3, 'unit_cost' => 12],
+                ],
+            ])
+            ->assertCreated();
+
+        $reserve = $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/reservations", [
+                'idempotency_key' => 'branch-issue-1',
+                'core_sucursal_id' => 1,
+                'core_sucursal_code' => 'M001',
+                'core_sucursal_name' => 'Casa matriz',
+                'lines' => [
+                    ['catalog_item_id' => $item->id, 'quantity' => 2],
+                ],
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.core_sucursal_id', 1)
+            ->json('data');
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/reservations/{$reserve['id']}/confirm", [
+                'source_type' => 'dte',
+                'source_id' => 'BR-1',
+                'source_number' => 'DTE-BR-1',
+            ])
+            ->assertOk();
+
+        $this->assertDatabaseHas('inventory_lots', [
+            'tenant_id' => $tenant->id,
+            'catalog_item_id' => $item->id,
+            'core_sucursal_id' => 1,
+            'available_quantity' => 0,
+        ]);
+        $this->assertDatabaseHas('inventory_lots', [
+            'tenant_id' => $tenant->id,
+            'catalog_item_id' => $item->id,
+            'core_sucursal_id' => 2,
+            'available_quantity' => 3,
+        ]);
+        $this->assertDatabaseHas('inventory_movements', [
+            'tenant_id' => $tenant->id,
+            'catalog_item_id' => $item->id,
+            'core_sucursal_id' => 1,
+            'movement_type' => 'exit',
+            'reason' => 'sale',
+        ]);
+    }
+
+    public function test_branch_reservation_reports_stock_in_other_branch(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        $item = $this->inventoryItem($tenant, 'BR-002');
+        $this->lot($tenant, $item, 'L-S002', '2026-07-01', 3, 12, [
+            'core_sucursal_id' => 2,
+            'core_sucursal_code' => 'S002',
+            'core_sucursal_name' => 'Sucursal dos',
+        ]);
+        $item->forceFill(['stock_quantity' => 3, 'reference_cost' => 12, 'cost_source' => 'real'])->save();
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/reservations", [
+                'idempotency_key' => 'branch-issue-2',
+                'core_sucursal_id' => 1,
+                'core_sucursal_code' => 'M001',
+                'core_sucursal_name' => 'Casa matriz',
+                'lines' => [
+                    ['catalog_item_id' => $item->id, 'quantity' => 1],
+                ],
+            ])
+            ->assertStatus(422)
+            ->assertJsonFragment(['message' => 'Stock insuficiente para Item BR-002 en M001. Disponible: 0; requerido: 1. En otras sucursales: S002: 3.']);
+    }
+
     public function test_release_restores_reserved_stock(): void
     {
         [$owner, $tenant] = $this->userWithTenantRole('owner');
@@ -411,10 +508,14 @@ class PlatformInventoryTest extends TestCase
         ]);
     }
 
-    private function lot(Tenant $tenant, CatalogItem $item, string $code, string $date, float $quantity, float $cost): InventoryLot
+    /**
+     * @param  array<string, mixed>  $extra
+     */
+    private function lot(Tenant $tenant, CatalogItem $item, string $code, string $date, float $quantity, float $cost, array $extra = []): InventoryLot
     {
         return InventoryLot::query()->create([
             'tenant_id' => $tenant->id,
+            ...$extra,
             'catalog_item_id' => $item->id,
             'lot_code' => $code,
             'received_date' => $date,
