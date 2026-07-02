@@ -17,7 +17,7 @@ class InventoryLotController extends Controller
 
         $query = InventoryLot::query()
             ->where('tenant_id', $tenant->id)
-            ->with('catalogItem:id,sku,name,unit_code,unit_name')
+            ->with('catalogItem:id,sku,name,unit_code,unit_name', 'supplier:id,name,tax_id,nrc')
             ->orderByRaw('COALESCE(received_date, DATE(created_at)) asc')
             ->orderBy('id');
 

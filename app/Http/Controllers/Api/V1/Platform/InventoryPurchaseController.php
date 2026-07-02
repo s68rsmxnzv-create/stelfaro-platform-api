@@ -21,6 +21,7 @@ class InventoryPurchaseController extends Controller
 
         $query = $tenant->inventoryPurchases()
             ->with('supplier')
+            ->withCount('lines')
             ->orderByDesc('purchase_date')
             ->orderByDesc('id');
 
