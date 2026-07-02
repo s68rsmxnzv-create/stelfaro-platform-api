@@ -6,6 +6,7 @@ import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import { UiPasswordInput } from '@stelfaro/ui';
 
 defineProps({
     canResetPassword: {
@@ -63,13 +64,10 @@ const submit = () => {
             </div>
 
             <div class="mt-4">
-                <InputLabel for="password" value="Contraseña" />
-
-                <TextInput
+                <UiPasswordInput
                     id="password"
-                    type="password"
-                    class="mt-1 block w-full"
                     v-model="form.password"
+                    label="Contraseña"
                     required
                     autocomplete="current-password"
                 />
