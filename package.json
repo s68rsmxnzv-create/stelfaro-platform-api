@@ -23,6 +23,7 @@
         "@stelfaro/billing": "file:../stelfaro-platform/packages/billing",
         "@stelfaro/shared": "file:../stelfaro-platform/packages/shared",
         "@stelfaro/ui": "file:../stelfaro-platform/packages/ui",
-        "ky": "^1.14.3"
+        "ky": "^1.14.3",
+        "puppeteer": "^24.43.1"
     }
 }
