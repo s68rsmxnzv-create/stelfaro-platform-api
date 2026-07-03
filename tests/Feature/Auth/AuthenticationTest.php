@@ -22,10 +22,17 @@ class AuthenticationTest extends TestCase
         $response->assertStatus(200);
     }
 
-    public function test_platform_sessions_expire_after_45_idle_minutes_and_on_browser_close(): void
+    public function test_platform_sessions_expire_after_45_idle_minutes(): void
     {
         $this->assertSame(45, config('session.lifetime'));
-        $this->assertTrue((bool) config('session.expire_on_close'));
+    }
+
+    public function test_platform_app_does_not_logout_on_pagehide(): void
+    {
+        $source = file_get_contents(base_path('resources/js/app.js'));
+
+        $this->assertStringNotContainsString('pagehide', $source);
+        $this->assertStringNotContainsString('sendBeacon', $source);
     }
 
     public function test_idle_platform_session_is_revoked_after_lifetime(): void
@@ -270,7 +277,7 @@ class AuthenticationTest extends TestCase
             && $request['platform_session_id'] !== '');
     }
 
-    public function test_api_logout_revokes_core_session_for_browser_close_beacon(): void
+    public function test_explicit_api_logout_revokes_core_session(): void
     {
         config([
             'services.dte_core.base_url' => 'https://core.test/api/v1',
