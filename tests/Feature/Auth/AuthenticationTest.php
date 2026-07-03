@@ -28,6 +28,36 @@ class AuthenticationTest extends TestCase
         $this->assertTrue((bool) config('session.expire_on_close'));
     }
 
+    public function test_idle_platform_session_is_revoked_after_lifetime(): void
+    {
+        config([
+            'services.dte_core.base_url' => 'https://core.test/api/v1',
+            'services.dte_core.internal_token' => 'internal-secret',
+        ]);
+        Http::fake([
+            'https://core.test/api/v1/internal/auth/billing-session/revoke' => Http::response([
+                'revoked' => 1,
+            ]),
+        ]);
+
+        $user = User::factory()->create();
+
+        $response = $this
+            ->actingAs($user)
+            ->withSession(['platform_last_activity_at' => now()->subMinutes(46)->timestamp])
+            ->getJson('https://platform.stelfaro.com/api/v1/me');
+
+        $response
+            ->assertStatus(419)
+            ->assertJson(['message' => 'Sesión expirada por inactividad.']);
+
+        $this->assertGuest();
+        Http::assertSent(fn ($request) => $request->url() === 'https://core.test/api/v1/internal/auth/billing-session/revoke'
+            && $request->hasHeader('Authorization', 'Bearer internal-secret')
+            && is_string($request['platform_session_id'] ?? null)
+            && $request['platform_session_id'] !== '');
+    }
+
     public function test_users_can_authenticate_using_the_login_screen(): void
     {
         $user = User::factory()->create();
@@ -230,6 +260,31 @@ class AuthenticationTest extends TestCase
         $user = User::factory()->create();
 
         $response = $this->actingAs($user)->post('https://platform.stelfaro.com/logout');
+
+        $this->assertGuest();
+        $response->assertRedirect('https://platform.stelfaro.com/login');
+
+        Http::assertSent(fn ($request) => $request->url() === 'https://core.test/api/v1/internal/auth/billing-session/revoke'
+            && $request->hasHeader('Authorization', 'Bearer internal-secret')
+            && is_string($request['platform_session_id'] ?? null)
+            && $request['platform_session_id'] !== '');
+    }
+
+    public function test_api_logout_revokes_core_session_for_browser_close_beacon(): void
+    {
+        config([
+            'services.dte_core.base_url' => 'https://core.test/api/v1',
+            'services.dte_core.internal_token' => 'internal-secret',
+        ]);
+        Http::fake([
+            'https://core.test/api/v1/internal/auth/billing-session/revoke' => Http::response([
+                'revoked' => 1,
+            ]),
+        ]);
+
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->post('https://platform.stelfaro.com/api/v1/logout');
 
         $this->assertGuest();
         $response->assertRedirect('https://platform.stelfaro.com/login');
