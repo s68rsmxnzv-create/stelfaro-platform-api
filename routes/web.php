@@ -33,6 +33,7 @@ Route::domain(config('platform.hosts.taller'))
         Route::get('/recepcion', [PlatformPortalController::class, 'tallerReception'])->name('apps.taller.reception');
         Route::get('/diagnostico', [PlatformPortalController::class, 'tallerDiagnosis'])->name('apps.taller.diagnosis');
         Route::get('/ordenes', [PlatformPortalController::class, 'tallerOrders'])->name('apps.taller.orders');
+        Route::get('/clientes', [PlatformPortalController::class, 'tallerCustomers'])->name('apps.taller.customers');
         Route::get('/catalogo', [PlatformPortalController::class, 'tallerCatalog'])->name('apps.taller.catalog');
         Route::get('/inventario', [PlatformPortalController::class, 'tallerInventory'])->name('apps.taller.inventory');
         Route::get('/facturacion/{documentSlug?}', [PlatformPortalController::class, 'tallerBilling'])->name('apps.taller.billing');
@@ -51,6 +52,7 @@ Route::domain(config('platform.hosts.facturacion'))
     ->middleware(['auth', 'verified', EnsurePasswordIsChanged::class])
     ->group(function (): void {
         Route::get('/', [PlatformPortalController::class, 'facturacion'])->name('apps.facturacion');
+        Route::get('/clientes', [PlatformPortalController::class, 'facturacionCustomers'])->name('apps.facturacion.customers');
         Route::get('/catalogo', [PlatformPortalController::class, 'facturacionCatalog'])->name('apps.facturacion.catalog');
         Route::get('/inventario', [PlatformPortalController::class, 'facturacionInventory'])->name('apps.facturacion.inventory');
         Route::get('/facturacion/{documentSlug?}', [PlatformPortalController::class, 'facturacionBilling'])->name('apps.facturacion.billing');

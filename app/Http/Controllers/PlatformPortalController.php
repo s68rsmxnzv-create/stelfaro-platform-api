@@ -65,6 +65,18 @@ class PlatformPortalController extends Controller
         ]);
     }
 
+    public function tallerCustomers(): Response
+    {
+        return $this->renderBillingModule([
+            'app' => [
+                'id' => 'taller',
+                'name' => 'Clientes',
+                'description' => 'Gestión de receptores para facturación electrónica.',
+            ],
+            'module' => 'customers',
+        ]);
+    }
+
     public function tallerInventory(): Response
     {
         return $this->renderBillingModule([
@@ -139,6 +151,18 @@ class PlatformPortalController extends Controller
                 'description' => 'Productos y servicios disponibles para ventas y operaciones.',
             ],
             'module' => 'catalog',
+        ]);
+    }
+
+    public function facturacionCustomers(): Response
+    {
+        return $this->renderBillingModule([
+            'app' => [
+                'id' => 'facturacion',
+                'name' => 'Clientes',
+                'description' => 'Gestión de receptores para consumidor final y crédito fiscal.',
+            ],
+            'module' => 'customers',
         ]);
     }
 
