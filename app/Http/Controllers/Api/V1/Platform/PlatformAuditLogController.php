@@ -1,0 +1,185 @@
+<?php
+
+namespace App\Http\Controllers\Api\V1\Platform;
+
+use App\Http\Controllers\Controller;
+use App\Models\PlatformAuditLog;
+use App\Models\SecurityEvent;
+use App\Services\PlatformAdminAccess;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+
+class PlatformAuditLogController extends Controller
+{
+    public function index(Request $request, PlatformAdminAccess $adminAccess): JsonResponse
+    {
+        $adminAccess->authorize($request->user());
+
+        $validated = $request->validate([
+            'source' => ['nullable', 'string', 'in:all,platform,security'],
+            'q' => ['nullable', 'string', 'max:120'],
+            'result' => ['nullable', 'string', 'max:32'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:200'],
+        ]);
+
+        $source = (string) ($validated['source'] ?? 'all');
+        $limit = (int) ($validated['limit'] ?? 80);
+        $logs = collect();
+
+        if (in_array($source, ['all', 'platform'], true)) {
+            $logs = $logs->merge($this->platformLogs($validated, $limit));
+        }
+
+        if (in_array($source, ['all', 'security'], true)) {
+            $logs = $logs->merge($this->securityLogs($validated, $limit));
+        }
+
+        $data = $logs
+            ->sortByDesc('created_at')
+            ->take($limit)
+            ->values();
+
+        return response()->json([
+            'data' => $data,
+            'meta' => [
+                'limit' => $limit,
+                'total_returned' => $data->count(),
+                'source' => $source,
+            ],
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function platformLogs(array $filters, int $limit)
+    {
+        $query = PlatformAuditLog::query()
+            ->with(['user:id,name,email', 'tenant:id,name,slug'])
+            ->latest();
+
+        $this->applyDateFilters($query, $filters);
+
+        if (! empty($filters['result'])) {
+            $query->where('result', (string) $filters['result']);
+        }
+
+        if (! empty($filters['q'])) {
+            $term = trim((string) $filters['q']);
+            $query->where(function ($sub) use ($term): void {
+                $sub->where('action', 'like', "%{$term}%")
+                    ->orWhere('url', 'like', "%{$term}%")
+                    ->orWhere('method', 'like', "%{$term}%")
+                    ->orWhere('resource_type', 'like', "%{$term}%")
+                    ->orWhere('resource_id', 'like', "%{$term}%")
+                    ->orWhereHas('user', fn ($user) => $user
+                        ->where('name', 'like', "%{$term}%")
+                        ->orWhere('email', 'like', "%{$term}%"))
+                    ->orWhereHas('tenant', fn ($tenant) => $tenant
+                        ->where('name', 'like', "%{$term}%")
+                        ->orWhere('slug', 'like', "%{$term}%"));
+            });
+        }
+
+        return $query
+            ->limit($limit)
+            ->get()
+            ->map(fn (PlatformAuditLog $log): array => [
+                'id' => 'platform-'.$log->id,
+                'source' => 'platform',
+                'created_at' => $log->created_at?->toISOString(),
+                'action' => $log->action,
+                'result' => $log->result,
+                'severity' => null,
+                'status_code' => $log->status_code,
+                'method' => $log->method,
+                'url' => $log->url,
+                'ip_address' => $log->ip_address,
+                'user_agent' => $log->user_agent,
+                'resource_type' => $log->resource_type,
+                'resource_id' => $log->resource_id,
+                'user' => $log->user ? [
+                    'id' => $log->user->id,
+                    'name' => $log->user->name,
+                    'email' => $log->user->email,
+                ] : null,
+                'tenant' => $log->tenant ? [
+                    'id' => $log->tenant->id,
+                    'name' => $log->tenant->name,
+                    'slug' => $log->tenant->slug,
+                ] : null,
+                'metadata' => $log->metadata,
+            ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function securityLogs(array $filters, int $limit)
+    {
+        $query = SecurityEvent::query()
+            ->with('user:id,name,email')
+            ->latest();
+
+        $this->applyDateFilters($query, $filters);
+
+        if (! empty($filters['result'])) {
+            $query->where('severity', (string) $filters['result']);
+        }
+
+        if (! empty($filters['q'])) {
+            $term = trim((string) $filters['q']);
+            $query->where(function ($sub) use ($term): void {
+                $sub->where('type', 'like', "%{$term}%")
+                    ->orWhere('url', 'like', "%{$term}%")
+                    ->orWhere('method', 'like', "%{$term}%")
+                    ->orWhere('field', 'like', "%{$term}%")
+                    ->orWhereHas('user', fn ($user) => $user
+                        ->where('name', 'like', "%{$term}%")
+                        ->orWhere('email', 'like', "%{$term}%"));
+            });
+        }
+
+        return $query
+            ->limit($limit)
+            ->get()
+            ->map(fn (SecurityEvent $event): array => [
+                'id' => 'security-'.$event->id,
+                'source' => 'security',
+                'created_at' => $event->created_at?->toISOString(),
+                'action' => $event->type,
+                'result' => null,
+                'severity' => $event->severity,
+                'status_code' => null,
+                'method' => $event->method,
+                'url' => $event->url,
+                'ip_address' => $event->ip_address,
+                'user_agent' => $event->user_agent,
+                'resource_type' => null,
+                'resource_id' => null,
+                'user' => $event->user ? [
+                    'id' => $event->user->id,
+                    'name' => $event->user->name,
+                    'email' => $event->user->email,
+                ] : null,
+                'tenant' => null,
+                'metadata' => $event->metadata,
+            ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function applyDateFilters($query, array $filters): void
+    {
+        if (! empty($filters['date_from'])) {
+            $query->where('created_at', '>=', (string) $filters['date_from'].' 00:00:00');
+        }
+
+        if (! empty($filters['date_to'])) {
+            $query->where('created_at', '<=', (string) $filters['date_to'].' 23:59:59');
+        }
+    }
+}

@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\V1\Platform\InventoryReservationController;
 use App\Http\Controllers\Api\V1\Platform\InventorySaleController;
 use App\Http\Controllers\Api\V1\Platform\InventorySupplierController;
 use App\Http\Controllers\Api\V1\Platform\InventoryTransferController;
+use App\Http\Controllers\Api\V1\Platform\PlatformAuditLogController;
 use App\Http\Controllers\Api\V1\Platform\SubscriptionController;
 use App\Http\Controllers\Api\V1\Platform\TenantFiscalAssignmentController;
 use App\Http\Controllers\Api\V1\Platform\TenantInvitationController;
@@ -43,6 +44,7 @@ Route::prefix('v1')->group(function (): void {
         Route::get('me', PlatformSessionController::class);
         Route::patch('me/active-membership/{membership}', [TenantMembershipController::class, 'setActive']);
         Route::get('admin/platform/users', [GlobalUserController::class, 'index']);
+        Route::get('admin/platform/audit-logs', [PlatformAuditLogController::class, 'index']);
         Route::get('admin/platform/subscriptions', [SubscriptionController::class, 'index']);
         Route::put('admin/platform/tenants/{tenant}/subscription', [SubscriptionController::class, 'update']);
         Route::get('admin/platform/tenants/by-core-empresa/{coreEmpresaId}/subscription', [SubscriptionController::class, 'showByCoreEmpresa']);

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\Platform\SubscriptionController;
+use App\Http\Controllers\Api\V1\Platform\PlatformAuditLogController;
 use App\Http\Controllers\Api\V1\Platform\TenantFiscalAssignmentController;
 use App\Http\Controllers\Api\V1\Platform\TenantInvitationController;
 use App\Http\Controllers\Api\V1\Platform\TenantLookupController;
@@ -72,6 +73,7 @@ Route::domain(config('platform.hosts.admin'))
     ->middleware(['auth', 'verified', EnsurePasswordIsChanged::class])
     ->group(function (): void {
         Route::get('/me', PlatformSessionController::class);
+        Route::get('/admin/platform/audit-logs', [PlatformAuditLogController::class, 'index']);
         Route::get('/admin/core/session', CoreSessionController::class);
         Route::get('/admin/platform/subscriptions', [SubscriptionController::class, 'index']);
         Route::put('/admin/platform/tenants/{tenant}/subscription', [SubscriptionController::class, 'update']);
