@@ -250,6 +250,11 @@ class AuthenticationTest extends TestCase
         ]);
 
         $this->assertGuest();
+        $this->assertDatabaseHas('security_events', [
+            'type' => 'auth.login_failed',
+            'severity' => 'warning',
+            'field' => 'email',
+        ]);
     }
 
     public function test_users_can_logout(): void

@@ -14,4 +14,8 @@ return [
             'api/v1/webhooks/wompi',
         ],
     ],
+
+    'audit' => [
+        'enabled' => env('PLATFORM_AUDIT_ENABLED', true),
+    ],
 ];

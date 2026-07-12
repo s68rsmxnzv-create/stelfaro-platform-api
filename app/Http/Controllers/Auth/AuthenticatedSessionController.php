@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Services\CoreBillingSessionBroker;
+use App\Services\PlatformAuditLogger;
 use App\Services\PlatformAdminAccess;
 use App\Services\PlatformSessionResolver;
 use Illuminate\Http\Request;
@@ -20,6 +21,7 @@ class AuthenticatedSessionController extends Controller
         private readonly PlatformSessionResolver $sessionResolver,
         private readonly PlatformAdminAccess $platformAdminAccess,
         private readonly CoreBillingSessionBroker $coreBillingSessions,
+        private readonly PlatformAuditLogger $audit,
     ) {}
 
     /**
@@ -49,6 +51,9 @@ class AuthenticatedSessionController extends Controller
         $request->session()->regenerate();
 
         $user = $request->user()->fresh();
+        $this->audit->record($request, 'auth.login', [
+            'user_email_sha256' => hash('sha256', strtolower((string) $user->email)),
+        ]);
 
         if ($user->must_change_password) {
             $target = 'https://'.config('platform.hosts.platform').'/change-temporary-password';
@@ -80,6 +85,7 @@ class AuthenticatedSessionController extends Controller
     public function destroy(Request $request): SymfonyResponse
     {
         $platformSessionId = $request->session()->getId();
+        $this->audit->record($request, 'auth.logout');
 
         Auth::guard('web')->logout();
 

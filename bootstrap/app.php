@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\AddSecurityHeaders;
+use App\Http\Middleware\AuditPlatformActivity;
 use App\Http\Middleware\ExpireIdlePlatformSession;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\RejectSuspiciousInput;
@@ -21,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->append([
             AddSecurityHeaders::class,
             RejectSuspiciousInput::class,
+            AuditPlatformActivity::class,
         ]);
 
         $middleware->redirectGuestsTo(
