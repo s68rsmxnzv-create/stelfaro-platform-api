@@ -30,6 +30,22 @@ class PlatformAccessPolicy
         return $this->canViewTenantUsers($user, $tenant);
     }
 
+    public function canViewTenantAudit(?User $user, Tenant|int $tenant): bool
+    {
+        if ($this->hasGlobalAdminRole($user)) {
+            return true;
+        }
+
+        $membership = $this->activeMembershipFor($user, $tenant);
+
+        return $membership !== null
+            && in_array($membership->role, [
+                PlatformRoles::OWNER,
+                PlatformRoles::COMPANY_ADMIN,
+                PlatformRoles::BILLING_ADMIN,
+            ], true);
+    }
+
     public function canManageTenantCatalog(?User $user, Tenant|int $tenant): bool
     {
         return $this->hasGlobalAdminRole($user)

@@ -190,6 +190,18 @@ class PlatformPortalController extends Controller
         ]);
     }
 
+    public function facturacionAudit(): Response
+    {
+        return $this->renderBillingModule([
+            'app' => [
+                'id' => 'facturacion',
+                'name' => 'Auditoría',
+                'description' => 'Actividad administrativa, documentos y eventos fiscales de la empresa.',
+            ],
+            'module' => 'audit',
+        ]);
+    }
+
     public function facturacionMhEvents(?string $eventSlug = null): Response
     {
         return $this->renderBillingModule([
@@ -248,6 +260,18 @@ class PlatformPortalController extends Controller
                 'description' => 'Consulta de documentos fiscales, PDF, JSON y artefactos emitidos.',
             ],
             'module' => 'artifacts',
+        ]);
+    }
+
+    public function tallerAudit(): Response
+    {
+        return $this->renderBillingModule([
+            'app' => [
+                'id' => 'taller',
+                'name' => 'Auditoría',
+                'description' => 'Actividad administrativa, documentos y eventos fiscales de la empresa.',
+            ],
+            'module' => 'audit',
         ]);
     }
 

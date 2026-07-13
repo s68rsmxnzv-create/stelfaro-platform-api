@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api\V1\Platform;
 use App\Http\Controllers\Controller;
 use App\Models\PlatformAuditLog;
 use App\Models\SecurityEvent;
+use App\Models\Tenant;
 use App\Services\PlatformAdminAccess;
+use App\Services\PlatformAccessPolicy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -51,14 +53,44 @@ class PlatformAuditLogController extends Controller
         ]);
     }
 
+    public function tenant(Request $request, Tenant $tenant, PlatformAccessPolicy $policy): JsonResponse
+    {
+        abort_unless($policy->canViewTenantAudit($request->user(), $tenant), 403);
+
+        $validated = $request->validate([
+            'q' => ['nullable', 'string', 'max:120'],
+            'result' => ['nullable', 'string', 'max:32'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:200'],
+        ]);
+
+        $limit = (int) ($validated['limit'] ?? 80);
+        $data = $this->platformLogs($validated, $limit, $tenant)->values();
+
+        return response()->json([
+            'data' => $data,
+            'meta' => [
+                'limit' => $limit,
+                'total_returned' => $data->count(),
+                'source' => 'platform',
+                'tenant_id' => $tenant->id,
+            ],
+        ]);
+    }
+
     /**
      * @param  array<string, mixed>  $filters
      */
-    private function platformLogs(array $filters, int $limit)
+    private function platformLogs(array $filters, int $limit, ?Tenant $tenant = null)
     {
         $query = PlatformAuditLog::query()
             ->with(['user:id,name,email', 'tenant:id,name,slug'])
             ->latest();
+
+        if ($tenant) {
+            $query->where('tenant_id', $tenant->id);
+        }
 
         $this->applyDateFilters($query, $filters);
 

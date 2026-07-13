@@ -51,4 +51,83 @@ class PlatformAuditLogAccessTest extends TestCase
             ->getJson('/api/v1/admin/platform/audit-logs')
             ->assertForbidden();
     }
+
+    public function test_company_admin_can_list_only_tenant_audit_logs(): void
+    {
+        $tenant = Tenant::query()->create(['slug' => 'tenant-audit', 'name' => 'Tenant Audit']);
+        $otherTenant = Tenant::query()->create(['slug' => 'tenant-other', 'name' => 'Tenant Other']);
+        $admin = User::factory()->create();
+        $admin->memberships()->create([
+            'tenant_id' => $tenant->id,
+            'role' => 'company_admin',
+            'status' => 'active',
+            'is_default' => true,
+        ]);
+
+        PlatformAuditLog::query()->create([
+            'user_id' => $admin->id,
+            'tenant_id' => $tenant->id,
+            'action' => 'tenant.user.invite',
+            'result' => 'success',
+            'status_code' => 201,
+        ]);
+        PlatformAuditLog::query()->create([
+            'user_id' => $admin->id,
+            'tenant_id' => $otherTenant->id,
+            'action' => 'other.tenant.action',
+            'result' => 'success',
+            'status_code' => 201,
+        ]);
+
+        $response = $this->actingAs($admin)
+            ->getJson("/api/v1/platform/tenants/{$tenant->id}/audit-logs");
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('meta.tenant_id', $tenant->id)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonFragment(['source' => 'platform', 'action' => 'tenant.user.invite'])
+            ->assertJsonMissing(['action' => 'other.tenant.action']);
+    }
+
+    public function test_billing_user_cannot_list_tenant_audit_logs(): void
+    {
+        $tenant = Tenant::query()->create(['slug' => 'tenant-billing-user', 'name' => 'Tenant Billing User']);
+        $user = User::factory()->create();
+        $user->memberships()->create([
+            'tenant_id' => $tenant->id,
+            'role' => 'billing_user',
+            'status' => 'active',
+            'is_default' => true,
+        ]);
+
+        $this->actingAs($user)
+            ->getJson("/api/v1/platform/tenants/{$tenant->id}/audit-logs")
+            ->assertForbidden();
+    }
+
+    public function test_billing_admin_can_list_tenant_audit_logs(): void
+    {
+        $tenant = Tenant::query()->create(['slug' => 'tenant-billing-admin', 'name' => 'Tenant Billing Admin']);
+        $user = User::factory()->create();
+        $user->memberships()->create([
+            'tenant_id' => $tenant->id,
+            'role' => 'billing_admin',
+            'status' => 'active',
+            'is_default' => true,
+        ]);
+
+        PlatformAuditLog::query()->create([
+            'user_id' => $user->id,
+            'tenant_id' => $tenant->id,
+            'action' => 'billing.admin.action',
+            'result' => 'success',
+            'status_code' => 201,
+        ]);
+
+        $this->actingAs($user)
+            ->getJson("/api/v1/platform/tenants/{$tenant->id}/audit-logs")
+            ->assertOk()
+            ->assertJsonFragment(['action' => 'billing.admin.action']);
+    }
 }

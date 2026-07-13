@@ -39,6 +39,7 @@ Route::domain(config('platform.hosts.taller'))
         Route::get('/inventario', [PlatformPortalController::class, 'tallerInventory'])->name('apps.taller.inventory');
         Route::get('/facturacion/{documentSlug?}', [PlatformPortalController::class, 'tallerBilling'])->name('apps.taller.billing');
         Route::get('/comprobantes', [PlatformPortalController::class, 'tallerArtifacts'])->name('apps.taller.artifacts');
+        Route::get('/auditoria', [PlatformPortalController::class, 'tallerAudit'])->name('apps.taller.audit');
         Route::get('/eventos-mh/{eventSlug?}', [PlatformPortalController::class, 'tallerMhEvents'])->name('apps.taller.mh-events');
         Route::get('/respuestas-mh', [PlatformPortalController::class, 'tallerMhResponses'])->name('apps.taller.mh-responses');
         Route::get('/respuestas-eventos-mh', [PlatformPortalController::class, 'tallerMhEventResponses'])->name('apps.taller.mh-event-responses');
@@ -58,6 +59,7 @@ Route::domain(config('platform.hosts.facturacion'))
         Route::get('/inventario', [PlatformPortalController::class, 'facturacionInventory'])->name('apps.facturacion.inventory');
         Route::get('/facturacion/{documentSlug?}', [PlatformPortalController::class, 'facturacionBilling'])->name('apps.facturacion.billing');
         Route::get('/comprobantes', [PlatformPortalController::class, 'facturacionArtifacts'])->name('apps.facturacion.artifacts');
+        Route::get('/auditoria', [PlatformPortalController::class, 'facturacionAudit'])->name('apps.facturacion.audit');
         Route::get('/eventos-mh/{eventSlug?}', [PlatformPortalController::class, 'facturacionMhEvents'])->name('apps.facturacion.mh-events');
         Route::get('/respuestas-mh', [PlatformPortalController::class, 'facturacionMhResponses'])->name('apps.facturacion.mh-responses');
         Route::get('/respuestas-eventos-mh', [PlatformPortalController::class, 'facturacionMhEventResponses'])->name('apps.facturacion.mh-event-responses');
@@ -83,6 +85,7 @@ Route::domain(config('platform.hosts.admin'))
         Route::post('/admin/platform/tenants', [TenantAppOnboardingController::class, 'store']);
         Route::get('/admin/platform/tenants/by-core-empresa/{coreEmpresaId}', [TenantLookupController::class, 'byCoreEmpresa']);
         Route::get('/platform/tenants/{tenant}/users', [TenantUserController::class, 'index']);
+        Route::get('/platform/tenants/{tenant}/audit-logs', [PlatformAuditLogController::class, 'tenant']);
         Route::get('/platform/tenants/{tenant}/subscription', [SubscriptionController::class, 'showForTenant']);
         Route::get('/platform/tenants/by-core-empresa/{coreEmpresaId}/subscription', [SubscriptionController::class, 'showForTenantByCoreEmpresa']);
         Route::get('/platform/tenants/{tenant}/fiscal-scope', [TenantFiscalAssignmentController::class, 'scope']);

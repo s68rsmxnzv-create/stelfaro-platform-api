@@ -56,6 +56,7 @@ Route::prefix('v1')->group(function (): void {
         Route::get('admin/platform/apps', [TenantAppOnboardingController::class, 'apps']);
         Route::post('admin/platform/tenants', [TenantAppOnboardingController::class, 'store']);
         Route::get('platform/tenants/{tenant}/users', [TenantUserController::class, 'index']);
+        Route::get('platform/tenants/{tenant}/audit-logs', [PlatformAuditLogController::class, 'tenant']);
         Route::get('platform/tenants/{tenant}/catalog/categories', [CatalogCategoryController::class, 'index']);
         Route::post('platform/tenants/{tenant}/catalog/categories', [CatalogCategoryController::class, 'store']);
         Route::patch('platform/tenants/{tenant}/catalog/categories/{category}', [CatalogCategoryController::class, 'update']);
