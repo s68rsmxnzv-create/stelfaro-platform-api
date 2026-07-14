@@ -80,11 +80,24 @@ class InventoryPurchaseAnnexExportService
     public function csv(Tenant $tenant, ?string $from = null, ?string $to = null): string
     {
         $payload = $this->build($tenant, $from, $to);
-        $csv = collect($payload['data']['compras']['official_rows'])
-            ->map(fn (array $row): string => implode(';', array_map([$this, 'csvCell'], $row)))
-            ->implode("\r\n")."\r\n";
+        $rows = $this->sortRowsByDateDesc($payload['data']['compras']['official_rows']);
+        $stream = fopen('php://temp', 'r+');
 
-        return iconv('UTF-8', 'Windows-1252//TRANSLIT', $csv) ?: $csv;
+        foreach ($rows as $row) {
+            fputcsv($stream, array_map(fn ($value): string => $this->normalizeSpanishEnye((string) $value), array_values($row)), ';');
+        }
+
+        rewind($stream);
+        $csv = stream_get_contents($stream) ?: '';
+        fclose($stream);
+
+        if (function_exists('mb_convert_encoding')) {
+            return mb_convert_encoding($csv, 'Windows-1252', 'UTF-8');
+        }
+
+        $encoded = @iconv('UTF-8', 'Windows-1252//TRANSLIT//IGNORE', $csv);
+
+        return $encoded !== false ? $encoded : $csv;
     }
 
     /**
@@ -413,7 +426,7 @@ class InventoryPurchaseAnnexExportService
 
     private function normalizeAlnum(string $value): string
     {
-        return preg_replace('/[^A-Z0-9-]/', '', strtoupper($value)) ?? '';
+        return preg_replace('/[^A-Z0-9]/', '', strtoupper($value)) ?? '';
     }
 
     private function formatDate(string $value): string
@@ -529,13 +542,42 @@ class InventoryPurchaseAnnexExportService
         return number_format((float) $value, 2, '.', '');
     }
 
-    private function csvCell(mixed $value): string
+    /**
+     * @param  array<int, array<int, string>>  $rows
+     * @return array<int, array<int, string>>
+     */
+    private function sortRowsByDateDesc(array $rows): array
     {
-        $cell = (string) $value;
-        if (str_contains($cell, ';') || str_contains($cell, '"') || str_contains($cell, "\n") || str_contains($cell, "\r")) {
-            return '"'.str_replace('"', '""', $cell).'"';
+        usort($rows, function (array $a, array $b): int {
+            $dateA = $this->dateSortKey((string) ($a[0] ?? ''));
+            $dateB = $this->dateSortKey((string) ($b[0] ?? ''));
+
+            if ($dateA === $dateB) {
+                return 0;
+            }
+
+            return $dateA < $dateB ? 1 : -1;
+        });
+
+        return $rows;
+    }
+
+    private function dateSortKey(string $date): string
+    {
+        $date = trim($date);
+        if (preg_match('/^(\d{2})\/(\d{2})\/(\d{4})$/', $date, $matches) === 1) {
+            return $matches[3].$matches[2].$matches[1];
         }
 
-        return $cell;
+        return $date;
+    }
+
+    private function normalizeSpanishEnye(string $value): string
+    {
+        return str_replace(
+            ["n\u{0303}", "N\u{0303}", 'Ã±', 'Ã‘'],
+            ['ñ', 'Ñ', 'ñ', 'Ñ'],
+            $value
+        );
     }
 }

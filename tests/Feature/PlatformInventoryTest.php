@@ -767,7 +767,7 @@ class PlatformInventoryTest extends TestCase
             ->assertJsonPath('data.compras.official_rows.0.0', '01/07/2026')
             ->assertJsonPath('data.compras.official_rows.0.1', '4')
             ->assertJsonPath('data.compras.official_rows.0.2', '03')
-            ->assertJsonPath('data.compras.official_rows.0.3', 'A1B2C3D4-E5F6-47A8-9B10-123456789ABC')
+            ->assertJsonPath('data.compras.official_rows.0.3', 'A1B2C3D4E5F647A89B10123456789ABC')
             ->assertJsonPath('data.compras.official_rows.0.4', '1234567')
             ->assertJsonPath('data.compras.official_rows.0.9', '100.00')
             ->assertJsonPath('data.compras.official_rows.0.13', '13.00')
