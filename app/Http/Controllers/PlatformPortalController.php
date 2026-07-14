@@ -89,6 +89,18 @@ class PlatformPortalController extends Controller
         ]);
     }
 
+    public function tallerAnnexes(): Response
+    {
+        return $this->renderBillingModule([
+            'app' => [
+                'id' => 'taller',
+                'name' => 'Anexos',
+                'description' => 'Anexos fiscales generados desde documentos aceptados.',
+            ],
+            'module' => 'annexes',
+        ]);
+    }
+
     public function tallerReception(): Response
     {
         return $this->renderOperationalPlaceholder(
@@ -175,6 +187,18 @@ class PlatformPortalController extends Controller
                 'description' => 'Existencias, entradas, lotes, kardex, proveedores y ajustes.',
             ],
             'module' => 'inventory',
+        ]);
+    }
+
+    public function facturacionAnnexes(): Response
+    {
+        return $this->renderBillingModule([
+            'app' => [
+                'id' => 'facturacion',
+                'name' => 'Anexos',
+                'description' => 'Anexos fiscales generados desde documentos aceptados.',
+            ],
+            'module' => 'annexes',
         ]);
     }
 
