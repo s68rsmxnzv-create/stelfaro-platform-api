@@ -39,7 +39,7 @@ Route::domain(config('platform.hosts.taller'))
         Route::get('/inventario', [PlatformPortalController::class, 'tallerInventory'])->name('apps.taller.inventory');
         Route::get('/anexos', [PlatformPortalController::class, 'tallerAnnexes'])->name('apps.taller.annexes');
         Route::get('/facturacion/{documentSlug?}', [PlatformPortalController::class, 'tallerBilling'])->name('apps.taller.billing');
-        Route::get('/comprobantes', [PlatformPortalController::class, 'tallerArtifacts'])->name('apps.taller.artifacts');
+        Route::get('/comprobantes/{artifactSlug?}', [PlatformPortalController::class, 'tallerArtifacts'])->name('apps.taller.artifacts');
         Route::get('/auditoria', [PlatformPortalController::class, 'tallerAudit'])->name('apps.taller.audit');
         Route::get('/eventos-mh/{eventSlug?}', [PlatformPortalController::class, 'tallerMhEvents'])->name('apps.taller.mh-events');
         Route::get('/respuestas-mh', [PlatformPortalController::class, 'tallerMhResponses'])->name('apps.taller.mh-responses');
@@ -60,7 +60,7 @@ Route::domain(config('platform.hosts.facturacion'))
         Route::get('/inventario', [PlatformPortalController::class, 'facturacionInventory'])->name('apps.facturacion.inventory');
         Route::get('/anexos', [PlatformPortalController::class, 'facturacionAnnexes'])->name('apps.facturacion.annexes');
         Route::get('/facturacion/{documentSlug?}', [PlatformPortalController::class, 'facturacionBilling'])->name('apps.facturacion.billing');
-        Route::get('/comprobantes', [PlatformPortalController::class, 'facturacionArtifacts'])->name('apps.facturacion.artifacts');
+        Route::get('/comprobantes/{artifactSlug?}', [PlatformPortalController::class, 'facturacionArtifacts'])->name('apps.facturacion.artifacts');
         Route::get('/auditoria', [PlatformPortalController::class, 'facturacionAudit'])->name('apps.facturacion.audit');
         Route::get('/eventos-mh/{eventSlug?}', [PlatformPortalController::class, 'facturacionMhEvents'])->name('apps.facturacion.mh-events');
         Route::get('/respuestas-mh', [PlatformPortalController::class, 'facturacionMhResponses'])->name('apps.facturacion.mh-responses');

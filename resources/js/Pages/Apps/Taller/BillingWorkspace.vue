@@ -24,6 +24,10 @@ const props = defineProps({
         type: String,
         default: 'invalidacion',
     },
+    artifactSlug: {
+        type: String,
+        default: 'dte',
+    },
     coreSession: {
         type: Object,
         default: null,
@@ -105,6 +109,7 @@ const navigate = ({ event, href }) => {
             :dashboard-url="appBaseUrl"
             :document-slug="documentSlug"
             :event-slug="eventSlug"
+            :artifact-slug="artifactSlug"
             :extra-nav-items="extraNavItems"
             :can-access-platform-admin="canAccessPlatformAdmin"
             :module="module"

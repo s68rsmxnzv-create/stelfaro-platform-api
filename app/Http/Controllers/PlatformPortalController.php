@@ -202,7 +202,7 @@ class PlatformPortalController extends Controller
         ]);
     }
 
-    public function facturacionArtifacts(): Response
+    public function facturacionArtifacts(?string $artifactSlug = null): Response
     {
         return $this->renderBillingModule([
             'app' => [
@@ -211,6 +211,7 @@ class PlatformPortalController extends Controller
                 'description' => 'Consulta de documentos fiscales, PDF, JSON y artefactos emitidos.',
             ],
             'module' => 'artifacts',
+            'artifactSlug' => $this->normalizeArtifactSlug($artifactSlug),
         ]);
     }
 
@@ -275,7 +276,7 @@ class PlatformPortalController extends Controller
         ]);
     }
 
-    public function tallerArtifacts(): Response
+    public function tallerArtifacts(?string $artifactSlug = null): Response
     {
         return $this->renderBillingModule([
             'app' => [
@@ -284,6 +285,7 @@ class PlatformPortalController extends Controller
                 'description' => 'Consulta de documentos fiscales, PDF, JSON y artefactos emitidos.',
             ],
             'module' => 'artifacts',
+            'artifactSlug' => $this->normalizeArtifactSlug($artifactSlug),
         ]);
     }
 
@@ -395,6 +397,11 @@ class PlatformPortalController extends Controller
             'canAccessPlatformAdmin' => $this->platformAdminAccess->allows(request()->user()),
             'platformAdminUrl' => 'https://'.config('platform.hosts.admin'),
         ]);
+    }
+
+    private function normalizeArtifactSlug(?string $artifactSlug): string
+    {
+        return in_array($artifactSlug, ['dte', 'eventos'], true) ? $artifactSlug : 'dte';
     }
 
     /**
