@@ -84,6 +84,8 @@ Route::prefix('v1')->group(function (): void {
         Route::get('platform/tenants/{tenant}/inventory/reports/margin', [InventoryReportController::class, 'margin']);
         Route::get('platform/tenants/{tenant}/inventory/reports/stock-alerts', [InventoryReportController::class, 'stockAlerts']);
         Route::get('platform/tenants/{tenant}/inventory/reports/purchase-annex', [InventoryReportController::class, 'purchaseAnnex']);
+        Route::get('platform/tenants/{tenant}/inventory/reports/purchase-annex/official', [InventoryReportController::class, 'purchaseAnnexOfficial']);
+        Route::get('platform/tenants/{tenant}/inventory/reports/purchase-annex/csv', [InventoryReportController::class, 'purchaseAnnexCsv']);
         Route::get('platform/tenants/{tenant}/inventory/reports/count-sheet/pdf', [InventoryReportController::class, 'countSheetPdf']);
         Route::get('platform/tenants/{tenant}/inventory/reports/{report}/pdf', [InventoryReportController::class, 'pdf']);
         Route::post('platform/tenants/{tenant}/inventory/reservations', [InventoryReservationController::class, 'store']);

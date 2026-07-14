@@ -724,6 +724,65 @@ class PlatformInventoryTest extends TestCase
             ->assertJsonPath('data.0.import_metadata.codigoGeneracion', 'ANEXO-UUID');
     }
 
+    public function test_purchase_annex_official_exports_hacienda_rows(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        $supplier = InventorySupplier::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Proveedor Anexo',
+            'tax_id' => '0614-010101-101-1',
+            'nrc' => '123456-7',
+            'status' => 'active',
+        ]);
+        $item = $this->inventoryItem($tenant, 'ANEXO-002');
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/purchases", [
+                'inventory_supplier_id' => $supplier->id,
+                'document_type' => 'dte_ccf',
+                'document_mode' => 'dte',
+                'document_number' => 'DTE-03-ANEXO',
+                'payment_condition' => 'cash',
+                'tax_amount' => 13,
+                'document_total' => 113,
+                'purchase_date' => '2026-07-01',
+                'fiscal_profile' => 'administrative_expense',
+                'fiscal_sector' => 2,
+                'import_metadata' => [
+                    'tipo_dte' => '03',
+                    'codigoGeneracion' => 'A1B2C3D4-E5F6-47A8-9B10-123456789ABC',
+                    'numero_control' => 'DTE-03-M001P001-000000000000001',
+                ],
+                'lines' => [
+                    ['catalog_item_id' => $item->id, 'quantity' => 1, 'unit_cost' => 100, 'subtotal' => 100],
+                ],
+            ])
+            ->assertCreated();
+
+        $this->actingAs($owner)
+            ->getJson("/api/v1/platform/tenants/{$tenant->id}/inventory/reports/purchase-annex/official?from=2026-07-01&to=2026-07-31")
+            ->assertOk()
+            ->assertJsonPath('meta.counts.compras', 1)
+            ->assertJsonPath('data.compras.official_rows.0.0', '01/07/2026')
+            ->assertJsonPath('data.compras.official_rows.0.1', '4')
+            ->assertJsonPath('data.compras.official_rows.0.2', '03')
+            ->assertJsonPath('data.compras.official_rows.0.3', 'A1B2C3D4-E5F6-47A8-9B10-123456789ABC')
+            ->assertJsonPath('data.compras.official_rows.0.4', '1234567')
+            ->assertJsonPath('data.compras.official_rows.0.9', '100.00')
+            ->assertJsonPath('data.compras.official_rows.0.13', '13.00')
+            ->assertJsonPath('data.compras.official_rows.0.14', '113.00')
+            ->assertJsonPath('data.compras.official_rows.0.16', '1')
+            ->assertJsonPath('data.compras.official_rows.0.17', '2')
+            ->assertJsonPath('data.compras.official_rows.0.18', '2')
+            ->assertJsonPath('data.compras.official_rows.0.19', '2')
+            ->assertJsonPath('data.compras.official_rows.0.20', '3');
+
+        $this->actingAs($owner)
+            ->get("/api/v1/platform/tenants/{$tenant->id}/inventory/reports/purchase-annex/csv?from=2026-07-01&to=2026-07-31")
+            ->assertOk()
+            ->assertHeader('Content-Type', 'text/csv; charset=Windows-1252');
+    }
+
     /**
      * @return array{0: User, 1: Tenant}
      */

@@ -9,6 +9,7 @@ use App\Models\InventoryMovement;
 use App\Models\InventoryPurchase;
 use App\Models\InventorySaleLine;
 use App\Models\Tenant;
+use App\Services\Inventory\InventoryPurchaseAnnexExportService;
 use App\Services\Pdf\BrowsershotPdfRenderer;
 use App\Services\PlatformAccessPolicy;
 use Illuminate\Http\JsonResponse;
@@ -164,6 +165,33 @@ class InventoryReportController extends Controller
             ->values();
 
         return response()->json(['data' => $rows]);
+    }
+
+    public function purchaseAnnexOfficial(Request $request, Tenant $tenant, PlatformAccessPolicy $policy, InventoryPurchaseAnnexExportService $annex): JsonResponse
+    {
+        abort_unless($policy->canViewTenantCatalog($request->user(), $tenant), 403);
+
+        return response()->json($annex->build(
+            $tenant,
+            $request->query('from'),
+            $request->query('to')
+        ));
+    }
+
+    public function purchaseAnnexCsv(Request $request, Tenant $tenant, PlatformAccessPolicy $policy, InventoryPurchaseAnnexExportService $annex): Response
+    {
+        abort_unless($policy->canViewTenantCatalog($request->user(), $tenant), 403);
+
+        $filename = sprintf(
+            'compras_%s_%s.csv',
+            $request->query('from', 'periodo'),
+            $request->query('to', now()->toDateString())
+        );
+
+        return response($annex->csv($tenant, $request->query('from'), $request->query('to')), 200, [
+            'Content-Type' => 'text/csv; charset=Windows-1252',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+        ]);
     }
 
     public function pdf(Request $request, Tenant $tenant, string $report, PlatformAccessPolicy $policy, BrowsershotPdfRenderer $pdfRenderer): Response
