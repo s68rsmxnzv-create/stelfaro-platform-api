@@ -73,8 +73,10 @@ class InventoryPurchaseImportService
                 'source' => 'supplier_dte_json',
                 'payload_hash' => hash('sha256', json_encode($dte, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: ''),
                 'tipo_dte' => Arr::get($identification, 'tipoDte'),
+                'codigoGeneracion' => Arr::get($identification, 'codigoGeneracion'),
                 'numero_control' => Arr::get($identification, 'numeroControl'),
                 'tributes' => $this->tributesSummary((array) Arr::get($dte, 'resumen.tributos', [])),
+                'dte_json' => $dte,
             ],
         ];
     }

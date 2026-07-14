@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\CatalogItem;
 use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
+use App\Models\InventoryPurchase;
 use App\Models\InventorySupplier;
 use App\Models\Tenant;
 use App\Models\User;
@@ -781,6 +782,70 @@ class PlatformInventoryTest extends TestCase
             ->get("/api/v1/platform/tenants/{$tenant->id}/inventory/reports/purchase-annex/csv?from=2026-07-01&to=2026-07-31")
             ->assertOk()
             ->assertHeader('Content-Type', 'text/csv; charset=Windows-1252');
+    }
+
+    public function test_purchase_annex_uses_supplier_dte_json_for_fuel_and_defaults_f07(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+
+        InventoryPurchase::query()->create([
+            'tenant_id' => $tenant->id,
+            'purchase_number' => 1,
+            'document_type' => 'dte_ccf',
+            'document_mode' => 'dte',
+            'document_number' => 'FUEL-1',
+            'payment_condition' => 'cash',
+            'purchase_date' => '2026-07-02',
+            'subtotal' => 100,
+            'tax_amount' => 13,
+            'tax_perceived' => 0,
+            'fovial_per_unit' => 0,
+            'cotrans_per_unit' => 0,
+            'other_non_taxable_total' => 30,
+            'total' => 143,
+            'status' => 'registered',
+            'import_metadata' => [
+                'dte_json' => [
+                    'identificacion' => [
+                        'tipoDte' => '03',
+                        'codigoGeneracion' => 'FUEL-UUID',
+                        'numeroControl' => 'DTE-03-FUEL',
+                        'fecEmi' => '2026-07-02',
+                    ],
+                    'emisor' => [
+                        'nit' => '06140101011011',
+                        'nrc' => '1234567',
+                        'nombre' => 'Estacion de Servicio',
+                    ],
+                    'resumen' => [
+                        'totalExenta' => 0,
+                        'totalNoSuj' => 0,
+                        'totalGravada' => 100,
+                        'totalPagar' => 143,
+                        'tributos' => [
+                            ['codigo' => '20', 'descripcion' => 'IVA', 'valor' => 13],
+                            ['codigo' => 'D1', 'descripcion' => 'FOVIAL', 'valor' => 20],
+                            ['codigo' => 'C8', 'descripcion' => 'COTRANS', 'valor' => 10],
+                        ],
+                    ],
+                    'cuerpoDocumento' => [
+                        ['descripcion' => 'Combustible', 'cantidad' => 10, 'ventaGravada' => 100],
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->actingAs($owner)
+            ->getJson("/api/v1/platform/tenants/{$tenant->id}/inventory/reports/purchase-annex/official?from=2026-07-01&to=2026-07-31")
+            ->assertOk()
+            ->assertJsonPath('data.compras.official_rows.0.6', '30.00')
+            ->assertJsonPath('data.compras.official_rows.0.9', '100.00')
+            ->assertJsonPath('data.compras.official_rows.0.13', '13.00')
+            ->assertJsonPath('data.compras.official_rows.0.16', '1')
+            ->assertJsonPath('data.compras.official_rows.0.17', '1')
+            ->assertJsonPath('data.compras.official_rows.0.18', '2')
+            ->assertJsonPath('data.compras.official_rows.0.19', '5')
+            ->assertJsonPath('data.compras.preview.0.is_combustible', true);
     }
 
     /**

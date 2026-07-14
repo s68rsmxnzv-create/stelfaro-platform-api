@@ -110,6 +110,11 @@ class InventoryPurchaseAnnexExportService
     {
         $supplierSnapshot = is_array($purchase->supplier_snapshot) ? $purchase->supplier_snapshot : [];
         $metadata = is_array($purchase->import_metadata) ? $purchase->import_metadata : [];
+        $dteJson = $this->rawDteJson($metadata);
+        if ($dteJson !== null) {
+            return $this->mapDteJson($purchase, $dteJson);
+        }
+
         $supplier = $purchase->supplier;
         $documentType = $this->documentType($purchase->document_type, $metadata);
         $documentNumber = $this->normalizeAlnum($this->documentNumber($purchase, $metadata));
@@ -206,6 +211,115 @@ class InventoryPurchaseAnnexExportService
     }
 
     /**
+     * @param  array<string, mixed>  $json
+     * @return array{0: array<int, string>, 1: array<string, mixed>, 2: array<int, string>}
+     */
+    private function mapDteJson(InventoryPurchase $purchase, array $json): array
+    {
+        $ident = is_array($json['identificacion'] ?? null) ? $json['identificacion'] : [];
+        $issuer = is_array($json['emisor'] ?? null) ? $json['emisor'] : [];
+        $summary = is_array($json['resumen'] ?? null) ? $json['resumen'] : [];
+        $documentType = str_pad((string) ($ident['tipoDte'] ?? ''), 2, '0', STR_PAD_LEFT);
+        $documentType = in_array($documentType, ['01', '03', '05', '06', '11', '12', '13'], true) ? $documentType : $this->documentType($purchase->document_type, []);
+        $documentNumber = $this->normalizeAlnum((string) ($ident['codigoGeneracion'] ?? ($ident['numeroControl'] ?? $purchase->document_number ?? '')));
+        $supplierName = trim((string) ($issuer['nombre'] ?? ($issuer['nombreComercial'] ?? '')));
+        $supplierDoc = $this->normalizeDigits((string) ($issuer['nrc'] ?? ($issuer['nit'] ?? '')));
+        $supplierDui = '';
+        $issuerDocType = (string) ($issuer['tipoDocumento'] ?? '');
+        $issuerDocNumber = $this->normalizeDigits((string) ($issuer['numDocumento'] ?? ''));
+
+        if ($issuerDocType === '13' && strlen($issuerDocNumber) === 9) {
+            $supplierDui = $issuerDocNumber;
+            $supplierDoc = '';
+        }
+
+        $totalExempt = (float) ($summary['totalExenta'] ?? 0);
+        $isFuel = $this->hasCombustibleTributos($summary);
+        $totalNoTax = (float) ($summary['totalNoSuj'] ?? 0);
+        $totalNoTax += $this->resolveCombustibleNoSujFromTributos($summary);
+        $totalTaxed = (float) ($summary['totalGravada'] ?? 0);
+        $tax = $isFuel ? round($totalTaxed * 0.13, 2) : $this->resolveIva($summary);
+        $total = (float) ($summary['totalPagar'] ?? ($summary['montoTotalOperacion'] ?? $purchase->total));
+        $totalExemptNoTax = $totalExempt + $totalNoTax;
+
+        $internalExempt = $totalExemptNoTax;
+        $internalTaxed = $totalTaxed;
+        $importExempt = 0.0;
+        $importTaxedGoods = 0.0;
+        $importTaxedServices = 0.0;
+
+        if ($documentType === '12') {
+            $internalExempt = 0.0;
+            $internalTaxed = 0.0;
+            $importExempt = $totalExemptNoTax;
+            $importTaxedGoods = $totalTaxed;
+        } elseif ($documentType === '13') {
+            $internalExempt = 0.0;
+            $internalTaxed = 0.0;
+            $importExempt = $totalExemptNoTax;
+            $importTaxedServices = $totalTaxed;
+        }
+
+        [$q, $r, $s, $t] = $this->qrst($purchase);
+        $class = in_array($documentType, ['12', '13'], true) ? '3' : '4';
+        $issues = [];
+        $label = $documentNumber !== '' ? $documentNumber : 'compra '.$purchase->id;
+
+        if ($documentType === '') {
+            $issues[] = "Compra {$label}: falta tipo de documento.";
+        }
+        if ($documentNumber === '') {
+            $issues[] = "Compra {$label}: falta numero de documento.";
+        }
+        if ($supplierName === '') {
+            $issues[] = "Compra {$label}: falta nombre del proveedor.";
+        }
+        if ($supplierDoc === '' && $supplierDui === '') {
+            $issues[] = "Compra {$label}: falta NRC, NIT o DUI del proveedor.";
+        }
+
+        $row = [
+            $this->formatDate((string) ($ident['fecEmi'] ?? '')) ?: ($purchase->purchase_date ? $purchase->purchase_date->format('d/m/Y') : ''),
+            $class,
+            $documentType,
+            $documentNumber,
+            $supplierDoc,
+            $supplierName,
+            $this->num($internalExempt),
+            $this->num(0),
+            $this->num($importExempt),
+            $this->num($internalTaxed),
+            $this->num(0),
+            $this->num($importTaxedGoods),
+            $this->num($importTaxedServices),
+            $this->num($tax),
+            $this->num($total),
+            $supplierDui,
+            $q,
+            $r,
+            $s,
+            $t,
+            '3',
+        ];
+
+        return [$row, [
+            'purchase_id' => $purchase->id,
+            'fecha_emision' => (string) ($ident['fecEmi'] ?? $purchase->purchase_date?->toDateString()),
+            'tipo_dte' => $documentType,
+            'numero_documento' => $documentNumber,
+            'numero_control' => (string) ($ident['numeroControl'] ?? ''),
+            'proveedor_nombre' => $supplierName,
+            'total_pagar' => $total,
+            'q' => $q,
+            'r' => $r,
+            's' => $s,
+            't' => $t,
+            'is_combustible' => $isFuel,
+            'items' => $this->extractItemsPreview($json),
+        ], $issues];
+    }
+
+    /**
      * @return array{0: string, 1: string, 2: string, 3: string}
      */
     private function qrst(InventoryPurchase $purchase): array
@@ -216,11 +330,42 @@ class InventoryPurchaseAnnexExportService
         }
 
         return [
-            $this->singleDigitCode($purchase->f07_operation_type),
-            $this->singleDigitCode($purchase->f07_classification),
-            $this->singleDigitCode($purchase->f07_sector),
-            $this->singleDigitCode($purchase->f07_cost_expense_type),
+            ...$this->deduceQrst(
+                $this->singleDigitCode($purchase->f07_cost_expense_type) ?: '5',
+                $this->singleDigitCode($purchase->f07_sector) ?: '2',
+                $this->singleDigitCode($purchase->f07_operation_type),
+                $this->singleDigitCode($purchase->f07_classification)
+            ),
         ];
+    }
+
+    /**
+     * @return array{0: string, 1: string, 2: string, 3: string}
+     */
+    private function deduceQrst(string $costType, string $sector, string $operationType = '0', string $classification = '0'): array
+    {
+        $t = $costType !== '0' ? $costType : '5';
+        $s = $sector !== '0' ? $sector : '2';
+
+        if ($t === '8' || $t === '9') {
+            return [$t, $t, $t, $t];
+        }
+
+        $q = $operationType !== '0' ? $operationType : '1';
+        $r = $classification !== '0' ? $classification : (in_array($t, ['1', '2', '3'], true) ? '2' : '1');
+
+        return [$q, $r, $s, $t];
+    }
+
+    /**
+     * @param  array<string, mixed>  $metadata
+     * @return array<string, mixed>|null
+     */
+    private function rawDteJson(array $metadata): ?array
+    {
+        $candidate = $metadata['dte_json'] ?? $metadata['payload'] ?? $metadata['json'] ?? null;
+
+        return is_array($candidate) && is_array($candidate['cuerpoDocumento'] ?? null) ? $candidate : null;
     }
 
     /**
@@ -269,6 +414,114 @@ class InventoryPurchaseAnnexExportService
     private function normalizeAlnum(string $value): string
     {
         return preg_replace('/[^A-Z0-9-]/', '', strtoupper($value)) ?? '';
+    }
+
+    private function formatDate(string $value): string
+    {
+        if (trim($value) === '') {
+            return '';
+        }
+
+        try {
+            return Carbon::parse($value)->format('d/m/Y');
+        } catch (\Throwable) {
+            return '';
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $summary
+     */
+    private function resolveIva(array $summary): float
+    {
+        if (isset($summary['totalIva']) && is_numeric($summary['totalIva'])) {
+            return (float) $summary['totalIva'];
+        }
+
+        $total = 0.0;
+        foreach (($summary['tributos'] ?? []) as $tax) {
+            if (is_array($tax) && isset($tax['valor']) && is_numeric($tax['valor'])) {
+                $total += (float) $tax['valor'];
+            }
+        }
+
+        return $total;
+    }
+
+    /**
+     * @param  array<string, mixed>  $summary
+     */
+    private function hasCombustibleTributos(array $summary): bool
+    {
+        $hasD1 = false;
+        $hasC8 = false;
+
+        foreach (($summary['tributos'] ?? []) as $tax) {
+            if (! is_array($tax)) {
+                continue;
+            }
+
+            $code = strtoupper(trim((string) ($tax['codigo'] ?? '')));
+            $hasD1 = $hasD1 || $code === 'D1';
+            $hasC8 = $hasC8 || $code === 'C8';
+        }
+
+        return $hasD1 && $hasC8;
+    }
+
+    /**
+     * @param  array<string, mixed>  $summary
+     */
+    private function resolveCombustibleNoSujFromTributos(array $summary): float
+    {
+        if (! $this->hasCombustibleTributos($summary)) {
+            return 0.0;
+        }
+
+        $total = 0.0;
+        foreach (($summary['tributos'] ?? []) as $tax) {
+            if (! is_array($tax)) {
+                continue;
+            }
+
+            $code = strtoupper(trim((string) ($tax['codigo'] ?? '')));
+            if (in_array($code, ['D1', 'C8'], true) && isset($tax['valor']) && is_numeric($tax['valor'])) {
+                $total += max(0.0, (float) $tax['valor']);
+            }
+        }
+
+        return $total;
+    }
+
+    /**
+     * @param  array<string, mixed>  $json
+     * @return array<int, array{descripcion: string, cantidad: string, monto: string}>
+     */
+    private function extractItemsPreview(array $json): array
+    {
+        $body = is_array($json['cuerpoDocumento'] ?? null) ? $json['cuerpoDocumento'] : [];
+        $items = [];
+
+        foreach ($body as $line) {
+            if (! is_array($line)) {
+                continue;
+            }
+
+            $amount = 0.0;
+            foreach (['ventaGravada', 'ventaExenta', 'ventaNoSuj', 'compra'] as $field) {
+                if (isset($line[$field]) && is_numeric($line[$field])) {
+                    $amount += (float) $line[$field];
+                }
+            }
+
+            $items[] = [
+                'descripcion' => trim((string) ($line['descripcion'] ?? '')) ?: '(sin descripcion)',
+                'cantidad' => $this->num((float) ($line['cantidad'] ?? 0)),
+                'monto' => $this->num($amount),
+            ];
+        }
+
+        return array_slice($items, 0, 40);
     }
 
     private function num(float|int $value): string
