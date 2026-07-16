@@ -71,7 +71,6 @@ const extraNavItems = computed(() => {
 
     return [
         { label: 'Recepción', href: 'https://taller.stelfaro.com/recepcion', active: currentPath.value.startsWith('/recepcion') },
-        { label: 'Diagnóstico', href: 'https://taller.stelfaro.com/diagnostico', active: currentPath.value.startsWith('/diagnostico') },
         { label: 'Órdenes', href: 'https://taller.stelfaro.com/ordenes', active: currentPath.value.startsWith('/ordenes') },
     ];
 });

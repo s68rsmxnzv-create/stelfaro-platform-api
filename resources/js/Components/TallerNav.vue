@@ -40,12 +40,6 @@ defineProps({
         Recepción
     </a>
     <a
-        href="https://taller.stelfaro.com/diagnostico"
-        class="rounded px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/10 hover:text-white"
-    >
-        Diagnóstico
-    </a>
-    <a
         href="https://taller.stelfaro.com/ordenes"
         class="rounded px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/10 hover:text-white"
     >

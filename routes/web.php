@@ -39,7 +39,7 @@ Route::domain(config('platform.hosts.taller'))
     ->group(function (): void {
         Route::get('/', [PlatformPortalController::class, 'taller'])->name('apps.taller');
         Route::get('/recepcion', [PlatformPortalController::class, 'tallerReception'])->name('apps.taller.reception');
-        Route::get('/diagnostico', [PlatformPortalController::class, 'tallerDiagnosis'])->name('apps.taller.diagnosis');
+        Route::redirect('/diagnostico', '/ordenes')->name('apps.taller.diagnosis');
         Route::get('/ordenes', [PlatformPortalController::class, 'tallerOrders'])->name('apps.taller.orders');
         Route::get('/clientes', [PlatformPortalController::class, 'tallerCustomers'])->name('apps.taller.customers');
         Route::get('/catalogo', [PlatformPortalController::class, 'tallerCatalog'])->name('apps.taller.catalog');

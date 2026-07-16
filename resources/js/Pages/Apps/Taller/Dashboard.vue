@@ -37,9 +37,9 @@ const metrics = [
                     <button class="rounded-md border border-slate-200 px-4 py-3 text-left font-medium hover:bg-slate-50">
                         Nueva recepción de equipo
                     </button>
-                    <button class="rounded-md border border-slate-200 px-4 py-3 text-left font-medium hover:bg-slate-50">
-                        Diagnóstico técnico
-                    </button>
+                    <a href="/ordenes" class="rounded-md border border-slate-200 px-4 py-3 text-left font-medium hover:bg-slate-50">
+                        Consultar órdenes y diagnóstico
+                    </a>
                     <a
                         class="rounded-md border border-slate-200 px-4 py-3 text-left font-medium hover:bg-slate-50"
                         href="/facturacion"
