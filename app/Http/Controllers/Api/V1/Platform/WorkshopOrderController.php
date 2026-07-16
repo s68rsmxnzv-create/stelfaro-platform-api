@@ -7,10 +7,12 @@ use App\Models\Tenant;
 use App\Models\WorkshopCustomer;
 use App\Models\WorkshopDevice;
 use App\Models\WorkshopOrder;
+use App\Models\WorkshopPhotoSession;
 use App\Services\PlatformAccessPolicy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -132,6 +134,23 @@ class WorkshopOrderController extends Controller
         return response()->json(['data' => $this->payload($order->refresh()->load(['device.customer', 'payments']))]);
     }
 
+    public function photoSession(Request $request, Tenant $tenant, WorkshopOrder $order, PlatformAccessPolicy $policy): JsonResponse
+    {
+        abort_unless($order->tenant_id === $tenant->id, 404);
+        abort_unless($policy->canViewTenantCatalog($request->user(), $tenant), 403);
+        WorkshopPhotoSession::query()->where('workshop_order_id', $order->id)->whereNull('revoked_at')->update(['revoked_at' => now()]);
+        $token = Str::random(64);
+        $session = WorkshopPhotoSession::query()->create([
+            'tenant_id' => $tenant->id,
+            'workshop_order_id' => $order->id,
+            'token_hash' => hash('sha256', $token),
+            'expires_at' => now()->addMinutes(30),
+        ]);
+        $url = 'https://'.config('platform.hosts.taller').'/fotos/'.$token;
+
+        return response()->json(['data' => ['url' => $url, 'expires_at' => $session->expires_at->toISOString()]], 201);
+    }
+
     private function payload(WorkshopOrder $order): array
     {
         $paid = (float) $order->payments->whereNull('voided_at')->sum('amount');
@@ -143,6 +162,7 @@ class WorkshopOrderController extends Controller
             'diagnosis' => $order->diagnosis, 'estimated_total' => $order->estimated_total !== null ? (float) $order->estimated_total : null,
             'paid_total' => $paid, 'balance' => max(0, (float) ($order->estimated_total ?? 0) - $paid),
             'received_at' => $order->received_at?->toISOString(),
+            'photo_count' => $order->photos()->count(),
             'customer' => ['id' => $order->device->customer->core_customer_id, 'name' => $order->device->customer->name, 'phone' => $order->device->customer->phone],
             'device' => ['id' => $order->device->id, 'type' => $order->device->type, 'brand' => $order->device->brand, 'model' => $order->device->model, 'color' => $order->device->color, 'imei' => $order->device->imei, 'serial_number' => $order->device->serial_number, 'identifier_not_visible' => $order->device->identifier_not_visible, 'power_status' => $order->device->power_status, 'functional_tests' => $order->device->functional_tests ?? [], 'is_locked' => $order->device->is_locked, 'access_type' => $order->device->access_type, 'has_access_secret' => filled($order->device->access_secret)],
         ];

@@ -1,8 +1,8 @@
 <?php
 
-use App\Http\Controllers\Api\V1\Platform\GlobalUserController;
 use App\Http\Controllers\Api\V1\Platform\CatalogCategoryController;
 use App\Http\Controllers\Api\V1\Platform\CatalogItemController;
+use App\Http\Controllers\Api\V1\Platform\GlobalUserController;
 use App\Http\Controllers\Api\V1\Platform\InventoryCountController;
 use App\Http\Controllers\Api\V1\Platform\InventoryLotController;
 use App\Http\Controllers\Api\V1\Platform\InventoryMovementController;
@@ -28,10 +28,12 @@ use App\Http\Controllers\PlatformAdmin\CoreProxyController;
 use App\Http\Controllers\PlatformAdmin\CoreSessionController;
 use App\Http\Controllers\PlatformAdmin\NotificationProxyController;
 use App\Http\Controllers\PlatformAdmin\TenantAppOnboardingController;
+use App\Http\Controllers\PublicWorkshopPhotoController;
 use App\Http\Middleware\EnsurePasswordIsChanged;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function (): void {
+    Route::post('workshop/photo-upload/{token}', [PublicWorkshopPhotoController::class, 'store'])->middleware('throttle:20,1');
     Route::get('health', fn () => response()->json([
         'status' => 'ok',
         'service' => config('app.name', 'Stelfaro Platform API'),
@@ -66,6 +68,7 @@ Route::prefix('v1')->group(function (): void {
         Route::get('platform/tenants/{tenant}/workshop/orders', [WorkshopOrderController::class, 'index']);
         Route::post('platform/tenants/{tenant}/workshop/orders', [WorkshopOrderController::class, 'store']);
         Route::patch('platform/tenants/{tenant}/workshop/orders/{order}', [WorkshopOrderController::class, 'update']);
+        Route::post('platform/tenants/{tenant}/workshop/orders/{order}/photo-session', [WorkshopOrderController::class, 'photoSession']);
         Route::post('platform/tenants/{tenant}/catalog/items', [CatalogItemController::class, 'store']);
         Route::patch('platform/tenants/{tenant}/catalog/items/{item}', [CatalogItemController::class, 'update']);
         Route::delete('platform/tenants/{tenant}/catalog/items/{item}', [CatalogItemController::class, 'destroy']);

@@ -1,0 +1,67 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Tenant;
+use App\Models\User;
+use App\Models\WorkshopCustomer;
+use App\Models\WorkshopDevice;
+use App\Models\WorkshopOrder;
+use App\Models\WorkshopPhotoSession;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Tests\TestCase;
+
+class WorkshopPhotoUploadTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_temporary_token_uploads_photo_to_private_storage(): void
+    {
+        Storage::fake('local');
+        [$user, $tenant, $order] = $this->order();
+        $session = $this->actingAs($user)->postJson("/api/v1/platform/tenants/{$tenant->id}/workshop/orders/{$order->id}/photo-session")
+            ->assertCreated()->json('data');
+        $token = basename($session['url']);
+        $this->get("https://taller.stelfaro.com/fotos/{$token}")->assertOk()->assertSee($order->device->brand);
+
+        $this->postJson("/api/v1/workshop/photo-upload/{$token}", [
+            'photos' => [UploadedFile::fake()->image('equipo.jpg', 800, 600)],
+        ])->assertCreated()->assertJsonPath('total', 1);
+
+        $photo = $order->photos()->firstOrFail();
+        Storage::disk('local')->assertExists($photo->path);
+        $this->assertSame(64, strlen($photo->sha256));
+    }
+
+    public function test_invalid_token_cannot_upload(): void
+    {
+        $this->postJson('/api/v1/workshop/photo-upload/invalid', [
+            'photos' => [UploadedFile::fake()->image('equipo.jpg')],
+        ])->assertNotFound();
+    }
+
+    public function test_expired_token_cannot_upload(): void
+    {
+        [, $tenant, $order] = $this->order();
+        $token = 'expired-token';
+        WorkshopPhotoSession::query()->create(['tenant_id' => $tenant->id, 'workshop_order_id' => $order->id, 'token_hash' => hash('sha256', $token), 'expires_at' => now()->subMinute()]);
+
+        $this->postJson("/api/v1/workshop/photo-upload/{$token}", [
+            'photos' => [UploadedFile::fake()->image('equipo.jpg')],
+        ])->assertNotFound();
+    }
+
+    private function order(): array
+    {
+        $tenant = Tenant::query()->create(['slug' => 'photos', 'name' => 'Photos', 'status' => 'active']);
+        $user = User::factory()->create(['email_verified_at' => now(), 'must_change_password' => false]);
+        $user->memberships()->create(['tenant_id' => $tenant->id, 'role' => 'company_admin', 'status' => 'active', 'is_default' => true]);
+        $customer = WorkshopCustomer::query()->create(['tenant_id' => $tenant->id, 'core_customer_id' => 1, 'name' => 'Cliente']);
+        $device = WorkshopDevice::query()->create(['tenant_id' => $tenant->id, 'workshop_customer_id' => $customer->id, 'type' => 'phone', 'brand' => 'Apple', 'model' => 'iPhone', 'power_status' => 'on']);
+        $order = WorkshopOrder::query()->create(['tenant_id' => $tenant->id, 'workshop_device_id' => $device->id, 'received_by' => $user->id, 'ticket_number' => 1, 'status' => 'received', 'priority' => 'normal', 'reported_fault' => 'Falla', 'received_at' => now()]);
+
+        return [$user, $tenant, $order];
+    }
+}

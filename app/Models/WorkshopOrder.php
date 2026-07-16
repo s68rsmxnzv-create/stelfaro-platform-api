@@ -24,4 +24,9 @@ class WorkshopOrder extends Model
     {
         return $this->hasMany(WorkshopOrderPayment::class);
     }
+
+    public function photos(): HasMany
+    {
+        return $this->hasMany(WorkshopOrderPhoto::class);
+    }
 }
