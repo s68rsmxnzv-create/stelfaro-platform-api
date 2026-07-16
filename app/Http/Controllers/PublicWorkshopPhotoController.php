@@ -4,10 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\WorkshopOrderPhoto;
 use App\Models\WorkshopPhotoSession;
+use App\Services\WorkshopPhotoProcessor;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class PublicWorkshopPhotoController extends Controller
@@ -24,23 +23,21 @@ class PublicWorkshopPhotoController extends Controller
         ]);
     }
 
-    public function store(Request $request, string $token): JsonResponse
+    public function store(Request $request, string $token, WorkshopPhotoProcessor $processor): JsonResponse
     {
         $session = $this->session($token);
         $data = $request->validate([
             'photos' => ['required', 'array', 'min:1', 'max:10'],
-            'photos.*' => ['required', 'file', 'image', 'mimes:jpeg,jpg,png,webp', 'max:10240'],
+            'photos.*' => ['required', 'file', 'mimes:jpeg,jpg,png,webp,heic,heif', 'max:20480'],
         ]);
         $created = [];
         foreach ($data['photos'] as $photo) {
-            $extension = strtolower($photo->guessExtension() ?: 'jpg');
-            $path = $photo->storeAs("workshop/{$session->tenant_id}/{$session->workshop_order_id}/reception", Str::uuid().'.'.$extension, 'local');
-            abort_if($path === false, 500, 'No fue posible almacenar la fotografía.');
+            $stored = $processor->store($photo, $session->tenant_id, $session->workshop_order_id);
             $created[] = WorkshopOrderPhoto::query()->create([
                 'tenant_id' => $session->tenant_id, 'workshop_order_id' => $session->workshop_order_id,
-                'disk' => 'local', 'path' => $path, 'original_name' => $photo->getClientOriginalName(),
-                'mime_type' => $photo->getMimeType() ?: 'application/octet-stream', 'size' => $photo->getSize(),
-                'sha256' => hash_file('sha256', Storage::disk('local')->path($path)), 'stage' => 'reception',
+                'disk' => 'local', 'path' => $stored['path'], 'original_name' => $photo->getClientOriginalName(),
+                'mime_type' => $stored['mime_type'], 'size' => $stored['size'],
+                'sha256' => $stored['sha256'], 'stage' => 'reception',
                 'uploader_ip' => $request->ip(),
             ]);
         }

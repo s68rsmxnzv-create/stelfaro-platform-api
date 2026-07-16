@@ -33,6 +33,9 @@ class WorkshopPhotoUploadTest extends TestCase
         $photo = $order->photos()->firstOrFail();
         Storage::disk('local')->assertExists($photo->path);
         $this->assertSame(64, strlen($photo->sha256));
+        $stored = new \Imagick(Storage::disk('local')->path($photo->path));
+        $this->assertSame(4 / 3, $stored->getImageWidth() / $stored->getImageHeight());
+        $this->assertSame('image/jpeg', $photo->mime_type);
     }
 
     public function test_invalid_token_cannot_upload(): void
