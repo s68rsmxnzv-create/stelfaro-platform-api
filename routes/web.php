@@ -31,6 +31,7 @@ Route::get('/payments/wompi/confirmation', WompiPaymentConfirmationController::c
 Route::domain(config('platform.hosts.taller'))
     ->group(function (): void {
         Route::get('/fotos/{token}', [PublicWorkshopPhotoController::class, 'show'])->name('workshop.photos.public');
+        Route::get('/fotos/{token}/imagenes/{photo}', [PublicWorkshopPhotoController::class, 'photo'])->name('workshop.photos.image');
     });
 
 Route::domain(config('platform.hosts.taller'))

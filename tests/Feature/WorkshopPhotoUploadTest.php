@@ -50,6 +50,13 @@ class WorkshopPhotoUploadTest extends TestCase
         $this->get($gallery->json('data.0.url'))
             ->assertOk()
             ->assertHeader('content-type', 'image/jpeg');
+        $publicPage = $this->get("https://taller.stelfaro.com/fotos/{$token}")
+            ->assertOk()
+            ->assertSee('Fotos del equipo')
+            ->assertSee('1 fotos guardadas.');
+        $publicImageUrl = route('workshop.photos.image', ['token' => $token, 'photo' => $photo]);
+        $publicPage->assertSee($publicImageUrl, false);
+        $this->get($publicImageUrl)->assertOk()->assertHeader('content-type', 'image/jpeg');
     }
 
     public function test_invalid_token_cannot_upload(): void

@@ -7,19 +7,34 @@ use App\Models\WorkshopPhotoSession;
 use App\Services\WorkshopPhotoProcessor;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PublicWorkshopPhotoController extends Controller
 {
     public function show(string $token): View
     {
         $session = $this->session($token);
-        $session->load('order.device.customer');
+        $session->load('order.device.customer', 'order.photos');
 
         return view('workshop.photos', [
             'token' => $token,
             'order' => $session->order,
-            'photoCount' => WorkshopOrderPhoto::query()->where('workshop_order_id', $session->workshop_order_id)->count(),
+            'photos' => $session->order->photos->sortByDesc('created_at')->values(),
+        ]);
+    }
+
+    public function photo(string $token, WorkshopOrderPhoto $photo): StreamedResponse
+    {
+        $session = $this->session($token);
+        abort_unless($photo->tenant_id === $session->tenant_id && $photo->workshop_order_id === $session->workshop_order_id, 404);
+        abort_unless(Storage::disk($photo->disk)->exists($photo->path), 404);
+
+        return Storage::disk($photo->disk)->response($photo->path, $photo->original_name, [
+            'Content-Type' => $photo->mime_type,
+            'Cache-Control' => 'private, max-age=300',
+            'Content-Disposition' => 'inline; filename="photo-'.$photo->id.'.jpg"',
         ]);
     }
 

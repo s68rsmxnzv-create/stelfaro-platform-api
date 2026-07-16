@@ -39,7 +39,22 @@
                 </div>
             </div>
         </form>
-        <p id="status" class="mt-4 rounded-md bg-emerald-950 px-3 py-2 text-sm text-emerald-300">{{ $photoCount }} fotos guardadas.</p>
+        <p id="status" class="mt-4 rounded-md bg-emerald-950 px-3 py-2 text-sm text-emerald-300">{{ $photos->count() }} fotos guardadas.</p>
+        <section class="mt-6 border-t border-slate-700 pt-5">
+            <div><h2 class="font-semibold text-slate-100">Fotos del equipo</h2><p class="mt-1 text-sm text-slate-400">Confirma aquí las fotografías que ya fueron guardadas.</p></div>
+            @if($photos->isNotEmpty())
+                <div class="mt-4 grid grid-cols-2 gap-3">
+                    @foreach($photos as $photo)
+                        <a href="{{ route('workshop.photos.image', ['token' => $token, 'photo' => $photo]) }}" target="_blank" rel="noopener" class="overflow-hidden rounded-lg border border-slate-700 bg-slate-800">
+                            <div class="aspect-[4/3]"><img src="{{ route('workshop.photos.image', ['token' => $token, 'photo' => $photo]) }}" class="h-full w-full object-contain" alt="Foto {{ $loop->iteration }} del equipo" loading="lazy"></div>
+                            <p class="truncate px-3 py-2 text-xs text-slate-300">Foto {{ $photos->count() - $loop->index }}</p>
+                        </a>
+                    @endforeach
+                </div>
+            @else
+                <p class="mt-4 rounded-lg border border-dashed border-slate-700 bg-slate-800 px-4 py-7 text-center text-sm text-slate-400">Aún no hay fotografías guardadas.</p>
+            @endif
+        </section>
         <p class="mt-4 text-center text-xs text-slate-500">Este enlace es temporal y solo permite agregar fotografías a esta orden.</p>
     </section>
 </main>
@@ -116,6 +131,7 @@ form.addEventListener('submit', event => {
             if (request.status < 200 || request.status >= 300) throw new Error(result.message || 'No fue posible subir la foto.');
             status.textContent = `${result.total} fotos guardadas.`; status.className = 'mt-4 rounded-md bg-emerald-950 px-3 py-2 text-sm text-emerald-300';
             form.reset(); processedBlob = null; preview.classList.add('hidden'); previewImage.removeAttribute('src');
+            window.location.reload();
         } catch (error) {
             status.textContent = error.message; status.className = 'mt-4 rounded-md bg-red-950 px-3 py-2 text-sm text-red-300';
         }
