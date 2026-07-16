@@ -56,6 +56,7 @@ class WorkshopPhotoUploadTest extends TestCase
             ->assertSee('1 fotos guardadas.');
         $publicImageUrl = route('workshop.photos.image', ['token' => $token, 'photo' => $photo]);
         $publicPage->assertSee($publicImageUrl, false);
+        $publicPage->assertSee('id="gallery-viewer"', false)->assertDontSee('target="_blank"', false);
         $this->get($publicImageUrl)->assertOk()->assertHeader('content-type', 'image/jpeg');
     }
 

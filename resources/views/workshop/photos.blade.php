@@ -45,10 +45,10 @@
             @if($photos->isNotEmpty())
                 <div class="mt-5 grid grid-cols-2 gap-3">
                     @foreach($photos as $photo)
-                        <a href="{{ route('workshop.photos.image', ['token' => $token, 'photo' => $photo]) }}" target="_blank" rel="noopener" class="group relative aspect-[4/5] overflow-hidden rounded-2xl border border-slate-700 bg-slate-800 shadow-lg">
+                        <button type="button" data-gallery-index="{{ $loop->index }}" data-gallery-url="{{ route('workshop.photos.image', ['token' => $token, 'photo' => $photo]) }}" class="js-gallery-photo group relative aspect-[4/5] overflow-hidden rounded-2xl border border-slate-700 bg-slate-800 text-left shadow-lg">
                             <img src="{{ route('workshop.photos.image', ['token' => $token, 'photo' => $photo]) }}" class="h-full w-full object-contain transition duration-300 group-hover:scale-[1.02]" alt="Fotografía {{ $photos->count() - $loop->index }} del equipo" loading="lazy">
                             <span class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/60 to-transparent px-3 pb-3 pt-12 text-sm font-semibold text-white">Fotografía {{ $photos->count() - $loop->index }}</span>
-                        </a>
+                        </button>
                     @endforeach
                 </div>
             @else
@@ -58,6 +58,19 @@
         <p class="mt-4 text-center text-xs text-slate-500">Este enlace es temporal y solo permite agregar fotografías a esta orden.</p>
     </section>
 </main>
+<div id="gallery-viewer" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/90 p-4" role="dialog" aria-modal="true" aria-label="Galería de fotografías">
+    <span id="gallery-counter" class="absolute left-4 top-4 rounded-full bg-black/70 px-3 py-2 text-sm font-semibold text-white"></span>
+    <button id="gallery-close" type="button" class="absolute right-4 top-4 grid h-12 w-12 place-items-center rounded-full bg-black/70 text-white" aria-label="Cerrar">
+        <svg viewBox="0 0 24 24" class="h-7 w-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <button id="gallery-previous" type="button" class="absolute left-3 grid h-12 w-12 place-items-center rounded-full bg-black/70 text-white" aria-label="Fotografía anterior">
+        <svg viewBox="0 0 24 24" class="h-7 w-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
+    <div class="max-w-[82vw] text-center"><img id="gallery-image" class="mx-auto max-h-[76vh] max-w-full object-contain" alt="Fotografía ampliada del equipo"><h3 id="gallery-title" class="mt-4 text-lg font-bold text-white"></h3></div>
+    <button id="gallery-next" type="button" class="absolute right-3 grid h-12 w-12 place-items-center rounded-full bg-black/70 text-white" aria-label="Fotografía siguiente">
+        <svg viewBox="0 0 24 24" class="h-7 w-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+    </button>
+</div>
 <script nonce="{{ Vite::cspNonce() }}">
 const input = document.getElementById('photos');
 const form = document.getElementById('photo-form');
@@ -68,6 +81,32 @@ const preview = document.getElementById('preview');
 const previewImage = document.getElementById('preview-image');
 const retake = document.getElementById('retake');
 let processedBlob = null;
+const galleryPhotos = Array.from(document.querySelectorAll('.js-gallery-photo'));
+const galleryViewer = document.getElementById('gallery-viewer');
+const galleryImage = document.getElementById('gallery-image');
+const galleryTitle = document.getElementById('gallery-title');
+const galleryCounter = document.getElementById('gallery-counter');
+let galleryIndex = 0;
+
+function showGalleryPhoto(index) {
+    if (!galleryPhotos.length) return;
+    galleryIndex = (index + galleryPhotos.length) % galleryPhotos.length;
+    const photo = galleryPhotos[galleryIndex];
+    galleryImage.src = photo.dataset.galleryUrl;
+    galleryTitle.textContent = `Fotografía ${galleryPhotos.length - galleryIndex}`;
+    galleryCounter.textContent = `${galleryIndex + 1} / ${galleryPhotos.length}`;
+}
+function openGallery(index) {
+    showGalleryPhoto(index); galleryViewer.classList.remove('hidden'); galleryViewer.classList.add('flex'); document.body.style.overflow = 'hidden';
+}
+function closeGallery() {
+    galleryViewer.classList.add('hidden'); galleryViewer.classList.remove('flex'); galleryImage.removeAttribute('src'); document.body.style.overflow = '';
+}
+galleryPhotos.forEach((photo, index) => photo.addEventListener('click', () => openGallery(index)));
+document.getElementById('gallery-close').addEventListener('click', closeGallery);
+document.getElementById('gallery-previous').addEventListener('click', () => showGalleryPhoto(galleryIndex - 1));
+document.getElementById('gallery-next').addEventListener('click', () => showGalleryPhoto(galleryIndex + 1));
+galleryViewer.addEventListener('click', event => { if (event.target === galleryViewer) closeGallery(); });
 
 input.addEventListener('change', async () => {
     if (!input.files || !input.files.length) return;
