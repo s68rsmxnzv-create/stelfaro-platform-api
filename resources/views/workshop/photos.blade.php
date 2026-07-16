@@ -40,14 +40,14 @@
             </div>
         </form>
         <p id="status" class="mt-4 rounded-md bg-emerald-950 px-3 py-2 text-sm text-emerald-300">{{ $photos->count() }} fotos guardadas.</p>
-        <section class="mt-6 border-t border-slate-700 pt-5">
-            <div><h2 class="font-semibold text-slate-100">Fotos del equipo</h2><p class="mt-1 text-sm text-slate-400">Confirma aquí las fotografías que ya fueron guardadas.</p></div>
+        <section class="mt-7 border-t border-slate-700 pt-6">
+            <div><p class="text-xs font-semibold uppercase tracking-wide text-sky-400">Vista previa</p><h2 class="mt-1 text-2xl font-bold text-slate-100">Fotografías del equipo</h2><p class="mt-2 text-sm text-slate-400">Toca una fotografía para abrirla en tamaño completo.</p></div>
             @if($photos->isNotEmpty())
-                <div class="mt-4 grid grid-cols-2 gap-3">
+                <div class="mt-5 grid grid-cols-2 gap-3">
                     @foreach($photos as $photo)
-                        <a href="{{ route('workshop.photos.image', ['token' => $token, 'photo' => $photo]) }}" target="_blank" rel="noopener" class="overflow-hidden rounded-lg border border-slate-700 bg-slate-800">
-                            <div class="aspect-[4/3]"><img src="{{ route('workshop.photos.image', ['token' => $token, 'photo' => $photo]) }}" class="h-full w-full object-contain" alt="Foto {{ $loop->iteration }} del equipo" loading="lazy"></div>
-                            <p class="truncate px-3 py-2 text-xs text-slate-300">Foto {{ $photos->count() - $loop->index }}</p>
+                        <a href="{{ route('workshop.photos.image', ['token' => $token, 'photo' => $photo]) }}" target="_blank" rel="noopener" class="group relative aspect-[4/5] overflow-hidden rounded-2xl border border-slate-700 bg-slate-800 shadow-lg">
+                            <img src="{{ route('workshop.photos.image', ['token' => $token, 'photo' => $photo]) }}" class="h-full w-full object-contain transition duration-300 group-hover:scale-[1.02]" alt="Fotografía {{ $photos->count() - $loop->index }} del equipo" loading="lazy">
+                            <span class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/60 to-transparent px-3 pb-3 pt-12 text-sm font-semibold text-white">Fotografía {{ $photos->count() - $loop->index }}</span>
                         </a>
                     @endforeach
                 </div>

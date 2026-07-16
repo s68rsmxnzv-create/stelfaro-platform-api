@@ -52,7 +52,7 @@ class WorkshopPhotoUploadTest extends TestCase
             ->assertHeader('content-type', 'image/jpeg');
         $publicPage = $this->get("https://taller.stelfaro.com/fotos/{$token}")
             ->assertOk()
-            ->assertSee('Fotos del equipo')
+            ->assertSee('Fotografías del equipo')
             ->assertSee('1 fotos guardadas.');
         $publicImageUrl = route('workshop.photos.image', ['token' => $token, 'photo' => $photo]);
         $publicPage->assertSee($publicImageUrl, false);
