@@ -75,4 +75,9 @@ class Tenant extends Model
     {
         return $this->hasMany(InventoryReservation::class);
     }
+
+    public function workshopOrders(): HasMany
+    {
+        return $this->hasMany(WorkshopOrder::class);
+    }
 }

@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\V1\Platform\TenantLookupController;
 use App\Http\Controllers\Api\V1\Platform\TenantMembershipController;
 use App\Http\Controllers\Api\V1\Platform\TenantPurgeController;
 use App\Http\Controllers\Api\V1\Platform\TenantUserController;
+use App\Http\Controllers\Api\V1\Platform\WorkshopOrderController;
 use App\Http\Controllers\Api\V1\PlatformSessionController;
 use App\Http\Controllers\Api\V1\WompiWebhookController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
@@ -62,6 +63,9 @@ Route::prefix('v1')->group(function (): void {
         Route::patch('platform/tenants/{tenant}/catalog/categories/{category}', [CatalogCategoryController::class, 'update']);
         Route::delete('platform/tenants/{tenant}/catalog/categories/{category}', [CatalogCategoryController::class, 'destroy']);
         Route::get('platform/tenants/{tenant}/catalog/items', [CatalogItemController::class, 'index']);
+        Route::get('platform/tenants/{tenant}/workshop/orders', [WorkshopOrderController::class, 'index']);
+        Route::post('platform/tenants/{tenant}/workshop/orders', [WorkshopOrderController::class, 'store']);
+        Route::patch('platform/tenants/{tenant}/workshop/orders/{order}', [WorkshopOrderController::class, 'update']);
         Route::post('platform/tenants/{tenant}/catalog/items', [CatalogItemController::class, 'store']);
         Route::patch('platform/tenants/{tenant}/catalog/items/{item}', [CatalogItemController::class, 'update']);
         Route::delete('platform/tenants/{tenant}/catalog/items/{item}', [CatalogItemController::class, 'destroy']);

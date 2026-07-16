@@ -103,29 +103,17 @@ class PlatformPortalController extends Controller
 
     public function tallerReception(): Response
     {
-        return $this->renderOperationalPlaceholder(
-            'Recepción',
-            'Ingreso de equipos, datos del cliente, condicion inicial y prioridad de atencion.',
-            ['Ingreso de cliente', 'Equipo recibido', 'Ticket de recepcion']
-        );
+        return $this->renderBillingModule($this->workshopProps('workshop-reception'));
     }
 
     public function tallerDiagnosis(): Response
     {
-        return $this->renderOperationalPlaceholder(
-            'Diagnóstico',
-            'Revision tecnica, hallazgos, presupuesto y aprobacion antes de reparar.',
-            ['Revision tecnica', 'Presupuesto', 'Aprobacion del cliente']
-        );
+        return $this->renderBillingModule($this->workshopProps('workshop-diagnosis'));
     }
 
     public function tallerOrders(): Response
     {
-        return $this->renderOperationalPlaceholder(
-            'Órdenes',
-            'Seguimiento de ordenes de trabajo, estados, repuestos, mano de obra y cierre.',
-            ['Ordenes abiertas', 'Trabajo en proceso', 'Entrega y facturacion']
-        );
+        return $this->renderBillingModule($this->workshopProps('workshop-orders'));
     }
 
     public function facturacion(): Response
@@ -422,5 +410,18 @@ class PlatformPortalController extends Controller
                 'items' => $items,
             ],
         ]);
+    }
+
+    /** @return array<string, mixed> */
+    private function workshopProps(string $module): array
+    {
+        return [
+            'app' => [
+                'id' => 'taller',
+                'name' => 'Taller electrónico',
+                'description' => 'Gestión de equipos, órdenes de servicio y facturación electrónica.',
+            ],
+            'module' => $module,
+        ];
     }
 }
