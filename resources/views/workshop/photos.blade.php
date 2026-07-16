@@ -15,6 +15,7 @@
     <style>
         body { margin: 0; font-family: ui-sans-serif, system-ui, sans-serif; }
         button, input { font: inherit; }
+        #gallery-image { -webkit-touch-callout: none; user-select: none; }
     </style>
 </head>
 <body class="min-h-full bg-slate-950 text-slate-100">
@@ -45,7 +46,7 @@
             @if($photos->isNotEmpty())
                 <div class="mt-5 grid grid-cols-2 gap-3">
                     @foreach($photos as $photo)
-                        <button type="button" data-gallery-index="{{ $loop->index }}" data-gallery-url="{{ route('workshop.photos.image', ['token' => $token, 'photo' => $photo]) }}" class="js-gallery-photo group relative aspect-[4/5] overflow-hidden rounded-2xl border border-slate-700 bg-slate-800 text-left shadow-lg">
+                        <button type="button" data-gallery-index="{{ $loop->index }}" data-gallery-id="{{ $photo->id }}" data-gallery-url="{{ route('workshop.photos.image', ['token' => $token, 'photo' => $photo]) }}" class="js-gallery-photo group relative aspect-[4/5] overflow-hidden rounded-2xl border border-slate-700 bg-slate-800 text-left shadow-lg">
                             <img src="{{ route('workshop.photos.image', ['token' => $token, 'photo' => $photo]) }}" class="h-full w-full object-contain transition duration-300 group-hover:scale-[1.02]" alt="Fotografía {{ $photos->count() - $loop->index }} del equipo" loading="lazy">
                             <span class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/60 to-transparent px-3 pb-3 pt-12 text-sm font-semibold text-white">Fotografía {{ $photos->count() - $loop->index }}</span>
                         </button>
@@ -71,6 +72,18 @@
         <svg viewBox="0 0 24 24" class="h-7 w-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
     </button>
 </div>
+<div id="photo-menu" class="fixed inset-0 z-[60] hidden items-end justify-center bg-black/45 p-4 sm:items-center" role="dialog" aria-modal="true" aria-label="Acciones de fotografía">
+    <div class="w-full max-w-sm overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 p-2 shadow-2xl">
+        <p class="px-3 py-2 text-sm font-semibold text-slate-300">Acciones de fotografía</p>
+        <a id="photo-download" class="flex h-12 items-center rounded-lg px-3 font-semibold text-slate-100 hover:bg-slate-800" href="#" download>
+            <svg viewBox="0 0 24 24" class="mr-3 h-5 w-5 text-sky-400" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Descargar
+        </a>
+        <button id="photo-delete" type="button" class="flex h-12 w-full items-center rounded-lg px-3 text-left font-semibold text-red-400 hover:bg-red-950/60">
+            <svg viewBox="0 0 24 24" class="mr-3 h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v5M14 11v5"/></svg>Eliminar
+        </button>
+        <button id="photo-menu-close" type="button" class="mt-1 h-11 w-full rounded-lg bg-slate-800 font-semibold text-slate-200">Cancelar</button>
+    </div>
+</div>
 <script nonce="{{ Vite::cspNonce() }}">
 const input = document.getElementById('photos');
 const form = document.getElementById('photo-form');
@@ -86,7 +99,10 @@ const galleryViewer = document.getElementById('gallery-viewer');
 const galleryImage = document.getElementById('gallery-image');
 const galleryTitle = document.getElementById('gallery-title');
 const galleryCounter = document.getElementById('gallery-counter');
+const photoMenu = document.getElementById('photo-menu');
+const photoDownload = document.getElementById('photo-download');
 let galleryIndex = 0;
+let holdTimer = null;
 
 function showGalleryPhoto(index) {
     if (!galleryPhotos.length) return;
@@ -102,11 +118,30 @@ function openGallery(index) {
 function closeGallery() {
     galleryViewer.classList.add('hidden'); galleryViewer.classList.remove('flex'); galleryImage.removeAttribute('src'); document.body.style.overflow = '';
 }
+function openPhotoMenu() {
+    const photo = galleryPhotos[galleryIndex];
+    if (!photo) return;
+    photoDownload.href = `${photo.dataset.galleryUrl}?download=1`;
+    photoMenu.classList.remove('hidden'); photoMenu.classList.add('flex');
+}
+function closePhotoMenu() { photoMenu.classList.add('hidden'); photoMenu.classList.remove('flex'); }
 galleryPhotos.forEach((photo, index) => photo.addEventListener('click', () => openGallery(index)));
 document.getElementById('gallery-close').addEventListener('click', closeGallery);
 document.getElementById('gallery-previous').addEventListener('click', () => showGalleryPhoto(galleryIndex - 1));
 document.getElementById('gallery-next').addEventListener('click', () => showGalleryPhoto(galleryIndex + 1));
 galleryViewer.addEventListener('click', event => { if (event.target === galleryViewer) closeGallery(); });
+galleryImage.addEventListener('contextmenu', event => { event.preventDefault(); openPhotoMenu(); });
+galleryImage.addEventListener('touchstart', () => { holdTimer = window.setTimeout(openPhotoMenu, 550); }, { passive: true });
+['touchend', 'touchmove', 'touchcancel'].forEach(name => galleryImage.addEventListener(name, () => { if (holdTimer) window.clearTimeout(holdTimer); }, { passive: true }));
+document.getElementById('photo-menu-close').addEventListener('click', closePhotoMenu);
+photoMenu.addEventListener('click', event => { if (event.target === photoMenu) closePhotoMenu(); });
+document.getElementById('photo-delete').addEventListener('click', async () => {
+    const photo = galleryPhotos[galleryIndex];
+    if (!photo || !window.confirm('¿Eliminar esta fotografía de la orden? Esta acción no se puede deshacer.')) return;
+    const response = await fetch(`/api/v1/workshop/photo-upload/{{ $token }}/${photo.dataset.galleryId}`, { method: 'DELETE', headers: { Accept: 'application/json' } });
+    if (response.ok) window.location.reload();
+    else { closePhotoMenu(); status.textContent = 'No fue posible eliminar la fotografía.'; status.className = 'mt-4 rounded-md bg-red-950 px-3 py-2 text-sm text-red-300'; closeGallery(); }
+});
 
 input.addEventListener('change', async () => {
     if (!input.files || !input.files.length) return;

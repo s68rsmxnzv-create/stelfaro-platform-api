@@ -58,6 +58,9 @@ class WorkshopPhotoUploadTest extends TestCase
         $publicPage->assertSee($publicImageUrl, false);
         $publicPage->assertSee('id="gallery-viewer"', false)->assertDontSee('target="_blank"', false);
         $this->get($publicImageUrl)->assertOk()->assertHeader('content-type', 'image/jpeg');
+        $this->get($publicImageUrl.'?download=1')->assertOk()->assertHeader('content-disposition');
+        $this->deleteJson("/api/v1/workshop/photo-upload/{$token}/{$photo->id}")->assertOk()->assertJsonPath('deleted', true);
+        Storage::disk('local')->assertMissing($photo->path);
     }
 
     public function test_invalid_token_cannot_upload(): void

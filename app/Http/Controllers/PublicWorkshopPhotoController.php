@@ -25,11 +25,15 @@ class PublicWorkshopPhotoController extends Controller
         ]);
     }
 
-    public function photo(string $token, WorkshopOrderPhoto $photo): StreamedResponse
+    public function photo(Request $request, string $token, WorkshopOrderPhoto $photo): StreamedResponse
     {
         $session = $this->session($token);
         abort_unless($photo->tenant_id === $session->tenant_id && $photo->workshop_order_id === $session->workshop_order_id, 404);
         abort_unless(Storage::disk($photo->disk)->exists($photo->path), 404);
+
+        if ($request->boolean('download')) {
+            return Storage::disk($photo->disk)->download($photo->path, $photo->original_name);
+        }
 
         return Storage::disk($photo->disk)->response($photo->path, $photo->original_name, [
             'Content-Type' => $photo->mime_type,
@@ -58,6 +62,16 @@ class PublicWorkshopPhotoController extends Controller
         }
 
         return response()->json(['uploaded' => count($created), 'total' => WorkshopOrderPhoto::query()->where('workshop_order_id', $session->workshop_order_id)->count()], 201);
+    }
+
+    public function destroy(string $token, WorkshopOrderPhoto $photo): JsonResponse
+    {
+        $session = $this->session($token);
+        abort_unless($photo->tenant_id === $session->tenant_id && $photo->workshop_order_id === $session->workshop_order_id, 404);
+        Storage::disk($photo->disk)->delete($photo->path);
+        $photo->delete();
+
+        return response()->json(['deleted' => true]);
     }
 
     private function session(string $token): WorkshopPhotoSession
