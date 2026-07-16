@@ -41,6 +41,15 @@ class WorkshopPhotoUploadTest extends TestCase
         $stored = new \Imagick(Storage::disk('local')->path($photo->path));
         $this->assertSame(4 / 3, $stored->getImageWidth() / $stored->getImageHeight());
         $this->assertSame('image/jpeg', $photo->mime_type);
+
+        $gallery = $this->getJson("/api/v1/platform/tenants/{$tenant->id}/workshop/orders/{$order->id}/photos")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $photo->id)
+            ->assertJsonPath('data.0.stage', 'reception');
+        $this->get($gallery->json('data.0.url'))
+            ->assertOk()
+            ->assertHeader('content-type', 'image/jpeg');
     }
 
     public function test_invalid_token_cannot_upload(): void

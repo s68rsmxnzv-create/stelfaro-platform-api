@@ -7,14 +7,17 @@ use App\Models\Tenant;
 use App\Models\WorkshopCustomer;
 use App\Models\WorkshopDevice;
 use App\Models\WorkshopOrder;
+use App\Models\WorkshopOrderPhoto;
 use App\Models\WorkshopPhotoSession;
 use App\Services\PlatformAccessPolicy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class WorkshopOrderController extends Controller
 {
@@ -149,6 +152,41 @@ class WorkshopOrderController extends Controller
         $url = 'https://'.config('platform.hosts.taller').'/fotos/'.$token;
 
         return response()->json(['data' => ['url' => $url, 'expires_at' => $session->expires_at->toISOString()]], 201);
+    }
+
+    public function photos(Request $request, Tenant $tenant, WorkshopOrder $order, PlatformAccessPolicy $policy): JsonResponse
+    {
+        $this->authorizeOrder($request, $tenant, $order, $policy);
+        $photos = $order->photos()->latest()->get()->map(fn (WorkshopOrderPhoto $photo): array => [
+            'id' => $photo->id,
+            'url' => url("/api/v1/platform/tenants/{$tenant->id}/workshop/orders/{$order->id}/photos/{$photo->id}"),
+            'stage' => $photo->stage,
+            'original_name' => $photo->original_name,
+            'mime_type' => $photo->mime_type,
+            'size' => $photo->size,
+            'created_at' => $photo->created_at?->toISOString(),
+        ]);
+
+        return response()->json(['data' => $photos->values()]);
+    }
+
+    public function photo(Request $request, Tenant $tenant, WorkshopOrder $order, WorkshopOrderPhoto $photo, PlatformAccessPolicy $policy): StreamedResponse
+    {
+        $this->authorizeOrder($request, $tenant, $order, $policy);
+        abort_unless($photo->tenant_id === $tenant->id && $photo->workshop_order_id === $order->id, 404);
+        abort_unless(Storage::disk($photo->disk)->exists($photo->path), 404);
+
+        return Storage::disk($photo->disk)->response($photo->path, $photo->original_name, [
+            'Content-Type' => $photo->mime_type,
+            'Cache-Control' => 'private, max-age=300',
+            'Content-Disposition' => 'inline; filename="photo-'.$photo->id.'.jpg"',
+        ]);
+    }
+
+    private function authorizeOrder(Request $request, Tenant $tenant, WorkshopOrder $order, PlatformAccessPolicy $policy): void
+    {
+        abort_unless($order->tenant_id === $tenant->id, 404);
+        abort_unless($policy->canViewTenantCatalog($request->user(), $tenant), 403);
     }
 
     private function payload(WorkshopOrder $order): array

@@ -68,6 +68,8 @@ Route::prefix('v1')->group(function (): void {
         Route::get('platform/tenants/{tenant}/workshop/orders', [WorkshopOrderController::class, 'index']);
         Route::post('platform/tenants/{tenant}/workshop/orders', [WorkshopOrderController::class, 'store']);
         Route::patch('platform/tenants/{tenant}/workshop/orders/{order}', [WorkshopOrderController::class, 'update']);
+        Route::get('platform/tenants/{tenant}/workshop/orders/{order}/photos', [WorkshopOrderController::class, 'photos']);
+        Route::get('platform/tenants/{tenant}/workshop/orders/{order}/photos/{photo}', [WorkshopOrderController::class, 'photo']);
         Route::post('platform/tenants/{tenant}/workshop/orders/{order}/photo-session', [WorkshopOrderController::class, 'photoSession']);
         Route::post('platform/tenants/{tenant}/catalog/items', [CatalogItemController::class, 'store']);
         Route::patch('platform/tenants/{tenant}/catalog/items/{item}', [CatalogItemController::class, 'update']);
