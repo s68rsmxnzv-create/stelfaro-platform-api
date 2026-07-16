@@ -48,6 +48,27 @@ class WorkshopOrderTest extends TestCase
         $this->actingAs($user)->getJson("/api/v1/platform/tenants/{$tenant->id}/workshop/orders")->assertOk();
     }
 
+    public function test_diagnosis_and_approval_follow_controlled_transitions(): void
+    {
+        [$user, $tenant] = $this->member();
+        $order = $this->actingAs($user)->postJson("/api/v1/platform/tenants/{$tenant->id}/workshop/orders", [
+            'customer' => ['core_customer_id' => 45, 'name' => 'Carlos Pérez'],
+            'device' => ['type' => 'laptop', 'brand' => 'Dell', 'model' => 'Latitude', 'power_status' => 'off'],
+            'reported_fault' => 'No enciende',
+        ])->assertCreated()->json('data');
+
+        $url = "/api/v1/platform/tenants/{$tenant->id}/workshop/orders/{$order['id']}";
+        $this->patchJson($url, ['status' => 'awaiting_approval'])->assertUnprocessable();
+        $this->patchJson($url, ['status' => 'diagnosing'])->assertOk()->assertJsonPath('data.status', 'diagnosing');
+        $this->patchJson($url, ['status' => 'awaiting_approval', 'diagnosis' => 'Reemplazar circuito de carga', 'estimated_total' => 55])
+            ->assertOk()->assertJsonPath('data.status', 'awaiting_approval');
+        $this->patchJson($url, ['approval_decision' => 'approved', 'approval_method' => 'whatsapp', 'approval_notes' => 'Confirmó por mensaje'])
+            ->assertOk()->assertJsonPath('data.status', 'approved')->assertJsonPath('data.approval.method', 'whatsapp');
+        $this->patchJson($url, ['status' => 'ready'])->assertUnprocessable();
+        $this->patchJson($url, ['status' => 'repairing'])->assertOk();
+        $this->patchJson($url, ['status' => 'ready'])->assertOk()->assertJsonPath('data.status', 'ready');
+    }
+
     private function member(): array
     {
         $tenant = Tenant::query()->create(['slug' => 'workshop', 'name' => 'Workshop', 'status' => 'active']);

@@ -153,7 +153,17 @@ class WorkshopOrderController extends Controller
             'status' => ['sometimes', Rule::in(['received', 'diagnosing', 'awaiting_approval', 'approved', 'repairing', 'ready', 'delivered', 'cancelled'])],
             'diagnosis' => ['nullable', 'string', 'max:10000'],
             'estimated_total' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
+            'approval_decision' => ['nullable', Rule::in(['approved', 'rejected'])],
+            'approval_method' => ['nullable', Rule::in(['whatsapp', 'call', 'in_person'])],
+            'approval_notes' => ['nullable', 'string', 'max:2000'],
         ]);
+        $nextStatus = $data['status'] ?? $order->status;
+        $this->validateTransition($order, $nextStatus, $data);
+        if (array_key_exists('approval_decision', $data)) {
+            $data['status'] = $data['approval_decision'] === 'approved' ? 'approved' : 'cancelled';
+            $data['approval_recorded_by'] = $request->user()->id;
+            $data['approval_decided_at'] = now();
+        }
         $order->fill($data);
         if (($data['status'] ?? null) === 'ready') {
             $order->completed_at = now();
@@ -227,6 +237,7 @@ class WorkshopOrderController extends Controller
             'status' => $order->status, 'priority' => $order->priority, 'reported_fault' => $order->reported_fault,
             'physical_condition' => $order->physical_condition, 'physical_conditions' => $order->physical_conditions ?? [], 'accessories' => $order->accessories ?? [],
             'diagnosis' => $order->diagnosis, 'estimated_total' => $order->estimated_total !== null ? (float) $order->estimated_total : null,
+            'approval' => ['decision' => $order->approval_decision, 'method' => $order->approval_method, 'notes' => $order->approval_notes, 'decided_at' => $order->approval_decided_at?->toISOString()],
             'paid_total' => $paid, 'balance' => max(0, (float) ($order->estimated_total ?? 0) - $paid),
             'received_at' => $order->received_at?->toISOString(),
             'photo_count' => isset($order->photos_count) ? (int) $order->photos_count : $order->photos()->count(),
@@ -263,6 +274,41 @@ class WorkshopOrderController extends Controller
             $points = array_values(array_filter(explode('-', $secret)));
             if (count($points) < 4 || count($points) !== count(array_unique($points)) || collect($points)->contains(fn ($point) => ! preg_match('/^[1-9]$/', $point))) {
                 throw ValidationException::withMessages(['device.access_secret' => 'El patrón debe contener al menos cuatro puntos sin repetir.']);
+            }
+        }
+    }
+
+    private function validateTransition(WorkshopOrder $order, string $nextStatus, array $data): void
+    {
+        $transitions = [
+            'received' => ['received', 'diagnosing', 'cancelled'],
+            'diagnosing' => ['diagnosing', 'awaiting_approval', 'cancelled'],
+            'awaiting_approval' => ['awaiting_approval', 'approved', 'cancelled'],
+            'approved' => ['approved', 'repairing', 'cancelled'],
+            'repairing' => ['repairing', 'ready', 'cancelled'],
+            'ready' => ['ready', 'delivered'],
+            'delivered' => ['delivered'],
+            'cancelled' => ['cancelled'],
+        ];
+        if (! in_array($nextStatus, $transitions[$order->status] ?? [], true)) {
+            throw ValidationException::withMessages(['status' => 'Ese cambio de estado no está permitido desde el estado actual.']);
+        }
+        if ($nextStatus === 'awaiting_approval') {
+            $diagnosis = trim((string) ($data['diagnosis'] ?? $order->diagnosis));
+            $estimate = $data['estimated_total'] ?? $order->estimated_total;
+            if ($diagnosis === '') {
+                throw ValidationException::withMessages(['diagnosis' => 'Registra el diagnóstico antes de solicitar aprobación.']);
+            }
+            if ($estimate === null) {
+                throw ValidationException::withMessages(['estimated_total' => 'Registra el presupuesto antes de solicitar aprobación.']);
+            }
+        }
+        if (array_key_exists('approval_decision', $data)) {
+            if ($order->status !== 'awaiting_approval') {
+                throw ValidationException::withMessages(['approval_decision' => 'La decisión solo puede registrarse mientras se espera aprobación.']);
+            }
+            if (empty($data['approval_method'])) {
+                throw ValidationException::withMessages(['approval_method' => 'Selecciona cómo confirmó el cliente.']);
             }
         }
     }
