@@ -24,7 +24,12 @@ class WorkshopPhotoUploadTest extends TestCase
         $session = $this->actingAs($user)->postJson("/api/v1/platform/tenants/{$tenant->id}/workshop/orders/{$order->id}/photo-session")
             ->assertCreated()->json('data');
         $token = basename($session['url']);
-        $this->get("https://taller.stelfaro.com/fotos/{$token}")->assertOk()->assertSee($order->device->brand);
+        $page = $this->get("https://taller.stelfaro.com/fotos/{$token}")
+            ->assertOk()
+            ->assertSee($order->device->brand);
+        preg_match("/script-src[^;]*'nonce-([^']+)'/", (string) $page->headers->get('Content-Security-Policy'), $nonce);
+        $this->assertNotEmpty($nonce[1] ?? null);
+        $page->assertSee('nonce="'.($nonce[1] ?? '').'"', false);
 
         $this->postJson("/api/v1/workshop/photo-upload/{$token}", [
             'photos' => [UploadedFile::fake()->image('equipo.jpg', 800, 600)],

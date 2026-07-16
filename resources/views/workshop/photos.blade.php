@@ -43,7 +43,7 @@
         <p class="mt-4 text-center text-xs text-slate-500">Este enlace es temporal y solo permite agregar fotografías a esta orden.</p>
     </section>
 </main>
-<script>
+<script nonce="{{ Vite::cspNonce() }}">
 const input = document.getElementById('photos');
 const form = document.getElementById('photo-form');
 const button = document.getElementById('submit');
