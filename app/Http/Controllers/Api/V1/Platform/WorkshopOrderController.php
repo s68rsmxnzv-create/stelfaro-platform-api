@@ -24,21 +24,50 @@ class WorkshopOrderController extends Controller
     public function index(Request $request, Tenant $tenant, PlatformAccessPolicy $policy): JsonResponse
     {
         abort_unless($policy->canViewTenantCatalog($request->user(), $tenant), 403);
-        $query = $tenant->workshopOrders()->with(['device.customer', 'payments'])->latest('received_at');
-        if ($request->filled('status')) {
-            $query->where('status', $request->string('status'));
+        $data = $request->validate([
+            'q' => ['nullable', 'string', 'max:120'],
+            'status' => ['nullable', Rule::in(['received', 'diagnosing', 'awaiting_approval', 'approved', 'repairing', 'ready', 'delivered', 'cancelled'])],
+            'priority' => ['nullable', Rule::in(['low', 'normal', 'high', 'urgent'])],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:5', 'max:100'],
+        ]);
+        if (! empty($data['date_from']) && ! empty($data['date_to']) && $data['date_to'] < $data['date_from']) {
+            throw ValidationException::withMessages(['date_to' => 'La fecha final debe ser igual o posterior a la fecha inicial.']);
         }
+        $query = $tenant->workshopOrders()->with(['device.customer', 'payments'])->withCount('photos');
         if ($request->filled('q')) {
-            $term = trim((string) $request->query('q'));
+            $term = trim((string) $data['q']);
             $query->where(function ($q) use ($term): void {
                 $q->where('ticket_number', 'like', "%{$term}%")
                     ->orWhere('reported_fault', 'like', "%{$term}%")
                     ->orWhereHas('device', fn ($d) => $d->where('brand', 'like', "%{$term}%")->orWhere('model', 'like', "%{$term}%")->orWhere('imei', 'like', "%{$term}%")->orWhere('serial_number', 'like', "%{$term}%"))
-                    ->orWhereHas('device.customer', fn ($c) => $c->where('name', 'like', "%{$term}%"));
+                    ->orWhereHas('device.customer', fn ($c) => $c->where('name', 'like', "%{$term}%")->orWhere('phone', 'like', "%{$term}%"));
             });
         }
+        if (! empty($data['priority'])) {
+            $query->where('priority', $data['priority']);
+        }
+        if (! empty($data['date_from'])) {
+            $query->whereDate('received_at', '>=', $data['date_from']);
+        }
+        if (! empty($data['date_to'])) {
+            $query->whereDate('received_at', '<=', $data['date_to']);
+        }
+        $statsQuery = clone $query;
+        $stats = collect(['received', 'diagnosing', 'awaiting_approval', 'approved', 'repairing', 'ready', 'delivered', 'cancelled'])
+            ->mapWithKeys(fn (string $status): array => [$status => (clone $statsQuery)->where('status', $status)->count()]);
+        if (! empty($data['status'])) {
+            $query->where('status', $data['status']);
+        }
+        $orders = $query->latest('received_at')->paginate((int) ($data['per_page'] ?? 15));
 
-        return response()->json(['data' => $query->limit(100)->get()->map(fn (WorkshopOrder $order) => $this->payload($order))->values()]);
+        return response()->json([
+            'data' => collect($orders->items())->map(fn (WorkshopOrder $order) => $this->payload($order))->values(),
+            'meta' => ['current_page' => $orders->currentPage(), 'last_page' => $orders->lastPage(), 'per_page' => $orders->perPage(), 'total' => $orders->total()],
+            'stats' => $stats,
+        ]);
     }
 
     public function store(Request $request, Tenant $tenant, PlatformAccessPolicy $policy): JsonResponse
@@ -200,7 +229,7 @@ class WorkshopOrderController extends Controller
             'diagnosis' => $order->diagnosis, 'estimated_total' => $order->estimated_total !== null ? (float) $order->estimated_total : null,
             'paid_total' => $paid, 'balance' => max(0, (float) ($order->estimated_total ?? 0) - $paid),
             'received_at' => $order->received_at?->toISOString(),
-            'photo_count' => $order->photos()->count(),
+            'photo_count' => isset($order->photos_count) ? (int) $order->photos_count : $order->photos()->count(),
             'customer' => ['id' => $order->device->customer->core_customer_id, 'name' => $order->device->customer->name, 'phone' => $order->device->customer->phone],
             'device' => ['id' => $order->device->id, 'type' => $order->device->type, 'brand' => $order->device->brand, 'model' => $order->device->model, 'color' => $order->device->color, 'imei' => $order->device->imei, 'serial_number' => $order->device->serial_number, 'identifier_not_visible' => $order->device->identifier_not_visible, 'power_status' => $order->device->power_status, 'functional_tests' => $order->device->functional_tests ?? [], 'is_locked' => $order->device->is_locked, 'access_type' => $order->device->access_type, 'has_access_secret' => filled($order->device->access_secret)],
         ];
