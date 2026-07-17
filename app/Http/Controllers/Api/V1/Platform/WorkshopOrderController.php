@@ -145,6 +145,13 @@ class WorkshopOrderController extends Controller
         return response()->json(['data' => $this->payload($order->load(['device.customer', 'payments']))], 201);
     }
 
+    public function show(Request $request, Tenant $tenant, WorkshopOrder $order, PlatformAccessPolicy $policy): JsonResponse
+    {
+        $this->authorizeOrder($request, $tenant, $order, $policy);
+
+        return response()->json(['data' => $this->payload($order->load(['device.customer', 'payments']))]);
+    }
+
     public function update(Request $request, Tenant $tenant, WorkshopOrder $order, PlatformAccessPolicy $policy): JsonResponse
     {
         abort_unless($order->tenant_id === $tenant->id, 404);
@@ -189,6 +196,7 @@ class WorkshopOrderController extends Controller
             'method' => ['nullable', Rule::in(['cash', 'card', 'transfer', 'other'])],
             'reference' => ['nullable', 'string', 'max:120'],
             'notes' => ['nullable', 'string', 'max:2000'],
+            'document_choice' => ['nullable', Rule::in(['work_order', 'dte'])],
         ]);
 
         $order = DB::transaction(function () use ($data, $request, $tenant, $order): WorkshopOrder {
@@ -209,7 +217,7 @@ class WorkshopOrderController extends Controller
                 if ($due > 0) {
                     $locked->payments()->create(['tenant_id' => $tenant->id, 'received_by' => $request->user()->id, 'kind' => 'payment', 'amount' => $due, 'method' => $data['method'], 'reference' => $data['reference'] ?? null, 'notes' => $data['notes'] ?? 'Cobro al entregar y cerrar', 'received_at' => now()]);
                 }
-                $locked->forceFill(['status' => 'delivered', 'final_total' => $total, 'financial_status' => 'settled', 'delivered_at' => now(), 'closed_at' => now(), 'closed_by' => $request->user()->id])->save();
+                $locked->forceFill(['status' => 'delivered', 'final_total' => $total, 'financial_status' => 'settled', 'billing_status' => ($data['document_choice'] ?? 'work_order') === 'dte' ? 'pending' : 'unbilled', 'delivered_at' => now(), 'closed_at' => now(), 'closed_by' => $request->user()->id])->save();
             } else {
                 abort_unless($locked->status === 'cancelled', 422, 'Solo una orden cancelada puede liquidarse como cancelación.');
                 $retained = (float) ($data['retained_amount'] ?? 0);
@@ -230,6 +238,23 @@ class WorkshopOrderController extends Controller
         });
 
         return response()->json(['data' => $this->payload($order)]);
+    }
+
+    public function linkInvoice(Request $request, Tenant $tenant, WorkshopOrder $order, PlatformAccessPolicy $policy): JsonResponse
+    {
+        $this->authorizeOrder($request, $tenant, $order, $policy);
+        abort_unless($order->financial_status === 'settled', 422, 'La orden debe estar cerrada antes de vincular un DTE.');
+        $data = $request->validate([
+            'core_dte_document_id' => ['required', 'integer', 'min:1'],
+            'dte_number' => ['required', 'string', 'max:80'],
+            'dte_generation_code' => ['required', 'string', 'max:80'],
+        ]);
+        if ($order->core_dte_document_id && $order->core_dte_document_id !== $data['core_dte_document_id']) {
+            throw ValidationException::withMessages(['core_dte_document_id' => 'La orden ya está vinculada a otro DTE.']);
+        }
+        $order->forceFill([...$data, 'billing_status' => 'invoiced', 'invoiced_at' => now()])->save();
+
+        return response()->json(['data' => $this->payload($order->refresh()->load(['device.customer', 'payments']))]);
     }
 
     public function photoSession(Request $request, Tenant $tenant, WorkshopOrder $order, PlatformAccessPolicy $policy): JsonResponse
@@ -298,6 +323,7 @@ class WorkshopOrderController extends Controller
             'approval' => ['decision' => $order->approval_decision, 'method' => $order->approval_method, 'notes' => $order->approval_notes, 'decided_at' => $order->approval_decided_at?->toISOString()],
             'paid_total' => $paid, 'refunded_total' => $refunded, 'balance' => max(0, $charge - $paid),
             'financial' => ['status' => $order->financial_status, 'final_total' => $order->final_total !== null ? (float) $order->final_total : null, 'closed_at' => $order->closed_at?->toISOString()],
+            'billing' => ['status' => $order->billing_status, 'core_document_id' => $order->core_dte_document_id, 'number' => $order->dte_number, 'generation_code' => $order->dte_generation_code, 'invoiced_at' => $order->invoiced_at?->toISOString()],
             'received_at' => $order->received_at?->toISOString(),
             'photo_count' => isset($order->photos_count) ? (int) $order->photos_count : $order->photos()->count(),
             'customer' => ['id' => $order->device->customer->core_customer_id, 'name' => $order->device->customer->name, 'phone' => $order->device->customer->phone],

@@ -67,9 +67,11 @@ Route::prefix('v1')->group(function (): void {
         Route::delete('platform/tenants/{tenant}/catalog/categories/{category}', [CatalogCategoryController::class, 'destroy']);
         Route::get('platform/tenants/{tenant}/catalog/items', [CatalogItemController::class, 'index']);
         Route::get('platform/tenants/{tenant}/workshop/orders', [WorkshopOrderController::class, 'index']);
+        Route::get('platform/tenants/{tenant}/workshop/orders/{order}', [WorkshopOrderController::class, 'show']);
         Route::post('platform/tenants/{tenant}/workshop/orders', [WorkshopOrderController::class, 'store']);
         Route::patch('platform/tenants/{tenant}/workshop/orders/{order}', [WorkshopOrderController::class, 'update']);
         Route::post('platform/tenants/{tenant}/workshop/orders/{order}/settlement', [WorkshopOrderController::class, 'settle']);
+        Route::post('platform/tenants/{tenant}/workshop/orders/{order}/invoice-link', [WorkshopOrderController::class, 'linkInvoice']);
         Route::get('platform/tenants/{tenant}/workshop/orders/{order}/photos', [WorkshopOrderController::class, 'photos']);
         Route::get('platform/tenants/{tenant}/workshop/orders/{order}/photos/{photo}', [WorkshopOrderController::class, 'photo']);
         Route::post('platform/tenants/{tenant}/workshop/orders/{order}/photo-session', [WorkshopOrderController::class, 'photoSession']);
