@@ -58,6 +58,17 @@ class SecurityHeadersTest extends TestCase
         $this->assertStringContainsString('https://dte.stelfaro.me', $contentSecurityPolicy);
     }
 
+    public function test_csp_allows_only_loopback_print_agent_connections(): void
+    {
+        $response = $this->get('/login')->assertOk();
+        $contentSecurityPolicy = (string) $response->headers->get('Content-Security-Policy');
+
+        $this->assertStringContainsString('connect-src', $contentSecurityPolicy);
+        $this->assertStringContainsString('http://localhost:8711', $contentSecurityPolicy);
+        $this->assertStringContainsString('http://127.0.0.1:8711', $contentSecurityPolicy);
+        $this->assertStringNotContainsString('upgrade-insecure-requests', $contentSecurityPolicy);
+    }
+
     public function test_suspicious_script_payload_is_blocked_with_clear_message(): void
     {
         $tenant = Tenant::query()->create([

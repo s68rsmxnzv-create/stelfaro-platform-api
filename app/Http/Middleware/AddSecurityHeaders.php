@@ -36,10 +36,9 @@ class AddSecurityHeaders
             "style-src 'self' 'unsafe-inline'",
             "img-src 'self' data: blob: {$imageSources}",
             "font-src 'self' data:",
-            "connect-src 'self' https://pagos.wompi.sv",
+            "connect-src 'self' https://pagos.wompi.sv http://localhost:8711 http://127.0.0.1:8711",
             'frame-src https://pagos.wompi.sv',
             "form-action 'self' https://pagos.wompi.sv",
-            'upgrade-insecure-requests',
         ]);
 
         $response->headers->set(
