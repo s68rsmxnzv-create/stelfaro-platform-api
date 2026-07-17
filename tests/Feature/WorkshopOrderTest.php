@@ -129,6 +129,23 @@ class WorkshopOrderTest extends TestCase
         $this->assertDatabaseCount('inventory_sales', 1);
     }
 
+    public function test_dashboard_returns_operational_workshop_summary(): void
+    {
+        [$user, $tenant] = $this->member();
+        $this->actingAs($user)->postJson("/api/v1/platform/tenants/{$tenant->id}/workshop/orders", [
+            'customer' => ['core_customer_id' => 91, 'name' => 'Cliente dashboard'],
+            'device' => ['type' => 'phone', 'brand' => 'Samsung', 'model' => 'A54', 'power_status' => 'on'],
+            'reported_fault' => 'No carga',
+        ])->assertCreated();
+
+        $this->getJson("/api/v1/platform/tenants/{$tenant->id}/workshop/dashboard")
+            ->assertOk()
+            ->assertJsonPath('orders.active', 1)
+            ->assertJsonPath('orders.received_today', 1)
+            ->assertJsonCount(1, 'recent_orders')
+            ->assertJsonStructure(['commercial' => ['sales_today', 'sales_month', 'receivables']]);
+    }
+
     private function member(): array
     {
         $tenant = Tenant::query()->create(['slug' => 'workshop', 'name' => 'Workshop', 'status' => 'active']);

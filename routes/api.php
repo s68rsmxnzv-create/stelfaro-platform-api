@@ -66,6 +66,7 @@ Route::prefix('v1')->group(function (): void {
         Route::patch('platform/tenants/{tenant}/catalog/categories/{category}', [CatalogCategoryController::class, 'update']);
         Route::delete('platform/tenants/{tenant}/catalog/categories/{category}', [CatalogCategoryController::class, 'destroy']);
         Route::get('platform/tenants/{tenant}/catalog/items', [CatalogItemController::class, 'index']);
+        Route::get('platform/tenants/{tenant}/workshop/dashboard', [WorkshopOrderController::class, 'dashboard']);
         Route::get('platform/tenants/{tenant}/workshop/orders', [WorkshopOrderController::class, 'index']);
         Route::get('platform/tenants/{tenant}/workshop/orders/{order}', [WorkshopOrderController::class, 'show']);
         Route::post('platform/tenants/{tenant}/workshop/orders', [WorkshopOrderController::class, 'store']);
