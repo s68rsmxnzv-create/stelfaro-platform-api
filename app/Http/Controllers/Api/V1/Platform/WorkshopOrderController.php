@@ -99,7 +99,7 @@ class WorkshopOrderController extends Controller
             'accessories.*' => ['string', 'max:100'],
             'priority' => ['nullable', Rule::in(['low', 'normal', 'high', 'urgent'])],
             'estimated_total' => ['nullable', 'required_with:advance.amount', 'numeric', 'min:0', 'max:999999999.99'],
-            'advance.amount' => ['nullable', 'numeric', 'min:0.01', 'max:999999999.99', 'lte:estimated_total'],
+            'advance.amount' => ['nullable', 'numeric', 'min:0', 'max:999999999.99', 'lte:estimated_total'],
             'advance.method' => ['required_with:advance.amount', Rule::in(['cash', 'card', 'transfer', 'other'])],
             'advance.reference' => ['nullable', 'string', 'max:120'],
         ]);
@@ -131,7 +131,7 @@ class WorkshopOrderController extends Controller
                 'physical_conditions' => $data['physical_conditions'] ?? [],
                 'accessories' => $data['accessories'] ?? [], 'estimated_total' => $data['estimated_total'] ?? null, 'received_at' => now(),
             ]);
-            if (($data['advance']['amount'] ?? null) !== null) {
+            if ((float) ($data['advance']['amount'] ?? 0) > 0) {
                 $order->payments()->create([
                     'tenant_id' => $tenant->id, 'received_by' => $request->user()->id,
                     'amount' => $data['advance']['amount'], 'method' => $data['advance']['method'],

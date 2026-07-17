@@ -48,6 +48,22 @@ class WorkshopOrderTest extends TestCase
         $this->actingAs($user)->getJson("/api/v1/platform/tenants/{$tenant->id}/workshop/orders")->assertOk();
     }
 
+    public function test_reception_accepts_an_explicit_zero_advance_without_creating_payment(): void
+    {
+        [$user, $tenant] = $this->member();
+
+        $response = $this->actingAs($user)->postJson("/api/v1/platform/tenants/{$tenant->id}/workshop/orders", [
+            'customer' => ['core_customer_id' => 46, 'name' => 'Cliente contra entrega'],
+            'device' => ['type' => 'phone', 'brand' => 'Samsung', 'model' => 'A35', 'power_status' => 'on'],
+            'reported_fault' => 'Cambio de pantalla',
+            'estimated_total' => 35,
+            'advance' => ['amount' => 0, 'method' => 'cash'],
+        ]);
+
+        $response->assertCreated()->assertJsonPath('data.paid_total', 0)->assertJsonPath('data.balance', 35);
+        $this->assertDatabaseCount('workshop_order_payments', 0);
+    }
+
     public function test_diagnosis_and_approval_follow_controlled_transitions(): void
     {
         [$user, $tenant] = $this->member();
