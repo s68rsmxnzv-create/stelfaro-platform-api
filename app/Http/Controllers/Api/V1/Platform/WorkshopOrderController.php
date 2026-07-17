@@ -9,6 +9,7 @@ use App\Models\WorkshopDevice;
 use App\Models\WorkshopOrder;
 use App\Models\WorkshopOrderPhoto;
 use App\Models\WorkshopPhotoSession;
+use App\Services\Inventory\InventoryService;
 use App\Services\PlatformAccessPolicy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -186,7 +187,7 @@ class WorkshopOrderController extends Controller
         return response()->json(['data' => $this->payload($order->refresh()->load(['device.customer', 'payments']))]);
     }
 
-    public function settle(Request $request, Tenant $tenant, WorkshopOrder $order, PlatformAccessPolicy $policy): JsonResponse
+    public function settle(Request $request, Tenant $tenant, WorkshopOrder $order, PlatformAccessPolicy $policy, InventoryService $inventory): JsonResponse
     {
         $this->authorizeOrder($request, $tenant, $order, $policy);
         $data = $request->validate([
@@ -198,11 +199,12 @@ class WorkshopOrderController extends Controller
             'notes' => ['nullable', 'string', 'max:2000'],
             'document_choice' => ['nullable', Rule::in(['work_order', 'dte'])],
             'dte_type' => ['nullable', Rule::in(['01', '03'])],
+            'payment_timing' => ['nullable', Rule::in(['paid_now', 'credit'])],
         ]);
 
-        $order = DB::transaction(function () use ($data, $request, $tenant, $order): WorkshopOrder {
+        $order = DB::transaction(function () use ($data, $request, $tenant, $order, $inventory): WorkshopOrder {
             $locked = WorkshopOrder::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
-            abort_if($locked->financial_status === 'settled', 422, 'La orden ya está cerrada financieramente.');
+            abort_if($locked->closed_at !== null, 422, 'La orden ya está cerrada.');
             $paid = $this->netPaid($locked);
 
             if ($data['action'] === 'deliver_close') {
@@ -212,14 +214,22 @@ class WorkshopOrderController extends Controller
                     throw ValidationException::withMessages(['final_total' => 'El total final no puede ser menor que lo ya recibido.']);
                 }
                 $due = round($total - $paid, 2);
-                if ($due > 0 && empty($data['method'])) {
+                $paymentTiming = $data['payment_timing'] ?? 'paid_now';
+                if ($paymentTiming === 'paid_now' && $due > 0 && empty($data['method'])) {
                     throw ValidationException::withMessages(['method' => 'Selecciona cómo se recibió el saldo final.']);
                 }
-                if ($due > 0) {
+                if ($paymentTiming === 'paid_now' && $due > 0) {
                     $locked->payments()->create(['tenant_id' => $tenant->id, 'received_by' => $request->user()->id, 'kind' => 'payment', 'amount' => $due, 'method' => $data['method'], 'reference' => $data['reference'] ?? null, 'notes' => $data['notes'] ?? 'Cobro al entregar y cerrar', 'received_at' => now()]);
                 }
                 $wantsDte = ($data['document_choice'] ?? 'work_order') === 'dte';
-                $locked->forceFill(['status' => 'delivered', 'final_total' => $total, 'financial_status' => 'settled', 'billing_status' => $wantsDte ? 'pending' : 'unbilled', 'dte_type' => $wantsDte ? ($data['dte_type'] ?? '01') : null, 'delivered_at' => now(), 'closed_at' => now(), 'closed_by' => $request->user()->id])->save();
+                $locked->forceFill(['status' => 'delivered', 'final_total' => $total, 'financial_status' => $paymentTiming === 'credit' && $due > 0 ? 'pending' : 'settled', 'billing_status' => $wantsDte ? 'pending' : 'unbilled', 'dte_type' => $wantsDte ? ($data['dte_type'] ?? '01') : null, 'delivered_at' => now(), 'closed_at' => now(), 'closed_by' => $request->user()->id])->save();
+                $inventory->recordSale($tenant, [
+                    'source_type' => 'workshop_order', 'source_id' => (string) $locked->id,
+                    'source_number' => 'T-'.str_pad((string) $locked->ticket_number, 6, '0', STR_PAD_LEFT),
+                    'sale_date' => now()->toDateString(),
+                    'metadata' => ['customer_id' => $locked->device->customer->core_customer_id, 'customer_name' => $locked->device->customer->name, 'payment_status' => $paymentTiming === 'credit' && $due > 0 ? 'receivable' : 'paid', 'billing_status' => $wantsDte ? 'pending' : 'unbilled'],
+                    'lines' => [['description' => 'Servicio de reparación '.$locked->device->brand.' '.$locked->device->model, 'quantity' => 1, 'unit_price' => $total, 'net_total' => $total, 'line_origin' => 'free']],
+                ], $request->user()->id);
             } else {
                 abort_unless($locked->status === 'cancelled', 422, 'Solo una orden cancelada puede liquidarse como cancelación.');
                 $retained = (float) ($data['retained_amount'] ?? 0);
@@ -245,7 +255,7 @@ class WorkshopOrderController extends Controller
     public function linkInvoice(Request $request, Tenant $tenant, WorkshopOrder $order, PlatformAccessPolicy $policy): JsonResponse
     {
         $this->authorizeOrder($request, $tenant, $order, $policy);
-        abort_unless($order->financial_status === 'settled', 422, 'La orden debe estar cerrada antes de vincular un DTE.');
+        abort_unless($order->closed_at !== null, 422, 'La orden debe estar cerrada antes de vincular un DTE.');
         $data = $request->validate([
             'core_dte_document_id' => ['required', 'integer', 'min:1'],
             'dte_number' => ['required', 'string', 'max:80'],
@@ -258,6 +268,36 @@ class WorkshopOrderController extends Controller
         $order->forceFill([...$data, 'billing_status' => 'invoiced', 'invoiced_at' => now()])->save();
 
         return response()->json(['data' => $this->payload($order->refresh()->load(['device.customer', 'payments']))]);
+    }
+
+    public function recordPayment(Request $request, Tenant $tenant, WorkshopOrder $order, PlatformAccessPolicy $policy, InventoryService $inventory): JsonResponse
+    {
+        $this->authorizeOrder($request, $tenant, $order, $policy);
+        abort_unless($order->closed_at !== null && $order->financial_status === 'pending', 422, 'La orden no tiene saldo pendiente de una venta cerrada.');
+        $data = $request->validate([
+            'amount' => ['required', 'numeric', 'min:0.01', 'max:999999999.99'],
+            'method' => ['required', Rule::in(['cash', 'card', 'transfer', 'other'])],
+            'reference' => ['nullable', 'string', 'max:120'],
+            'notes' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $order = DB::transaction(function () use ($data, $request, $tenant, $order, $inventory): WorkshopOrder {
+            $locked = WorkshopOrder::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            $balance = round((float) $locked->final_total - $this->netPaid($locked), 2);
+            if ((float) $data['amount'] > $balance) {
+                throw ValidationException::withMessages(['amount' => 'El pago no puede superar el saldo pendiente.']);
+            }
+            $locked->payments()->create(['tenant_id' => $tenant->id, 'received_by' => $request->user()->id, 'kind' => 'payment', 'amount' => $data['amount'], 'method' => $data['method'], 'reference' => $data['reference'] ?? null, 'notes' => $data['notes'] ?? 'Abono posterior al cierre', 'received_at' => now()]);
+            $remaining = round($balance - (float) $data['amount'], 2);
+            if ($remaining <= 0) {
+                $locked->forceFill(['financial_status' => 'settled'])->save();
+            }
+            $inventory->recordSale($tenant, ['source_type' => 'workshop_order', 'source_id' => (string) $locked->id, 'source_number' => 'T-'.str_pad((string) $locked->ticket_number, 6, '0', STR_PAD_LEFT), 'metadata' => ['payment_status' => $remaining <= 0 ? 'paid' : 'receivable'], 'lines' => []], $request->user()->id);
+
+            return $locked->refresh()->load(['device.customer', 'payments']);
+        });
+
+        return response()->json(['data' => $this->payload($order)]);
     }
 
     public function photoSession(Request $request, Tenant $tenant, WorkshopOrder $order, PlatformAccessPolicy $policy): JsonResponse

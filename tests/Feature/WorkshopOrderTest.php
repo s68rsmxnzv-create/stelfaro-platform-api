@@ -107,6 +107,28 @@ class WorkshopOrderTest extends TestCase
         $this->assertDatabaseHas('workshop_order_payments', ['workshop_order_id' => $order['id'], 'kind' => 'refund', 'amount' => 25]);
     }
 
+    public function test_ready_order_can_close_as_credit_sale_and_receive_payment_later(): void
+    {
+        [$user, $tenant] = $this->member();
+        $order = $this->actingAs($user)->postJson("/api/v1/platform/tenants/{$tenant->id}/workshop/orders", [
+            'customer' => ['core_customer_id' => 48, 'name' => 'Cliente a crédito'],
+            'device' => ['type' => 'laptop', 'brand' => 'Lenovo', 'model' => 'T14', 'power_status' => 'on'],
+            'reported_fault' => 'Cambio de teclado', 'estimated_total' => 60,
+        ])->assertCreated()->json('data');
+        $url = "/api/v1/platform/tenants/{$tenant->id}/workshop/orders/{$order['id']}";
+        $this->patchJson($url, ['status' => 'diagnosing'])->assertOk();
+        $this->patchJson($url, ['status' => 'awaiting_approval', 'diagnosis' => 'Teclado dañado', 'estimated_total' => 60])->assertOk();
+        $this->patchJson($url, ['approval_decision' => 'approved', 'approval_method' => 'call'])->assertOk();
+        $this->patchJson($url, ['status' => 'repairing'])->assertOk();
+        $this->patchJson($url, ['status' => 'ready'])->assertOk();
+        $this->postJson($url.'/settlement', ['action' => 'deliver_close', 'final_total' => 60, 'payment_timing' => 'credit', 'document_choice' => 'work_order'])
+            ->assertOk()->assertJsonPath('data.status', 'delivered')->assertJsonPath('data.financial.status', 'pending')->assertJsonPath('data.balance', 60);
+        $this->assertDatabaseHas('inventory_sales', ['tenant_id' => $tenant->id, 'source_type' => 'workshop_order', 'source_id' => (string) $order['id']]);
+        $this->postJson($url.'/payments', ['amount' => 20, 'method' => 'cash'])->assertOk()->assertJsonPath('data.balance', 40)->assertJsonPath('data.financial.status', 'pending');
+        $this->postJson($url.'/payments', ['amount' => 40, 'method' => 'transfer'])->assertOk()->assertJsonPath('data.balance', 0)->assertJsonPath('data.financial.status', 'settled');
+        $this->assertDatabaseCount('inventory_sales', 1);
+    }
+
     private function member(): array
     {
         $tenant = Tenant::query()->create(['slug' => 'workshop', 'name' => 'Workshop', 'status' => 'active']);

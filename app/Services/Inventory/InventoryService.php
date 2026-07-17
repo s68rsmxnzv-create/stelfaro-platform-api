@@ -12,8 +12,8 @@ use App\Models\InventoryPurchaseLine;
 use App\Models\InventoryReservation;
 use App\Models\InventoryReservationLine;
 use App\Models\InventorySale;
-use App\Models\InventorySaleLine;
 use App\Models\InventorySaleAllocation;
+use App\Models\InventorySaleLine;
 use App\Models\InventoryTransfer;
 use App\Models\InventoryTransferLine;
 use App\Models\Tenant;
@@ -43,6 +43,10 @@ class InventoryService
                 ->first();
 
             if ($existing) {
+                $existing->forceFill([
+                    'source_number' => $this->blankToNull($data['source_number'] ?? null) ?? $existing->source_number,
+                    'metadata' => array_merge($existing->metadata ?? [], $data['metadata'] ?? []),
+                ])->save();
                 $fresh = $existing->fresh(['lines.catalogItem']);
                 $fresh->wasRecentlyCreated = false;
 
