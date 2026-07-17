@@ -83,10 +83,10 @@ class WorkshopOrderTest extends TestCase
         $this->patchJson($url, ['status' => 'ready'])->assertUnprocessable();
         $this->patchJson($url, ['status' => 'repairing'])->assertOk();
         $this->patchJson($url, ['status' => 'ready'])->assertOk()->assertJsonPath('data.status', 'ready');
-        $this->postJson($url.'/settlement', ['action' => 'deliver_close', 'final_total' => 55, 'method' => 'cash', 'document_choice' => 'dte'])
-            ->assertOk()->assertJsonPath('data.status', 'delivered')->assertJsonPath('data.financial.status', 'settled')->assertJsonPath('data.billing.status', 'pending')->assertJsonPath('data.balance', 0);
+        $this->postJson($url.'/settlement', ['action' => 'deliver_close', 'final_total' => 55, 'method' => 'cash', 'document_choice' => 'dte', 'dte_type' => '03'])
+            ->assertOk()->assertJsonPath('data.status', 'delivered')->assertJsonPath('data.financial.status', 'settled')->assertJsonPath('data.billing.status', 'pending')->assertJsonPath('data.billing.dte_type', '03')->assertJsonPath('data.balance', 0);
         $this->assertDatabaseHas('workshop_order_payments', ['workshop_order_id' => $order['id'], 'kind' => 'payment', 'amount' => 55]);
-        $this->postJson($url.'/invoice-link', ['core_dte_document_id' => 901, 'dte_number' => 'DTE-01-TEST', 'dte_generation_code' => 'UUID-TEST'])
+        $this->postJson($url.'/invoice-link', ['core_dte_document_id' => 901, 'dte_number' => 'DTE-03-TEST', 'dte_generation_code' => 'UUID-TEST', 'dte_type' => '03'])
             ->assertOk()->assertJsonPath('data.billing.status', 'invoiced')->assertJsonPath('data.billing.core_document_id', 901);
     }
 
