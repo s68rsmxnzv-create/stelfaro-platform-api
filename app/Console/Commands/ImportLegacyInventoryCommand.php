@@ -13,6 +13,9 @@ class ImportLegacyInventoryCommand extends Command
     protected $signature = 'platform:inventory:import-legacy
         {tenant : ID del tenant de destino}
         {--source=- : Archivo JSON o - para stdin}
+        {--branch-id= : ID de Casa Matriz en dte-core}
+        {--branch-code=M001 : Código de Casa Matriz}
+        {--branch-name=Casa matriz : Nombre de Casa Matriz}
         {--replace : Sustituir el inventario actual}
         {--dry-run : Validar sin escribir}';
 
@@ -35,6 +38,12 @@ class ImportLegacyInventoryCommand extends Command
 
             return self::FAILURE;
         }
+
+        $payload['target_branch'] = [
+            'id' => (int) $this->option('branch-id'),
+            'code' => trim((string) $this->option('branch-code')),
+            'name' => trim((string) $this->option('branch-name')),
+        ];
 
         try {
             $summary = $importer->analyze($payload);

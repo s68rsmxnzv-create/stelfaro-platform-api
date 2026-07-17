@@ -34,7 +34,7 @@ class LegacyInventoryImportService
      */
     public function analyze(array $payload): array
     {
-        foreach (['categories', 'suppliers', 'items', 'purchases', 'purchase_lines', 'lots'] as $key) {
+        foreach (['categories', 'suppliers', 'items', 'purchases', 'purchase_lines', 'lots', 'movements'] as $key) {
             if (! isset($payload[$key]) || ! is_array($payload[$key])) {
                 throw new InvalidArgumentException("El archivo legado no contiene {$key}.");
             }
@@ -45,6 +45,8 @@ class LegacyInventoryImportService
         $itemIds = $this->ids($payload['items'], 'id', 'productos');
         $purchaseIds = $this->ids($payload['purchases'], 'id', 'compras');
         $lineIds = $this->ids($payload['purchase_lines'], 'id', 'partidas');
+        $this->ids($payload['movements'], 'id', 'movimientos');
+        $branch = $this->branch($payload);
 
         foreach ($payload['items'] as $item) {
             $this->references($item['categoria_item_id'] ?? null, $categoryIds, 'categoría de producto');
@@ -66,9 +68,41 @@ class LegacyInventoryImportService
             $this->references($lot['compra_id'] ?? null, $purchaseIds, 'compra de lote');
             $this->references($lot['compra_detalle_id'] ?? null, $lineIds, 'partida de lote');
         }
+        foreach ($payload['movements'] as $movement) {
+            $this->references($movement['item_id'] ?? null, $itemIds, 'producto de movimiento', false);
+            if ((float) ($movement['cantidad'] ?? 0) <= 0) {
+                throw new InvalidArgumentException('Todos los movimientos deben tener una cantidad mayor que cero.');
+            }
+            if (! in_array($movement['tipo_movimiento'] ?? null, ['entrada', 'salida'], true)) {
+                throw new InvalidArgumentException('El kardex contiene un tipo de movimiento desconocido.');
+            }
+        }
 
         $itemStock = collect($payload['items'])->sum(fn (array $item): float => (float) ($item['stock_actual'] ?? 0));
         $availableStock = collect($payload['lots'])->sum(fn (array $lot): float => (float) ($lot['cantidad_disponible'] ?? 0));
+        $lotBalances = collect($payload['lots'])->groupBy('item_id')->map(fn ($lots): float => $lots->sum(fn (array $lot): float => (float) ($lot['cantidad_disponible'] ?? 0)));
+        $movementBalances = [];
+        $negativeMovementBalances = 0;
+        foreach ($this->orderedMovements($payload['movements']) as $movement) {
+            $itemId = (int) $movement['item_id'];
+            $quantity = (float) $movement['cantidad'];
+            $movementBalances[$itemId] = ($movementBalances[$itemId] ?? 0) + (($movement['tipo_movimiento'] ?? null) === 'entrada' ? $quantity : -$quantity);
+            $negativeMovementBalances += $movementBalances[$itemId] < -0.001 ? 1 : 0;
+        }
+        $stockMismatchItems = 0;
+        $stockAbsoluteDifference = 0.0;
+        $movementMismatchItems = 0;
+        $movementStockDifference = 0.0;
+        foreach ($payload['items'] as $item) {
+            $itemId = (int) $item['id'];
+            $stock = (float) ($item['stock_actual'] ?? 0);
+            $lotDifference = abs($stock - (float) $lotBalances->get($itemId, 0));
+            $movementDifference = abs($stock - ($movementBalances[$itemId] ?? 0));
+            $stockMismatchItems += $lotDifference > 0.001 ? 1 : 0;
+            $stockAbsoluteDifference += $lotDifference;
+            $movementMismatchItems += $movementDifference > 0.001 ? 1 : 0;
+            $movementStockDifference += $movementDifference;
+        }
 
         return [
             'categories' => count($payload['categories']),
@@ -77,9 +111,16 @@ class LegacyInventoryImportService
             'purchases' => count($payload['purchases']),
             'purchase_lines' => count($payload['purchase_lines']),
             'lots' => count($payload['lots']),
+            'movements' => count($payload['movements']),
+            'branch_id' => $branch['core_sucursal_id'],
             'item_stock' => round($itemStock, 3),
             'available_lot_stock' => round($availableStock, 3),
             'stock_difference' => round($itemStock - $availableStock, 3),
+            'stock_mismatch_items' => $stockMismatchItems,
+            'stock_absolute_difference' => round($stockAbsoluteDifference, 3),
+            'movement_mismatch_items' => $movementMismatchItems,
+            'movement_stock_difference' => round($movementStockDifference, 3),
+            'negative_movement_balances' => $negativeMovementBalances,
         ];
     }
 
@@ -101,6 +142,9 @@ class LegacyInventoryImportService
     public function import(Tenant $tenant, array $payload, bool $replace = false): array
     {
         $summary = $this->analyze($payload);
+        if ($summary['stock_mismatch_items'] > 0 || $summary['movement_mismatch_items'] > 0 || $summary['negative_movement_balances'] > 0) {
+            throw new InvalidArgumentException('La migración fue bloqueada porque lotes, kardex y existencias no terminan en el mismo saldo.');
+        }
 
         return DB::transaction(function () use ($tenant, $payload, $replace, $summary): array {
             if ($replace) {
@@ -110,6 +154,7 @@ class LegacyInventoryImportService
             }
 
             $now = now();
+            $branch = $this->branch($payload);
             $categoryMap = [];
             foreach ($payload['categories'] as $category) {
                 $categoryMap[(int) $category['id']] = DB::table('catalog_categories')->insertGetId([
@@ -177,9 +222,7 @@ class LegacyInventoryImportService
                 $purchaseMap[(int) $purchase['id']] = DB::table('inventory_purchases')->insertGetId([
                     'tenant_id' => $tenant->id,
                     'inventory_supplier_id' => $supplierMap[(int) $purchase['proveedor_id']] ?? null,
-                    'core_sucursal_id' => null,
-                    'core_sucursal_code' => null,
-                    'core_sucursal_name' => null,
+                    ...$branch,
                     'purchase_number' => (int) ($purchase['numero_compra'] ?? $purchase['id']),
                     'document_type' => $this->blank($purchase['tipo_documento'] ?? null),
                     'document_mode' => ($purchase['modalidad_documento'] ?? null) === 'fisico' ? 'physical' : ($purchase['modalidad_documento'] ?? 'manual'),
@@ -238,16 +281,12 @@ class LegacyInventoryImportService
                 ]);
             }
 
-            $balanceByItem = [];
             foreach ($payload['lots'] as $lot) {
                 $itemId = (int) $lot['item_id'];
                 $available = (float) ($lot['cantidad_disponible'] ?? 0);
-                $balanceByItem[$itemId] = ($balanceByItem[$itemId] ?? 0) + $available;
-                $newLotId = DB::table('inventory_lots')->insertGetId([
+                DB::table('inventory_lots')->insert([
                     'tenant_id' => $tenant->id,
-                    'core_sucursal_id' => null,
-                    'core_sucursal_code' => null,
-                    'core_sucursal_name' => null,
+                    ...$branch,
                     'catalog_item_id' => $itemMap[$itemId],
                     'inventory_supplier_id' => isset($lot['proveedor_id']) ? ($supplierMap[(int) $lot['proveedor_id']] ?? null) : null,
                     'inventory_purchase_id' => isset($lot['compra_id']) ? ($purchaseMap[(int) $lot['compra_id']] ?? null) : null,
@@ -261,29 +300,33 @@ class LegacyInventoryImportService
                     'created_at' => $lot['created_at'] ?? $now,
                     'updated_at' => $lot['updated_at'] ?? $now,
                 ]);
+            }
 
-                if ($available > 0) {
-                    DB::table('inventory_movements')->insert([
-                        'tenant_id' => $tenant->id,
-                        'core_sucursal_id' => null,
-                        'core_sucursal_code' => null,
-                        'core_sucursal_name' => null,
-                        'catalog_item_id' => $itemMap[$itemId],
-                        'inventory_lot_id' => $newLotId,
-                        'movement_type' => 'entry',
-                        'reason' => 'legacy_import',
-                        'quantity' => $available,
-                        'unit_cost' => (float) ($lot['costo_unitario'] ?? 0),
-                        'balance_after' => $balanceByItem[$itemId],
-                        'reference_type' => 'legacy_lot',
-                        'reference_id' => (string) $lot['id'],
-                        'reference_number' => $lot['codigo_lote'],
-                        'notes' => 'Saldo disponible importado desde Stelfaro legado.',
-                        'created_by' => null,
-                        'created_at' => $lot['created_at'] ?? $now,
-                        'updated_at' => $lot['updated_at'] ?? $now,
-                    ]);
-                }
+            $balanceByItem = [];
+            foreach ($this->orderedMovements($payload['movements']) as $movement) {
+                $itemId = (int) $movement['item_id'];
+                $quantity = (float) $movement['cantidad'];
+                $type = $movement['tipo_movimiento'] === 'entrada' ? 'entry' : 'exit';
+                $legacyReferenceType = $this->blank($movement['referencia_tipo'] ?? null);
+                $balanceByItem[$itemId] = ($balanceByItem[$itemId] ?? 0) + ($type === 'entry' ? $quantity : -$quantity);
+                DB::table('inventory_movements')->insert([
+                    'tenant_id' => $tenant->id,
+                    ...$branch,
+                    'catalog_item_id' => $itemMap[$itemId],
+                    'inventory_lot_id' => null,
+                    'movement_type' => $type,
+                    'reason' => $this->movementReason($movement['motivo'] ?? null),
+                    'quantity' => $quantity,
+                    'unit_cost' => isset($movement['costo_unitario']) ? (float) $movement['costo_unitario'] : null,
+                    'balance_after' => $balanceByItem[$itemId],
+                    'reference_type' => $legacyReferenceType ? 'legacy_'.$legacyReferenceType : 'legacy_kardex',
+                    'reference_id' => isset($movement['referencia_id']) ? (string) $movement['referencia_id'] : (string) $movement['id'],
+                    'reference_number' => null,
+                    'notes' => 'Movimiento histórico importado desde Stelfaro legado.',
+                    'created_by' => null,
+                    'created_at' => $movement['fecha'] ?? $movement['created_at'] ?? $now,
+                    'updated_at' => $movement['updated_at'] ?? $movement['fecha'] ?? $now,
+                ]);
             }
 
             return $summary;
@@ -328,5 +371,38 @@ class LegacyInventoryImportService
         $value = trim((string) ($value ?? ''));
 
         return $value === '' ? null : $value;
+    }
+
+    /** @return array{core_sucursal_id:int,core_sucursal_code:string,core_sucursal_name:string} */
+    private function branch(array $payload): array
+    {
+        $branch = is_array($payload['target_branch'] ?? null) ? $payload['target_branch'] : [];
+        $id = (int) ($branch['id'] ?? 0);
+        $code = trim((string) ($branch['code'] ?? ''));
+        $name = trim((string) ($branch['name'] ?? ''));
+        if ($id < 1 || $code === '' || $name === '') {
+            throw new InvalidArgumentException('Debes indicar la Casa Matriz de destino completa.');
+        }
+
+        return ['core_sucursal_id' => $id, 'core_sucursal_code' => $code, 'core_sucursal_name' => $name];
+    }
+
+    /** @param array<int, array<string, mixed>> $movements */
+    private function orderedMovements(array $movements): array
+    {
+        usort($movements, fn (array $a, array $b): int => [($a['fecha'] ?? $a['created_at'] ?? ''), (int) $a['id']] <=> [($b['fecha'] ?? $b['created_at'] ?? ''), (int) $b['id']]);
+
+        return $movements;
+    }
+
+    private function movementReason(mixed $reason): string
+    {
+        return match ($reason) {
+            'compra' => 'purchase',
+            'venta' => 'sale',
+            'anulacion' => 'reversal',
+            'ajuste_manual' => 'manual_adjustment',
+            default => 'legacy_import',
+        };
     }
 }

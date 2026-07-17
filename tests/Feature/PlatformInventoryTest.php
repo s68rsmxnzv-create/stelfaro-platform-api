@@ -688,6 +688,7 @@ class PlatformInventoryTest extends TestCase
         $tenant = Tenant::query()->create(['slug' => 'legacy-import', 'name' => 'Legacy import']);
         $payload = [
             'legacy_tenant_id' => 1,
+            'target_branch' => ['id' => 5, 'code' => 'M001', 'name' => 'Casa matriz'],
             'categories' => [['id' => 10, 'nombre' => 'Repuestos', 'tipo' => 'producto', 'activo' => true]],
             'suppliers' => [['id' => 20, 'razon_social' => 'Proveedor legado', 'ruc' => '06140101011011', 'activo' => true]],
             'items' => [[
@@ -711,15 +712,21 @@ class PlatformInventoryTest extends TestCase
                 'codigo_lote' => 'LEGACY-60', 'fecha_compra' => '2026-01-02', 'costo_unitario' => 10,
                 'cantidad_inicial' => 3, 'cantidad_disponible' => 2, 'activo' => true,
             ]],
+            'movements' => [
+                ['id' => 70, 'item_id' => 30, 'tipo_movimiento' => 'entrada', 'motivo' => 'compra', 'cantidad' => 3, 'fecha' => '2026-01-02 10:00:00'],
+                ['id' => 71, 'item_id' => 30, 'tipo_movimiento' => 'salida', 'motivo' => 'venta', 'cantidad' => 1, 'fecha' => '2026-01-03 10:00:00'],
+            ],
         ];
 
         $summary = app(LegacyInventoryImportService::class)->import($tenant, $payload);
 
         $this->assertSame(0.0, $summary['stock_difference']);
+        $this->assertSame(0.0, $summary['movement_stock_difference']);
         $this->assertDatabaseHas('catalog_items', ['tenant_id' => $tenant->id, 'legacy_item_id' => 30, 'stock_quantity' => 2]);
-        $this->assertDatabaseHas('inventory_purchases', ['tenant_id' => $tenant->id, 'document_mode' => 'physical']);
+        $this->assertDatabaseHas('inventory_purchases', ['tenant_id' => $tenant->id, 'core_sucursal_id' => 5, 'document_mode' => 'physical']);
         $this->assertDatabaseHas('inventory_purchase_lines', ['tenant_id' => $tenant->id, 'no_inventory' => true]);
-        $this->assertDatabaseHas('inventory_lots', ['tenant_id' => $tenant->id, 'initial_quantity' => 3, 'available_quantity' => 2]);
+        $this->assertDatabaseHas('inventory_lots', ['tenant_id' => $tenant->id, 'core_sucursal_id' => 5, 'initial_quantity' => 3, 'available_quantity' => 2]);
+        $this->assertDatabaseHas('inventory_movements', ['tenant_id' => $tenant->id, 'core_sucursal_id' => 5, 'reason' => 'sale', 'balance_after' => 2]);
     }
 
     public function test_purchase_annex_report_exposes_tax_purchase_base_data(): void
