@@ -9,6 +9,7 @@ use App\Models\InventoryPurchase;
 use App\Models\InventorySupplier;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\Inventory\LegacyInventoryImportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -680,6 +681,45 @@ class PlatformInventoryTest extends TestCase
                 'sku' => 'MIN-001',
                 'below_minimum' => true,
             ]);
+    }
+
+    public function test_legacy_inventory_import_preserves_available_stock_and_non_inventory_lines(): void
+    {
+        $tenant = Tenant::query()->create(['slug' => 'legacy-import', 'name' => 'Legacy import']);
+        $payload = [
+            'legacy_tenant_id' => 1,
+            'categories' => [['id' => 10, 'nombre' => 'Repuestos', 'tipo' => 'producto', 'activo' => true]],
+            'suppliers' => [['id' => 20, 'razon_social' => 'Proveedor legado', 'ruc' => '06140101011011', 'activo' => true]],
+            'items' => [[
+                'id' => 30, 'categoria_item_id' => 10, 'proveedor_id' => 20, 'codigo' => 'LEG-30', 'nombre' => 'Repuesto legado',
+                'unidad_medida' => '59', 'unidades_por_empaque' => 1, 'tipo' => 'producto', 'afecto_igv' => true,
+                'precio_compra' => 10, 'precio_venta' => 20, 'precio_venta_incluye_iva' => true, 'controla_stock' => true,
+                'stock_actual' => 2, 'activo' => true,
+            ]],
+            'purchases' => [[
+                'id' => 40, 'numero_compra' => 1, 'proveedor_id' => 20, 'tipo_documento' => 'nota_envio',
+                'modalidad_documento' => 'fisico', 'condicion_pago' => 'contado', 'fecha' => '2026-01-02',
+                'subtotal' => 10, 'igv' => 1.30, 'total' => 11.30, 'estado' => 'registrada',
+            ]],
+            'purchase_lines' => [[
+                'id' => 50, 'compra_id' => 40, 'item_id' => 30, 'cantidad' => 3, 'costo_unitario' => 10,
+                'costo_base_unitario' => 10, 'iva_unitario' => 1.30, 'porcentaje_iva' => 0.13,
+                'total_unitario' => 11.30, 'igv_monto' => 3.90, 'total_linea' => 33.90, 'no_inventario' => true,
+            ]],
+            'lots' => [[
+                'id' => 60, 'item_id' => 30, 'proveedor_id' => 20, 'compra_id' => 40, 'compra_detalle_id' => 50,
+                'codigo_lote' => 'LEGACY-60', 'fecha_compra' => '2026-01-02', 'costo_unitario' => 10,
+                'cantidad_inicial' => 3, 'cantidad_disponible' => 2, 'activo' => true,
+            ]],
+        ];
+
+        $summary = app(LegacyInventoryImportService::class)->import($tenant, $payload);
+
+        $this->assertSame(0.0, $summary['stock_difference']);
+        $this->assertDatabaseHas('catalog_items', ['tenant_id' => $tenant->id, 'legacy_item_id' => 30, 'stock_quantity' => 2]);
+        $this->assertDatabaseHas('inventory_purchases', ['tenant_id' => $tenant->id, 'document_mode' => 'physical']);
+        $this->assertDatabaseHas('inventory_purchase_lines', ['tenant_id' => $tenant->id, 'no_inventory' => true]);
+        $this->assertDatabaseHas('inventory_lots', ['tenant_id' => $tenant->id, 'initial_quantity' => 3, 'available_quantity' => 2]);
     }
 
     public function test_purchase_annex_report_exposes_tax_purchase_base_data(): void
