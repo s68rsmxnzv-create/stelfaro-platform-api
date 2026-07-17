@@ -83,6 +83,26 @@ class WorkshopOrderTest extends TestCase
         $this->patchJson($url, ['status' => 'ready'])->assertUnprocessable();
         $this->patchJson($url, ['status' => 'repairing'])->assertOk();
         $this->patchJson($url, ['status' => 'ready'])->assertOk()->assertJsonPath('data.status', 'ready');
+        $this->postJson($url.'/settlement', ['action' => 'deliver_close', 'final_total' => 55, 'method' => 'cash'])
+            ->assertOk()->assertJsonPath('data.status', 'delivered')->assertJsonPath('data.financial.status', 'settled')->assertJsonPath('data.balance', 0);
+        $this->assertDatabaseHas('workshop_order_payments', ['workshop_order_id' => $order['id'], 'kind' => 'payment', 'amount' => 55]);
+    }
+
+    public function test_cancelled_order_with_advance_requires_and_records_financial_resolution(): void
+    {
+        [$user, $tenant] = $this->member();
+        $order = $this->actingAs($user)->postJson("/api/v1/platform/tenants/{$tenant->id}/workshop/orders", [
+            'customer' => ['core_customer_id' => 47, 'name' => 'Cliente con devolución'],
+            'device' => ['type' => 'console', 'brand' => 'Sony', 'model' => 'PS5', 'power_status' => 'off'],
+            'reported_fault' => 'No enciende', 'estimated_total' => 80,
+            'advance' => ['amount' => 30, 'method' => 'cash'],
+        ])->assertCreated()->json('data');
+
+        $url = "/api/v1/platform/tenants/{$tenant->id}/workshop/orders/{$order['id']}";
+        $this->patchJson($url, ['status' => 'cancelled'])->assertOk()->assertJsonPath('data.financial.status', 'pending');
+        $this->postJson($url.'/settlement', ['action' => 'cancel_close', 'retained_amount' => 5, 'method' => 'cash', 'notes' => 'Cliente recibió devolución'])
+            ->assertOk()->assertJsonPath('data.financial.status', 'settled')->assertJsonPath('data.financial.final_total', 5)->assertJsonPath('data.refunded_total', 25)->assertJsonPath('data.paid_total', 5);
+        $this->assertDatabaseHas('workshop_order_payments', ['workshop_order_id' => $order['id'], 'kind' => 'refund', 'amount' => 25]);
     }
 
     private function member(): array

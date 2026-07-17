@@ -172,8 +172,64 @@ class WorkshopOrderController extends Controller
             $order->delivered_at = now();
         }
         $order->save();
+        if ($order->status === 'cancelled' && $this->netPaid($order) === 0.0) {
+            $order->forceFill(['final_total' => 0, 'financial_status' => 'settled', 'closed_at' => now(), 'closed_by' => $request->user()->id])->save();
+        }
 
         return response()->json(['data' => $this->payload($order->refresh()->load(['device.customer', 'payments']))]);
+    }
+
+    public function settle(Request $request, Tenant $tenant, WorkshopOrder $order, PlatformAccessPolicy $policy): JsonResponse
+    {
+        $this->authorizeOrder($request, $tenant, $order, $policy);
+        $data = $request->validate([
+            'action' => ['required', Rule::in(['deliver_close', 'cancel_close'])],
+            'final_total' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
+            'retained_amount' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
+            'method' => ['nullable', Rule::in(['cash', 'card', 'transfer', 'other'])],
+            'reference' => ['nullable', 'string', 'max:120'],
+            'notes' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $order = DB::transaction(function () use ($data, $request, $tenant, $order): WorkshopOrder {
+            $locked = WorkshopOrder::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            abort_if($locked->financial_status === 'settled', 422, 'La orden ya está cerrada financieramente.');
+            $paid = $this->netPaid($locked);
+
+            if ($data['action'] === 'deliver_close') {
+                abort_unless($locked->status === 'ready', 422, 'Solo una orden lista puede entregarse y cerrarse.');
+                $total = (float) ($data['final_total'] ?? $locked->estimated_total ?? 0);
+                if ($paid > $total) {
+                    throw ValidationException::withMessages(['final_total' => 'El total final no puede ser menor que lo ya recibido.']);
+                }
+                $due = round($total - $paid, 2);
+                if ($due > 0 && empty($data['method'])) {
+                    throw ValidationException::withMessages(['method' => 'Selecciona cómo se recibió el saldo final.']);
+                }
+                if ($due > 0) {
+                    $locked->payments()->create(['tenant_id' => $tenant->id, 'received_by' => $request->user()->id, 'kind' => 'payment', 'amount' => $due, 'method' => $data['method'], 'reference' => $data['reference'] ?? null, 'notes' => $data['notes'] ?? 'Cobro al entregar y cerrar', 'received_at' => now()]);
+                }
+                $locked->forceFill(['status' => 'delivered', 'final_total' => $total, 'financial_status' => 'settled', 'delivered_at' => now(), 'closed_at' => now(), 'closed_by' => $request->user()->id])->save();
+            } else {
+                abort_unless($locked->status === 'cancelled', 422, 'Solo una orden cancelada puede liquidarse como cancelación.');
+                $retained = (float) ($data['retained_amount'] ?? 0);
+                if ($retained > $paid) {
+                    throw ValidationException::withMessages(['retained_amount' => 'El monto aplicado no puede superar lo recibido.']);
+                }
+                $refund = round($paid - $retained, 2);
+                if ($refund > 0 && empty($data['method'])) {
+                    throw ValidationException::withMessages(['method' => 'Selecciona cómo se devolvió el anticipo.']);
+                }
+                if ($refund > 0) {
+                    $locked->payments()->create(['tenant_id' => $tenant->id, 'received_by' => $request->user()->id, 'kind' => 'refund', 'amount' => $refund, 'method' => $data['method'], 'reference' => $data['reference'] ?? null, 'notes' => $data['notes'] ?? 'Devolución por cancelación', 'received_at' => now()]);
+                }
+                $locked->forceFill(['final_total' => $retained, 'financial_status' => 'settled', 'closed_at' => now(), 'closed_by' => $request->user()->id])->save();
+            }
+
+            return $locked->load(['device.customer', 'payments']);
+        });
+
+        return response()->json(['data' => $this->payload($order)]);
     }
 
     public function photoSession(Request $request, Tenant $tenant, WorkshopOrder $order, PlatformAccessPolicy $policy): JsonResponse
@@ -230,7 +286,9 @@ class WorkshopOrderController extends Controller
 
     private function payload(WorkshopOrder $order): array
     {
-        $paid = (float) $order->payments->whereNull('voided_at')->sum('amount');
+        $paid = $this->netPaid($order);
+        $refunded = (float) $order->payments->whereNull('voided_at')->where('kind', 'refund')->sum('amount');
+        $charge = (float) ($order->final_total ?? $order->estimated_total ?? 0);
 
         return [
             'id' => $order->id, 'ticket' => 'T-'.str_pad((string) $order->ticket_number, 6, '0', STR_PAD_LEFT),
@@ -238,12 +296,20 @@ class WorkshopOrderController extends Controller
             'physical_condition' => $order->physical_condition, 'physical_conditions' => $order->physical_conditions ?? [], 'accessories' => $order->accessories ?? [],
             'diagnosis' => $order->diagnosis, 'estimated_total' => $order->estimated_total !== null ? (float) $order->estimated_total : null,
             'approval' => ['decision' => $order->approval_decision, 'method' => $order->approval_method, 'notes' => $order->approval_notes, 'decided_at' => $order->approval_decided_at?->toISOString()],
-            'paid_total' => $paid, 'balance' => max(0, (float) ($order->estimated_total ?? 0) - $paid),
+            'paid_total' => $paid, 'refunded_total' => $refunded, 'balance' => max(0, $charge - $paid),
+            'financial' => ['status' => $order->financial_status, 'final_total' => $order->final_total !== null ? (float) $order->final_total : null, 'closed_at' => $order->closed_at?->toISOString()],
             'received_at' => $order->received_at?->toISOString(),
             'photo_count' => isset($order->photos_count) ? (int) $order->photos_count : $order->photos()->count(),
             'customer' => ['id' => $order->device->customer->core_customer_id, 'name' => $order->device->customer->name, 'phone' => $order->device->customer->phone],
             'device' => ['id' => $order->device->id, 'type' => $order->device->type, 'brand' => $order->device->brand, 'model' => $order->device->model, 'color' => $order->device->color, 'imei' => $order->device->imei, 'serial_number' => $order->device->serial_number, 'identifier_not_visible' => $order->device->identifier_not_visible, 'power_status' => $order->device->power_status, 'functional_tests' => $order->device->functional_tests ?? [], 'is_locked' => $order->device->is_locked, 'access_type' => $order->device->access_type, 'has_access_secret' => filled($order->device->access_secret)],
         ];
+    }
+
+    private function netPaid(WorkshopOrder $order): float
+    {
+        $payments = $order->relationLoaded('payments') ? $order->payments : $order->payments()->get();
+
+        return round((float) $payments->whereNull('voided_at')->sum(fn ($payment) => $payment->kind === 'refund' ? -((float) $payment->amount) : (float) $payment->amount), 2);
     }
 
     private function validateReceptionRules(array $data): void
