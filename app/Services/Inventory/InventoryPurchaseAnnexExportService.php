@@ -107,6 +107,7 @@ class InventoryPurchaseAnnexExportService
     {
         return InventoryPurchase::query()
             ->where('tenant_id', $tenant->id)
+            ->where('fiscal_annex_eligible', true)
             ->whereNotIn('status', ['voided', 'cancelled', 'canceled', 'deleted'])
             ->with(['supplier:id,name,tax_id,nrc', 'lines:id,inventory_purchase_id,description_snapshot,quantity,line_total'])
             ->when($from, fn ($query) => $query->whereDate('purchase_date', '>=', $from))

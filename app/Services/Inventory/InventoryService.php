@@ -167,6 +167,7 @@ class InventoryService
                 'payment_condition' => $normalized['payment_condition'],
                 'document_total' => $normalized['document_total'],
                 'is_consumable' => $normalized['is_consumable'],
+                'fiscal_annex_eligible' => (bool) ($data['fiscal_annex_eligible'] ?? true),
                 'purchase_date' => $data['purchase_date'],
                 'subtotal' => $normalized['subtotal'],
                 'tax_amount' => $normalized['tax_amount'],

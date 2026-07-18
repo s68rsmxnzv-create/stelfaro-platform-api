@@ -56,6 +56,7 @@ class InventoryPurchaseController extends Controller
             'tax_amount' => ['nullable', 'numeric', 'gte:0'],
             'document_total' => ['nullable', 'numeric', 'gte:0'],
             'is_consumable' => ['sometimes', 'boolean'],
+            'fiscal_annex_eligible' => ['sometimes', 'boolean'],
             'apply_tax_perceived' => ['sometimes', 'boolean'],
             'tax_perceived_mode' => ['nullable', 'string', Rule::in(['auto', 'manual', 'dte'])],
             'tax_perceived_rate' => ['nullable', 'numeric', 'gte:0', 'lte:100'],

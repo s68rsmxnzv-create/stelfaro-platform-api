@@ -191,6 +191,8 @@ class LegacyInventoryImportService
             foreach ($payload['items'] as $item) {
                 $available = $lotsByItem->get($item['id'], collect())->sum(fn (array $lot): float => (float) ($lot['cantidad_disponible'] ?? 0));
                 $controlsInventory = (bool) ($item['controla_stock'] ?? false);
+                $availableCost = $lotsByItem->get($item['id'], collect())->sum(fn (array $lot): float => (float) ($lot['cantidad_disponible'] ?? 0) * (float) ($lot['costo_unitario'] ?? 0));
+                $referenceCost = $available > 0 ? round($availableCost / $available, 4) : (float) ($item['precio_compra'] ?? 0);
                 $itemMap[(int) $item['id']] = DB::table('catalog_items')->insertGetId([
                     'tenant_id' => $tenant->id,
                     'catalog_category_id' => $categoryMap[(int) $item['categoria_item_id']] ?? null,
@@ -206,8 +208,8 @@ class LegacyInventoryImportService
                     'controls_inventory' => $controlsInventory,
                     'base_price' => (float) ($item['precio_venta'] ?? 0),
                     'base_price_includes_tax' => (bool) ($item['precio_venta_incluye_iva'] ?? false),
-                    'reference_cost' => (float) ($item['precio_compra'] ?? 0),
-                    'cost_source' => (float) ($item['precio_compra'] ?? 0) > 0 ? 'real' : 'none',
+                    'reference_cost' => $referenceCost,
+                    'cost_source' => $referenceCost > 0 ? 'real' : 'none',
                     'stock_quantity' => $available,
                     'min_stock_quantity' => $controlsInventory ? max((float) ($item['stock_minimo'] ?? 1), 0) : 0,
                     'status' => ($item['activo'] ?? true) ? 'active' : 'inactive',
@@ -220,6 +222,16 @@ class LegacyInventoryImportService
             $purchaseMap = [];
             foreach ($payload['purchases'] as $purchase) {
                 $supplier = collect($payload['suppliers'])->firstWhere('id', $purchase['proveedor_id']);
+                $fiscalAnnexEligible = ($purchase['tipo_documento'] ?? null) !== 'nota_envio';
+                $f07Inferred = $fiscalAnnexEligible && ($purchase['f07_tipo_operacion'] ?? null) === null;
+                $supplierSnapshot = $supplier ? [
+                    'name' => $supplier['razon_social'] ?? null,
+                    'tax_id' => $supplier['ruc'] ?? null,
+                    'nrc' => $supplier['nrc'] ?? null,
+                    'phone' => $supplier['telefono'] ?? null,
+                    'email' => $supplier['email'] ?? null,
+                    'address' => $supplier['direccion'] ?? null,
+                ] : [];
                 $purchaseMap[(int) $purchase['id']] = DB::table('inventory_purchases')->insertGetId([
                     'tenant_id' => $tenant->id,
                     'inventory_supplier_id' => $supplierMap[(int) $purchase['proveedor_id']] ?? null,
@@ -231,6 +243,7 @@ class LegacyInventoryImportService
                     'payment_condition' => $purchase['condicion_pago'] ?? 'cash',
                     'document_total' => (float) ($purchase['total'] ?? 0),
                     'is_consumable' => (bool) ($purchase['es_consumible'] ?? false),
+                    'fiscal_annex_eligible' => $fiscalAnnexEligible,
                     'purchase_date' => $purchase['fecha'],
                     'subtotal' => (float) ($purchase['subtotal'] ?? 0),
                     'tax_amount' => (float) ($purchase['igv'] ?? 0),
@@ -239,12 +252,19 @@ class LegacyInventoryImportService
                     'cotrans_per_unit' => (float) ($purchase['cotrans_por_galon'] ?? 0),
                     'other_non_taxable_total' => (float) ($purchase['total_otros_no_afectos'] ?? 0),
                     'total' => (float) ($purchase['total'] ?? 0),
-                    'f07_operation_type' => $purchase['f07_tipo_operacion'] ?? null,
-                    'f07_classification' => $purchase['f07_clasificacion'] ?? null,
-                    'f07_sector' => $purchase['f07_sector'] ?? null,
-                    'f07_cost_expense_type' => $purchase['f07_tipo_costo_gasto'] ?? null,
-                    'supplier_snapshot' => json_encode($supplier ? (array) $supplier : []),
-                    'import_metadata' => json_encode(['source' => 'stelfaro_legacy_inventory', 'legacy_tenant_id' => $payload['legacy_tenant_id'] ?? null, 'legacy_purchase_id' => (int) $purchase['id']]),
+                    'f07_operation_type' => $f07Inferred ? 1 : ($purchase['f07_tipo_operacion'] ?? null),
+                    'f07_classification' => $f07Inferred ? 1 : ($purchase['f07_clasificacion'] ?? null),
+                    'f07_sector' => $f07Inferred ? 2 : ($purchase['f07_sector'] ?? null),
+                    'f07_cost_expense_type' => $f07Inferred ? 5 : ($purchase['f07_tipo_costo_gasto'] ?? null),
+                    'supplier_snapshot' => json_encode($supplierSnapshot),
+                    'import_metadata' => json_encode([
+                        'source' => $fiscalAnnexEligible ? 'legacy_normalized_without_json' : 'legacy_non_fiscal_purchase',
+                        'legacy_tenant_id' => $payload['legacy_tenant_id'] ?? null,
+                        'legacy_purchase_id' => (int) $purchase['id'],
+                        'original_json_available' => false,
+                        'f07_inferred' => $f07Inferred,
+                        'fiscal_treatment' => $fiscalAnnexEligible ? 'deductible_purchase' : 'non_deductible_cost_reference',
+                    ]),
                     'status' => ($purchase['estado'] ?? null) === 'registrada' ? 'registered' : ($purchase['estado'] ?? 'registered'),
                     'created_by' => null,
                     'created_at' => $purchase['created_at'] ?? $now,
