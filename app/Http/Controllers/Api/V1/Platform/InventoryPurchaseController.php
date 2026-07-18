@@ -120,6 +120,25 @@ class InventoryPurchaseController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
+        $documentNumber = trim((string) ($preview['document']['document_number'] ?? ''));
+        if ($documentNumber !== '') {
+            $existing = InventoryPurchase::query()
+                ->where('tenant_id', $tenant->id)
+                ->where('document_number', $documentNumber)
+                ->first(['id', 'document_number', 'purchase_date']);
+
+            if ($existing) {
+                return response()->json([
+                    'message' => 'Este DTE ya fue importado. Selecciona otro archivo.',
+                    'duplicate' => [
+                        'purchase_id' => $existing->id,
+                        'document_number' => $existing->document_number,
+                        'purchase_date' => $existing->purchase_date?->toDateString(),
+                    ],
+                ], 409);
+            }
+        }
+
         return response()->json(['data' => $preview]);
     }
 }

@@ -295,6 +295,28 @@ class PlatformInventoryTest extends TestCase
             ->assertJsonPath('data.lines.0.matched_catalog_item.id', $item->id);
     }
 
+    public function test_dte_json_import_rejects_an_existing_document_during_preview(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        $purchase = InventoryPurchase::query()->create([
+            'tenant_id' => $tenant->id,
+            'document_type' => 'dte_ccf',
+            'document_mode' => 'dte',
+            'document_number' => 'ABC-123',
+            'purchase_date' => '2026-06-30',
+        ]);
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/purchases/import-dte-json", [
+                'payload' => $this->supplierDteJson(),
+            ])
+            ->assertConflict()
+            ->assertJsonPath('message', 'Este DTE ya fue importado. Selecciona otro archivo.')
+            ->assertJsonPath('duplicate.purchase_id', $purchase->id)
+            ->assertJsonPath('duplicate.document_number', 'ABC-123')
+            ->assertJsonPath('duplicate.purchase_date', '2026-06-30');
+    }
+
     public function test_dte_json_import_strips_supplier_code_prefix_from_description(): void
     {
         [$owner, $tenant] = $this->userWithTenantRole('owner');
