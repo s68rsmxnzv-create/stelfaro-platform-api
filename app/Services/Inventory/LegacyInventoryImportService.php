@@ -148,7 +148,7 @@ class LegacyInventoryImportService
 
         return DB::transaction(function () use ($tenant, $payload, $replace, $summary): array {
             if ($replace) {
-                $this->clear($tenant);
+                $this->deleteTenantInventory($tenant);
             } elseif (DB::table('catalog_items')->where('tenant_id', $tenant->id)->exists()) {
                 throw new InvalidArgumentException('El tenant ya contiene catálogo. Usa --replace para sustituirlo.');
             }
@@ -190,6 +190,7 @@ class LegacyInventoryImportService
             $itemMap = [];
             foreach ($payload['items'] as $item) {
                 $available = $lotsByItem->get($item['id'], collect())->sum(fn (array $lot): float => (float) ($lot['cantidad_disponible'] ?? 0));
+                $controlsInventory = (bool) ($item['controla_stock'] ?? false);
                 $itemMap[(int) $item['id']] = DB::table('catalog_items')->insertGetId([
                     'tenant_id' => $tenant->id,
                     'catalog_category_id' => $categoryMap[(int) $item['categoria_item_id']] ?? null,
@@ -202,13 +203,13 @@ class LegacyInventoryImportService
                     'unit_name' => $this->blank($item['unidad_personalizada'] ?? null),
                     'units_per_package' => max((int) ($item['unidades_por_empaque'] ?? 1), 1),
                     'taxable' => (bool) ($item['afecto_igv'] ?? true),
-                    'controls_inventory' => (bool) ($item['controla_stock'] ?? false),
+                    'controls_inventory' => $controlsInventory,
                     'base_price' => (float) ($item['precio_venta'] ?? 0),
                     'base_price_includes_tax' => (bool) ($item['precio_venta_incluye_iva'] ?? false),
                     'reference_cost' => (float) ($item['precio_compra'] ?? 0),
                     'cost_source' => (float) ($item['precio_compra'] ?? 0) > 0 ? 'real' : 'none',
                     'stock_quantity' => $available,
-                    'min_stock_quantity' => 0,
+                    'min_stock_quantity' => $controlsInventory ? max((float) ($item['stock_minimo'] ?? 1), 0) : 0,
                     'status' => ($item['activo'] ?? true) ? 'active' : 'inactive',
                     'metadata' => json_encode(['legacy_supplier_id' => $item['proveedor_id'] ?? null, 'legacy_stock' => (float) ($item['stock_actual'] ?? 0)]),
                     'created_at' => $item['created_at'] ?? $now,
@@ -333,7 +334,21 @@ class LegacyInventoryImportService
         });
     }
 
-    private function clear(Tenant $tenant): void
+    /** @return array<string, int> */
+    public function clear(Tenant $tenant): array
+    {
+        return DB::transaction(function () use ($tenant): array {
+            $counts = [];
+            foreach (self::TABLES as $table) {
+                $counts[$table] = DB::table($table)->where('tenant_id', $tenant->id)->count();
+            }
+            $this->deleteTenantInventory($tenant);
+
+            return $counts;
+        });
+    }
+
+    private function deleteTenantInventory(Tenant $tenant): void
     {
         foreach ([
             'inventory_sale_allocations', 'inventory_movements', 'inventory_reservation_lines', 'inventory_reservations',

@@ -723,10 +723,15 @@ class PlatformInventoryTest extends TestCase
         $this->assertSame(0.0, $summary['stock_difference']);
         $this->assertSame(0.0, $summary['movement_stock_difference']);
         $this->assertDatabaseHas('catalog_items', ['tenant_id' => $tenant->id, 'legacy_item_id' => 30, 'stock_quantity' => 2]);
+        $this->assertDatabaseHas('catalog_items', ['tenant_id' => $tenant->id, 'legacy_item_id' => 30, 'min_stock_quantity' => 1]);
         $this->assertDatabaseHas('inventory_purchases', ['tenant_id' => $tenant->id, 'core_sucursal_id' => 5, 'document_mode' => 'physical']);
         $this->assertDatabaseHas('inventory_purchase_lines', ['tenant_id' => $tenant->id, 'no_inventory' => true]);
         $this->assertDatabaseHas('inventory_lots', ['tenant_id' => $tenant->id, 'core_sucursal_id' => 5, 'initial_quantity' => 3, 'available_quantity' => 2]);
         $this->assertDatabaseHas('inventory_movements', ['tenant_id' => $tenant->id, 'core_sucursal_id' => 5, 'reason' => 'sale', 'balance_after' => 2]);
+
+        app(LegacyInventoryImportService::class)->clear($tenant);
+        $this->assertDatabaseMissing('catalog_items', ['tenant_id' => $tenant->id]);
+        $this->assertDatabaseMissing('inventory_movements', ['tenant_id' => $tenant->id]);
     }
 
     public function test_purchase_annex_report_exposes_tax_purchase_base_data(): void
