@@ -87,6 +87,77 @@ class InventoryReportController extends Controller
         return response()->json(['data' => $rows]);
     }
 
+    public function summary(Request $request, Tenant $tenant, PlatformAccessPolicy $policy): JsonResponse
+    {
+        abort_unless($policy->canViewTenantCatalog($request->user(), $tenant), 403);
+
+        $branchId = $request->filled('core_sucursal_id') ? (int) $request->query('core_sucursal_id') : null;
+        $lotBalances = InventoryLot::query()
+            ->where('tenant_id', $tenant->id)
+            ->when($branchId, fn ($query) => $query->where('core_sucursal_id', $branchId))
+            ->groupBy('catalog_item_id')
+            ->selectRaw('catalog_item_id, SUM(available_quantity) as stock_quantity, SUM(available_quantity * unit_cost) as stock_value')
+            ->get()
+            ->keyBy('catalog_item_id');
+
+        $products = CatalogItem::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('controls_inventory', true)
+            ->where('status', 'active')
+            ->orderBy('id')
+            ->get(['id', 'min_stock_quantity']);
+
+        $stockByItem = [];
+        $units = 0.0;
+        $inventoryValue = 0.0;
+        $outOfStock = 0;
+        $belowMinimum = 0;
+        $healthy = 0;
+
+        foreach ($products as $product) {
+            $balance = $lotBalances->get($product->id);
+            $stock = round((float) ($balance?->stock_quantity ?? 0), 3);
+            $value = round((float) ($balance?->stock_value ?? 0), 2);
+            $minimum = (float) $product->min_stock_quantity;
+
+            if ($stock <= 0) {
+                $outOfStock++;
+            } elseif ($minimum > 0 && $stock <= $minimum) {
+                $belowMinimum++;
+            } else {
+                $healthy++;
+            }
+
+            $units += $stock;
+            $inventoryValue += $value;
+            $stockByItem[] = [
+                'catalog_item_id' => $product->id,
+                'stock_quantity' => $stock,
+                'stock_value' => $value,
+            ];
+        }
+
+        $lots = InventoryLot::query()
+            ->where('tenant_id', $tenant->id)
+            ->when($branchId, fn ($query) => $query->where('core_sucursal_id', $branchId));
+        $movements = InventoryMovement::query()
+            ->where('tenant_id', $tenant->id)
+            ->when($branchId, fn ($query) => $query->where('core_sucursal_id', $branchId));
+
+        return response()->json(['data' => [
+            'products' => $products->count(),
+            'units' => round($units, 3),
+            'inventory_value' => round($inventoryValue, 2),
+            'lots' => (clone $lots)->count(),
+            'available_lots' => (clone $lots)->where('available_quantity', '>', 0)->count(),
+            'movements' => $movements->count(),
+            'healthy' => $healthy,
+            'below_minimum' => $belowMinimum,
+            'out_of_stock' => $outOfStock,
+            'stock_by_item' => $stockByItem,
+        ]]);
+    }
+
     public function stockAlerts(Request $request, Tenant $tenant, PlatformAccessPolicy $policy): JsonResponse
     {
         abort_unless($policy->canViewTenantCatalog($request->user(), $tenant), 403);

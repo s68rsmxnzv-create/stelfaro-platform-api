@@ -684,6 +684,36 @@ class PlatformInventoryTest extends TestCase
             ]);
     }
 
+    public function test_inventory_summary_aggregates_every_lot_and_uses_exclusive_stock_segments(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        $healthy = $this->inventoryItem($tenant, 'SUM-HEALTHY');
+        $low = $this->inventoryItem($tenant, 'SUM-LOW');
+        $empty = $this->inventoryItem($tenant, 'SUM-EMPTY');
+        $healthy->forceFill(['min_stock_quantity' => 5, 'stock_quantity' => 101])->save();
+        $low->forceFill(['min_stock_quantity' => 5, 'stock_quantity' => 2])->save();
+        $empty->forceFill(['min_stock_quantity' => 5, 'stock_quantity' => 0])->save();
+
+        foreach (range(1, 101) as $number) {
+            $this->lot($tenant, $healthy, 'SUM-H-'.$number, '2026-07-01', 1, 3, ['core_sucursal_id' => 1]);
+        }
+        $this->lot($tenant, $low, 'SUM-L-1', '2026-07-03', 2, 5, ['core_sucursal_id' => 1]);
+        $this->lot($tenant, $healthy, 'SUM-H-OTHER', '2026-07-04', 7, 9, ['core_sucursal_id' => 2]);
+
+        $this->actingAs($owner)
+            ->getJson("/api/v1/platform/tenants/{$tenant->id}/inventory/reports/summary?core_sucursal_id=1")
+            ->assertOk()
+            ->assertJsonPath('data.products', 3)
+            ->assertJsonPath('data.units', 103)
+            ->assertJsonPath('data.inventory_value', 313)
+            ->assertJsonPath('data.lots', 102)
+            ->assertJsonPath('data.available_lots', 102)
+            ->assertJsonPath('data.healthy', 1)
+            ->assertJsonPath('data.below_minimum', 1)
+            ->assertJsonPath('data.out_of_stock', 1)
+            ->assertJsonCount(3, 'data.stock_by_item');
+    }
+
     public function test_legacy_inventory_import_preserves_available_stock_and_non_inventory_lines(): void
     {
         $tenant = Tenant::query()->create(['slug' => 'legacy-import', 'name' => 'Legacy import']);
