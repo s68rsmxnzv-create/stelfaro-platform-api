@@ -91,6 +91,8 @@ Route::prefix('v1')->group(function (): void {
         Route::get('platform/tenants/{tenant}/inventory/movements', [InventoryMovementController::class, 'index']);
         Route::post('platform/tenants/{tenant}/inventory/adjustments', [InventoryMovementController::class, 'adjust']);
         Route::post('platform/tenants/{tenant}/inventory/sales', [InventorySaleController::class, 'store']);
+        Route::get('platform/tenants/{tenant}/inventory/sales/fulfillment-by-source', [InventorySaleController::class, 'fulfillmentBySource']);
+        Route::post('platform/tenants/{tenant}/inventory/sales/supersede-by-source', [InventorySaleController::class, 'supersedeBySource']);
         Route::post('platform/tenants/{tenant}/inventory/sales/reverse-by-source', [InventorySaleController::class, 'reverseBySource']);
         Route::post('platform/tenants/{tenant}/inventory/counts', [InventoryCountController::class, 'store']);
         Route::post('platform/tenants/{tenant}/inventory/transfers', [InventoryTransferController::class, 'store']);

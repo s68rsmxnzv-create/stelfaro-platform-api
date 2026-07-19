@@ -6,6 +6,7 @@ use App\Models\CatalogItem;
 use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
 use App\Models\InventoryPurchase;
+use App\Models\InventorySale;
 use App\Models\InventorySupplier;
 use App\Models\Tenant;
 use App\Models\User;
@@ -618,6 +619,149 @@ class PlatformInventoryTest extends TestCase
             'reference_type' => 'mh_invalidation',
             'reference_id' => 'EV-900',
         ]);
+    }
+
+    public function test_replacement_inherits_confirmed_inventory_without_consuming_another_unit(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        $item = $this->inventoryItem($tenant, 'SUB-INV');
+        $lot = $this->lot($tenant, $item, 'L-SUB-INV', '2026-07-01', 1, 18, [
+            'core_sucursal_id' => 1,
+            'core_sucursal_code' => 'M001',
+            'core_sucursal_name' => 'Casa matriz',
+        ]);
+        $item->forceFill(['stock_quantity' => 1, 'reference_cost' => 18, 'cost_source' => 'real'])->save();
+
+        $reservation = $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/reservations", [
+                'idempotency_key' => 'substitution-original',
+                'core_sucursal_id' => 1,
+                'lines' => [['catalog_item_id' => $item->id, 'quantity' => 1]],
+            ])->assertCreated()->json('data');
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/reservations/{$reservation['id']}/confirm", [
+                'source_type' => 'dte',
+                'source_id' => '1001',
+                'source_number' => 'DTE-01-M001P001-000000000001001',
+            ])->assertOk();
+
+        $original = $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/sales", [
+                'core_sucursal_id' => 1,
+                'source_type' => 'dte',
+                'source_id' => '1001',
+                'lines' => [[
+                    'catalog_item_id' => $item->id,
+                    'line_origin' => 'inventory',
+                    'quantity' => 1,
+                    'unit_price' => 25,
+                    'net_total' => 25,
+                ]],
+            ])->assertCreated()->json('data');
+
+        $fulfillment = $this->actingAs($owner)
+            ->getJson("/api/v1/platform/tenants/{$tenant->id}/inventory/sales/fulfillment-by-source?source_type=dte&source_id=1001")
+            ->assertOk()
+            ->assertJsonPath('data.sale.id', $original['id'])
+            ->assertJsonPath('data.reservation.status', 'confirmed')
+            ->json('data');
+
+        $sourceLineId = $fulfillment['sale']['lines'][0]['id'];
+        $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/sales", [
+                'core_sucursal_id' => 1,
+                'source_type' => 'dte',
+                'source_id' => '1002-invalid',
+                'replacement_of_source_type' => 'dte',
+                'replacement_of_source_id' => '1001',
+                'lines' => [[
+                    'catalog_item_id' => $item->id,
+                    'line_origin' => 'inventory',
+                    'inherited_from_line_id' => $sourceLineId,
+                    'inherited_quantity' => 2,
+                    'quantity' => 2,
+                    'net_total' => 50,
+                ]],
+            ])->assertUnprocessable()
+            ->assertJsonPath('message', 'La cantidad heredada supera la salida registrada en el DTE original.');
+
+        $replacement = $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/sales", [
+                'core_sucursal_id' => 1,
+                'source_type' => 'dte',
+                'source_id' => '1002',
+                'replacement_of_source_type' => 'dte',
+                'replacement_of_source_id' => '1001',
+                'lines' => [[
+                    'catalog_item_id' => $item->id,
+                    'line_origin' => 'inventory',
+                    'inherited_from_line_id' => $sourceLineId,
+                    'inherited_quantity' => 1,
+                    'quantity' => 1,
+                    'unit_price' => 25,
+                    'net_total' => 25,
+                ]],
+            ])->assertCreated()
+            ->assertJsonPath('data.status', 'pending_replacement')
+            ->assertJsonPath('data.lines.0.inherited_quantity', '1.000')
+            ->json('data');
+
+        $item->refresh();
+        $lot->refresh();
+        $this->assertSame(0.0, (float) $item->stock_quantity);
+        $this->assertSame(0.0, (float) $lot->available_quantity);
+        $this->assertSame(1, InventoryMovement::query()->where('catalog_item_id', $item->id)->where('movement_type', 'exit')->count());
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/sales/supersede-by-source", [
+                'source_type' => 'dte',
+                'original_source_id' => '1001',
+                'replacement_source_id' => '1002',
+                'event_id' => '51',
+                'event_number' => 'EVENT-SUB-51',
+            ])->assertOk()
+            ->assertJsonPath('data.original.status', 'superseded')
+            ->assertJsonPath('data.replacement.status', 'active');
+
+        $this->assertDatabaseHas('inventory_sales', ['id' => $original['id'], 'status' => 'superseded']);
+        $this->assertDatabaseHas('inventory_sales', ['id' => $replacement['id'], 'status' => 'active', 'replacement_of_sale_id' => $original['id']]);
+    }
+
+    public function test_catalog_replacement_is_financially_pending_without_inventory_fulfillment(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        $catalog = CatalogItem::query()->create([
+            'tenant_id' => $tenant->id,
+            'sku' => 'SUB-CAT',
+            'name' => 'Servicio de catalogo',
+            'item_type' => 'service',
+            'controls_inventory' => false,
+            'base_price' => 40,
+            'stock_quantity' => 0,
+            'status' => 'active',
+        ]);
+
+        $original = $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/sales", [
+                'source_type' => 'dte',
+                'source_id' => '2001',
+                'lines' => [['catalog_item_id' => $catalog->id, 'line_origin' => 'catalog', 'quantity' => 1, 'net_total' => 40]],
+            ])->assertCreated()->json('data');
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/sales", [
+                'source_type' => 'dte',
+                'source_id' => '2002',
+                'replacement_of_source_type' => 'dte',
+                'replacement_of_source_id' => '2001',
+                'lines' => [['catalog_item_id' => $catalog->id, 'line_origin' => 'catalog', 'quantity' => 1, 'net_total' => 40]],
+            ])->assertCreated()
+            ->assertJsonPath('data.status', 'pending_replacement')
+            ->assertJsonPath('data.replacement_of_sale_id', $original['id']);
+
+        $this->assertSame(0, InventoryMovement::query()->where('catalog_item_id', $catalog->id)->count());
+        $this->assertSame(1, InventorySale::query()->where('tenant_id', $tenant->id)->where('status', 'active')->count());
     }
 
     public function test_physical_count_adjusts_branch_stock(): void

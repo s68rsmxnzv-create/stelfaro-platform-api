@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['tenant_id', 'core_sucursal_id', 'core_sucursal_code', 'core_sucursal_name', 'source_type', 'source_id', 'source_number', 'sale_date', 'status', 'metadata', 'reversed_at', 'created_by'])]
+#[Fillable(['tenant_id', 'core_sucursal_id', 'core_sucursal_code', 'core_sucursal_name', 'source_type', 'source_id', 'source_number', 'sale_date', 'status', 'replacement_of_sale_id', 'metadata', 'reversed_at', 'superseded_at', 'created_by'])]
 class InventorySale extends Model
 {
     protected function casts(): array
@@ -17,6 +17,7 @@ class InventorySale extends Model
             'sale_date' => 'date',
             'metadata' => 'array',
             'reversed_at' => 'datetime',
+            'superseded_at' => 'datetime',
         ];
     }
 
@@ -28,5 +29,15 @@ class InventorySale extends Model
     public function lines(): HasMany
     {
         return $this->hasMany(InventorySaleLine::class);
+    }
+
+    public function replacementOf(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'replacement_of_sale_id');
+    }
+
+    public function replacements(): HasMany
+    {
+        return $this->hasMany(self::class, 'replacement_of_sale_id');
     }
 }

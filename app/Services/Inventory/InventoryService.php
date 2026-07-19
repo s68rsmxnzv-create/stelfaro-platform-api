@@ -53,7 +53,90 @@ class InventoryService
                 return $fresh;
             }
 
+            $replacementSourceType = $this->blankToNull($data['replacement_of_source_type'] ?? null);
+            $replacementSourceId = $this->blankToNull($data['replacement_of_source_id'] ?? null);
+            $replacementOf = null;
+            $inheritedLines = collect();
+            $confirmedByItem = collect();
+
+            if ($replacementSourceId) {
+                $replacementOf = InventorySale::query()
+                    ->where('tenant_id', $tenant->id)
+                    ->where('source_type', $replacementSourceType ?? 'dte')
+                    ->where('source_id', $replacementSourceId)
+                    ->where('status', 'active')
+                    ->with('lines')
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $replacementOf) {
+                    throw new InvalidArgumentException('No encontramos la venta activa del DTE que deseas sustituir.');
+                }
+
+                $anotherReplacement = InventorySale::query()
+                    ->where('tenant_id', $tenant->id)
+                    ->where('replacement_of_sale_id', $replacementOf->id)
+                    ->whereIn('status', ['pending_replacement', 'active'])
+                    ->lockForUpdate()
+                    ->exists();
+
+                if ($anotherReplacement) {
+                    throw new InvalidArgumentException('Ese DTE ya tiene un sustituto pendiente o activo.');
+                }
+
+                $inheritedLines = $replacementOf->lines->keyBy('id');
+                $confirmedReservation = InventoryReservation::query()
+                    ->where('tenant_id', $tenant->id)
+                    ->where('source_type', $replacementOf->source_type)
+                    ->where('source_id', $replacementOf->source_id)
+                    ->where('status', InventoryReservation::STATUS_CONFIRMED)
+                    ->with('lines')
+                    ->lockForUpdate()
+                    ->first();
+                $confirmedByItem = $confirmedReservation?->lines
+                    ->groupBy('catalog_item_id')
+                    ->map(fn ($lines) => round((float) $lines->sum('quantity'), 3)) ?? collect();
+            }
+
+            $inheritedBySourceLine = [];
+            $inheritedByItem = [];
+            foreach ($data['lines'] as $line) {
+                $inheritedQuantity = round((float) ($line['inherited_quantity'] ?? 0), 3);
+                if ($inheritedQuantity <= 0) {
+                    continue;
+                }
+
+                if (! $replacementOf) {
+                    throw new InvalidArgumentException('La herencia de inventario requiere un DTE original.');
+                }
+
+                $sourceLineId = (int) ($line['inherited_from_line_id'] ?? 0);
+                /** @var InventorySaleLine|null $sourceLine */
+                $sourceLine = $inheritedLines->get($sourceLineId);
+                $itemId = (int) ($line['catalog_item_id'] ?? 0);
+                if (! $sourceLine || $sourceLine->line_origin !== 'inventory' || (int) $sourceLine->catalog_item_id !== $itemId) {
+                    throw new InvalidArgumentException('La línea heredada no corresponde al inventario del DTE original.');
+                }
+
+                if ($inheritedQuantity > round((float) ($line['quantity'] ?? 0), 3)) {
+                    throw new InvalidArgumentException('La cantidad heredada no puede superar la cantidad del sustituto.');
+                }
+
+                $inheritedBySourceLine[$sourceLineId] = round((float) ($inheritedBySourceLine[$sourceLineId] ?? 0) + $inheritedQuantity, 3);
+                if ($inheritedBySourceLine[$sourceLineId] > (float) $sourceLine->quantity) {
+                    throw new InvalidArgumentException('La cantidad heredada supera la salida registrada en el DTE original.');
+                }
+
+                $inheritedByItem[$itemId] = round((float) ($inheritedByItem[$itemId] ?? 0) + $inheritedQuantity, 3);
+                if ($inheritedByItem[$itemId] > (float) ($confirmedByItem->get($itemId) ?? 0)) {
+                    throw new InvalidArgumentException('El DTE original no tiene una reserva confirmada suficiente para heredar esa cantidad.');
+                }
+            }
+
             $branch = $this->branchScope($data);
+            if ($replacementOf && $replacementOf->core_sucursal_id !== null && $branch['core_sucursal_id'] !== $replacementOf->core_sucursal_id) {
+                throw new InvalidArgumentException('El sustituto debe conservar la sucursal de la salida original.');
+            }
             $sale = InventorySale::query()->create([
                 'tenant_id' => $tenant->id,
                 ...$branch,
@@ -61,7 +144,8 @@ class InventoryService
                 'source_id' => $sourceId,
                 'source_number' => $this->blankToNull($data['source_number'] ?? null),
                 'sale_date' => $data['sale_date'] ?? now()->toDateString(),
-                'status' => 'active',
+                'status' => $replacementOf ? 'pending_replacement' : 'active',
+                'replacement_of_sale_id' => $replacementOf?->id,
                 'metadata' => $data['metadata'] ?? null,
                 'created_by' => $userId,
             ]);
@@ -79,8 +163,10 @@ class InventoryService
                     'inventory_sale_id' => $sale->id,
                     'catalog_item_id' => $item?->id,
                     'line_origin' => $this->blankToNull($line['line_origin'] ?? null) ?? ($item ? ($item->controls_inventory ? 'inventory' : 'catalog') : 'free'),
+                    'inherited_from_line_id' => ! empty($line['inherited_from_line_id']) ? (int) $line['inherited_from_line_id'] : null,
                     'description_snapshot' => $this->blankToNull($line['description'] ?? null) ?? $item?->name,
                     'quantity' => $this->positiveQuantity($line['quantity'], 'La cantidad vendida debe ser mayor que cero.'),
+                    'inherited_quantity' => round((float) ($line['inherited_quantity'] ?? 0), 3),
                     'unit_price' => round((float) ($line['unit_price'] ?? 0), 4),
                     'discount_amount' => round((float) ($line['discount_amount'] ?? 0), 2),
                     'net_total' => round((float) ($line['net_total'] ?? 0), 2),
@@ -92,6 +178,98 @@ class InventoryService
             $fresh->wasRecentlyCreated = true;
 
             return $fresh;
+        });
+    }
+
+    /**
+     * @return array{sale:InventorySale,reservation:InventoryReservation|null}
+     */
+    public function saleFulfillment(Tenant $tenant, string $sourceType, string $sourceId): array
+    {
+        $sale = InventorySale::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('source_type', $sourceType)
+            ->where('source_id', $sourceId)
+            ->where('status', 'active')
+            ->with(['lines.catalogItem'])
+            ->first();
+
+        if (! $sale) {
+            throw new InvalidArgumentException('No encontramos una venta activa vinculada al DTE original.');
+        }
+
+        $reservation = InventoryReservation::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('source_type', $sourceType)
+            ->where('source_id', $sourceId)
+            ->where('status', InventoryReservation::STATUS_CONFIRMED)
+            ->with(['lines.catalogItem', 'lines.allocations.lot'])
+            ->first();
+
+        return ['sale' => $sale, 'reservation' => $reservation];
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array{original:InventorySale,replacement:InventorySale}
+     */
+    public function supersedeDteSale(Tenant $tenant, array $data): array
+    {
+        return DB::transaction(function () use ($tenant, $data): array {
+            $sourceType = $this->blankToNull($data['source_type'] ?? null) ?? 'dte';
+            $original = InventorySale::query()
+                ->where('tenant_id', $tenant->id)
+                ->where('source_type', $sourceType)
+                ->where('source_id', (string) $data['original_source_id'])
+                ->lockForUpdate()
+                ->first();
+            $replacement = InventorySale::query()
+                ->where('tenant_id', $tenant->id)
+                ->where('source_type', $sourceType)
+                ->where('source_id', (string) $data['replacement_source_id'])
+                ->lockForUpdate()
+                ->first();
+
+            if (! $original || ! $replacement || (int) $replacement->replacement_of_sale_id !== (int) $original->id) {
+                throw new InvalidArgumentException('No encontramos una sustitución comercial válida entre ambos DTE.');
+            }
+
+            if ($original->status === 'superseded' && $replacement->status === 'active') {
+                return [
+                    'original' => $original->fresh(['lines.catalogItem']),
+                    'replacement' => $replacement->fresh(['lines.catalogItem']),
+                ];
+            }
+
+            if ($original->status !== 'active' || $replacement->status !== 'pending_replacement') {
+                throw new InvalidArgumentException('La sustitución comercial ya no está pendiente.');
+            }
+
+            $eventMetadata = array_filter([
+                'invalidation_event_id' => $data['event_id'] ?? null,
+                'invalidation_event_number' => $data['event_number'] ?? null,
+            ], fn ($value) => $value !== null && $value !== '');
+
+            $original->forceFill([
+                'status' => 'superseded',
+                'superseded_at' => now(),
+                'metadata' => array_merge($original->metadata ?? [], $eventMetadata, [
+                    'replacement_sale_id' => $replacement->id,
+                    'replacement_source_id' => $replacement->source_id,
+                ]),
+            ])->save();
+            $replacement->forceFill([
+                'status' => 'active',
+                'metadata' => array_merge($replacement->metadata ?? [], $eventMetadata, [
+                    'supersedes_sale_id' => $original->id,
+                    'supersedes_source_id' => $original->source_id,
+                ]),
+            ])->save();
+
+            return [
+                'original' => $original->fresh(['lines.catalogItem']),
+                'replacement' => $replacement->fresh(['lines.catalogItem']),
+            ];
         });
     }
 
