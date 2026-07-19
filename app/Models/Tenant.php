@@ -80,4 +80,9 @@ class Tenant extends Model
     {
         return $this->hasMany(WorkshopOrder::class);
     }
+
+    public function internalNotifications(): HasMany
+    {
+        return $this->hasMany(InternalNotification::class);
+    }
 }

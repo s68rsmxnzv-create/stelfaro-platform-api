@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\Platform\CatalogCategoryController;
 use App\Http\Controllers\Api\V1\Platform\CatalogItemController;
 use App\Http\Controllers\Api\V1\Platform\GlobalUserController;
+use App\Http\Controllers\Api\V1\Platform\InternalNotificationController;
 use App\Http\Controllers\Api\V1\Platform\InventoryCountController;
 use App\Http\Controllers\Api\V1\Platform\InventoryLotController;
 use App\Http\Controllers\Api\V1\Platform\InventoryMovementController;
@@ -46,6 +47,9 @@ Route::prefix('v1')->group(function (): void {
 
     Route::middleware(['web', 'auth', 'verified', EnsurePasswordIsChanged::class])->group(function (): void {
         Route::get('me', PlatformSessionController::class);
+        Route::get('platform/notifications', [InternalNotificationController::class, 'index']);
+        Route::post('platform/notifications/read-all', [InternalNotificationController::class, 'readAll']);
+        Route::post('platform/notifications/{notification}/read', [InternalNotificationController::class, 'read']);
         Route::patch('me/active-membership/{membership}', [TenantMembershipController::class, 'setActive']);
         Route::get('admin/platform/users', [GlobalUserController::class, 'index']);
         Route::get('admin/platform/audit-logs', [PlatformAuditLogController::class, 'index']);

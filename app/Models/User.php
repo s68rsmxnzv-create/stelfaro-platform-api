@@ -37,4 +37,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(UserTenantMembership::class);
     }
+
+    public function internalNotifications(): HasMany
+    {
+        return $this->hasMany(InternalNotification::class);
+    }
 }
