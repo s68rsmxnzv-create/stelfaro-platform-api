@@ -37,14 +37,14 @@ class SecurityHeadersTest extends TestCase
         $this->assertMatchesRegularExpression('/<script[^>]+nonce="[^"]+"/', $html);
     }
 
-    public function test_csp_allows_images_from_platform_and_core_hosts(): void
+    public function test_csp_allows_platform_images_without_exposing_the_internal_core(): void
     {
         config([
             'platform.hosts.platform' => 'platform.stelfaro.com',
             'platform.hosts.taller' => 'taller.stelfaro.com',
             'platform.hosts.facturacion' => 'facturacion.stelfaro.com',
             'platform.hosts.admin' => 'admin.stelfaro.com',
-            'services.dte_core.base_url' => 'https://coredte.stelfaro.com/api/v1',
+            'services.dte_core.base_url' => 'http://127.0.0.1:8181/api/v1',
         ]);
 
         $response = $this->get('/login')->assertOk();
@@ -55,7 +55,8 @@ class SecurityHeadersTest extends TestCase
         $this->assertStringContainsString('https://taller.stelfaro.com', $contentSecurityPolicy);
         $this->assertStringContainsString('https://facturacion.stelfaro.com', $contentSecurityPolicy);
         $this->assertStringContainsString('https://admin.stelfaro.com', $contentSecurityPolicy);
-        $this->assertStringContainsString('https://coredte.stelfaro.com', $contentSecurityPolicy);
+        $this->assertStringNotContainsString('127.0.0.1:8181', $contentSecurityPolicy);
+        $this->assertStringNotContainsString('coredte.stelfaro.com', $contentSecurityPolicy);
     }
 
     public function test_csp_allows_only_loopback_print_agent_connections(): void

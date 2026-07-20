@@ -36,7 +36,7 @@ return [
     ],
 
     'dte_core' => [
-        'base_url' => env('DTE_CORE_BASE_URL', 'https://coredte.stelfaro.com/api/v1'),
+        'base_url' => env('DTE_CORE_BASE_URL', 'http://127.0.0.1:8181/api/v1'),
         'internal_token' => env('DTE_CORE_TOKEN'),
         'admin_email' => env('DTE_CORE_ADMIN_EMAIL', 'admin@stelfaro.com'),
         'admin_role' => env('DTE_CORE_ADMIN_ROLE', 'admin_fiscal'),

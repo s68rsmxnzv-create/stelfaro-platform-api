@@ -60,9 +60,10 @@ class AddSecurityHeaders
 
         $coreBaseUrl = config('services.dte_core.base_url');
         $coreHost = is_string($coreBaseUrl) ? parse_url($coreBaseUrl, PHP_URL_HOST) : null;
+        $coreScheme = is_string($coreBaseUrl) ? parse_url($coreBaseUrl, PHP_URL_SCHEME) : null;
 
-        if (is_string($coreHost) && $coreHost !== '') {
-            $sources->push('https://'.$coreHost);
+        if (is_string($coreHost) && $coreHost !== '' && is_string($coreScheme) && in_array($coreScheme, ['http', 'https'], true) && ! in_array($coreHost, ['127.0.0.1', 'localhost', '::1'], true)) {
+            $sources->push($coreScheme.'://'.$coreHost);
         }
 
         return $sources
