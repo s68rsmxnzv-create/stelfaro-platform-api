@@ -218,6 +218,36 @@ class WorkshopOrderTest extends TestCase
             ->assertJsonStructure(['commercial' => ['sales_today', 'sales_month', 'receivables']]);
     }
 
+    public function test_dashboard_subtracts_credit_notes_separates_iva_and_ignores_fse(): void
+    {
+        [$user, $tenant] = $this->member();
+        $base = "/api/v1/platform/tenants/{$tenant->id}/inventory/sales";
+        $this->actingAs($user)->postJson($base, [
+            'source_id' => 'FE-1', 'sale_date' => today()->toDateString(), 'fiscal_document_type' => '01',
+            'net_amount' => 100, 'tax_amount' => 13, 'total_amount' => 113,
+            'lines' => [['description' => 'Venta', 'quantity' => 1, 'net_total' => 100, 'tax_amount' => 13, 'total_amount' => 113]],
+        ])->assertCreated();
+        $this->postJson($base, [
+            'source_id' => 'NC-1', 'sale_date' => today()->toDateString(), 'fiscal_document_type' => '05',
+            'net_amount' => 20, 'tax_amount' => 2.60, 'total_amount' => 22.60,
+            'lines' => [['description' => 'Devolución', 'quantity' => 1, 'net_total' => 20, 'tax_amount' => 2.60, 'total_amount' => 22.60]],
+        ])->assertCreated();
+        $this->postJson($base, [
+            'source_id' => 'FSE-1', 'sale_date' => today()->toDateString(), 'fiscal_document_type' => '14',
+            'net_amount' => 50, 'tax_amount' => 0, 'total_amount' => 50,
+            'lines' => [['description' => 'Compra a sujeto excluido', 'quantity' => 1, 'net_total' => 50, 'total_amount' => 50]],
+        ])->assertCreated();
+
+        $this->getJson("/api/v1/platform/tenants/{$tenant->id}/workshop/dashboard")
+            ->assertOk()
+            ->assertJsonPath('commercial.sales_net_today', 80)
+            ->assertJsonPath('commercial.sales_tax_today', 10.4)
+            ->assertJsonPath('commercial.sales_today', 90.4)
+            ->assertJsonPath('commercial.sales_net_month', 80)
+            ->assertJsonPath('commercial.sales_tax_month', 10.4)
+            ->assertJsonPath('commercial.sales_month', 90.4);
+    }
+
     private function member(): array
     {
         $tenant = Tenant::query()->create(['slug' => 'workshop', 'name' => 'Workshop', 'status' => 'active']);

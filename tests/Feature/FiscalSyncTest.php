@@ -64,6 +64,28 @@ class FiscalSyncTest extends TestCase
         $this->assertSame(1.0, (float) $item->fresh()->stock_quantity);
     }
 
+    public function test_accepted_fse_is_not_recorded_as_sale_and_does_not_consume_inventory(): void
+    {
+        [$user, $tenant] = $this->member();
+        $item = $this->inventoryItem($tenant, 1);
+        $payload = $this->issuePayload($item, 'sync-fse');
+        $payload['sale']['metadata']['document_type'] = '14';
+        $operation = $this->actingAs($user)
+            ->postJson($this->base($tenant).'/dte-issues', $payload)
+            ->assertCreated()
+            ->json('data');
+
+        $this->postJson($this->base($tenant)."/operations/{$operation['id']}/complete", [
+            'fact' => $this->acceptedDte(505, '14'),
+        ])->assertOk()
+            ->assertJsonPath('data.result.outcome', 'accepted')
+            ->assertJsonPath('data.result.commercial_outcome', 'excluded_subject_purchase')
+            ->assertJsonPath('data.reservation.status', 'released');
+
+        $this->assertDatabaseCount('inventory_sales', 0);
+        $this->assertSame(1.0, (float) $item->fresh()->stock_quantity);
+    }
+
     public function test_catalog_sale_is_recovered_by_server_without_browser_completion(): void
     {
         config([
@@ -148,6 +170,63 @@ class FiscalSyncTest extends TestCase
             ->assertConflict();
         $this->assertDatabaseCount('fiscal_sync_operations', 1);
         $this->assertDatabaseCount('inventory_reservations', 1);
+    }
+
+    public function test_billing_only_tenant_can_read_commercial_totals_without_workshop_access(): void
+    {
+        [$user, $tenant] = $this->member();
+        $this->actingAs($user)->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/sales", [
+            'source_id' => 'BILLING-ONLY-1',
+            'fiscal_document_type' => '03',
+            'net_amount' => 100,
+            'tax_amount' => 13,
+            'total_amount' => 113,
+            'lines' => [['description' => 'Servicio', 'quantity' => 1, 'net_total' => 100, 'tax_amount' => 13, 'total_amount' => 113]],
+        ])->assertCreated();
+
+        $this->getJson("/api/v1/platform/tenants/{$tenant->id}/commercial/dashboard")
+            ->assertOk()
+            ->assertJsonPath('commercial.sales_net_today', 100)
+            ->assertJsonPath('commercial.sales_tax_today', 13)
+            ->assertJsonPath('commercial.sales_today', 113);
+        $this->getJson("/api/v1/platform/tenants/{$tenant->id}/workshop/dashboard")->assertForbidden();
+    }
+
+    public function test_historical_sale_reconciliation_reads_exact_iva_from_fiscal_json(): void
+    {
+        config([
+            'services.dte_core.base_url' => 'https://core.test/api/v1',
+            'services.dte_core.internal_token' => 'internal-secret',
+            'services.dte_core.admin_email' => 'admin@stelfaro.test',
+        ]);
+        Http::fake([
+            'https://core.test/api/v1/internal/auth/billing-session' => Http::response(['token' => 'backoffice-token']),
+            'https://core.test/api/v1/dte/drafts/801' => Http::response(['dte_json' => ['resumen' => [
+                'totalGravada' => 113,
+                'totalIva' => 13,
+                'montoTotalOperacion' => 113,
+                'totalPagar' => 113,
+            ]]]),
+        ]);
+        [$user, $tenant] = $this->member();
+        $this->actingAs($user)->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/sales", [
+            'source_id' => '801',
+            'fiscal_document_type' => '01',
+            'net_amount' => 113,
+            'total_amount' => 113,
+            'metadata' => ['core_dte_document_id' => 801],
+            'lines' => [['description' => 'Venta histórica', 'quantity' => 1, 'net_total' => 113, 'total_amount' => 113]],
+        ])->assertCreated();
+
+        $this->artisan('commercial-sales:reconcile-fiscal', ['--tenant' => $tenant->id])->assertSuccessful();
+
+        $this->assertDatabaseHas('inventory_sales', [
+            'tenant_id' => $tenant->id,
+            'source_id' => '801',
+            'net_amount' => 100,
+            'tax_amount' => 13,
+            'total_amount' => 113,
+        ]);
     }
 
     public function test_accepted_type_two_invalidation_reverses_sale_and_inventory_once(): void
@@ -279,15 +358,15 @@ class FiscalSyncTest extends TestCase
     }
 
     /** @return array<string, mixed> */
-    private function acceptedDte(int $id): array
+    private function acceptedDte(int $id, string $type = '01'): array
     {
         return [
             'id' => $id,
             'estado' => 'accepted',
             'selloRecibido' => 'MH-SEAL-'.$id,
-            'numeroControl' => 'DTE-01-M001P001-'.str_pad((string) $id, 15, '0', STR_PAD_LEFT),
+            'numeroControl' => "DTE-{$type}-M001P001-".str_pad((string) $id, 15, '0', STR_PAD_LEFT),
             'codigoGeneracion' => 'GEN-'.$id,
-            'tipoDte' => '01',
+            'tipoDte' => $type,
         ];
     }
 

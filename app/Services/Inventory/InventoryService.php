@@ -43,10 +43,17 @@ class InventoryService
                 ->first();
 
             if ($existing) {
+                $financial = $this->saleFinancials($data);
+                $shouldRefreshLineFinancials = $existing->fiscal_document_type === null
+                    && $financial['fiscal_document_type'] !== null;
                 $existing->forceFill([
                     'source_number' => $this->blankToNull($data['source_number'] ?? null) ?? $existing->source_number,
+                    ...$financial,
                     'metadata' => array_merge($existing->metadata ?? [], $data['metadata'] ?? []),
                 ])->save();
+                if ($shouldRefreshLineFinancials) {
+                    $this->refreshSaleLineFinancials($existing, $data['lines']);
+                }
                 $fresh = $existing->fresh(['lines.catalogItem']);
                 $fresh->wasRecentlyCreated = false;
 
@@ -134,6 +141,7 @@ class InventoryService
             }
 
             $branch = $this->branchScope($data);
+            $financial = $this->saleFinancials($data);
             if ($replacementOf && $replacementOf->core_sucursal_id !== null && $branch['core_sucursal_id'] !== $replacementOf->core_sucursal_id) {
                 throw new InvalidArgumentException('El sustituto debe conservar la sucursal de la salida original.');
             }
@@ -144,6 +152,7 @@ class InventoryService
                 'source_id' => $sourceId,
                 'source_number' => $this->blankToNull($data['source_number'] ?? null),
                 'sale_date' => $data['sale_date'] ?? now()->toDateString(),
+                ...$financial,
                 'status' => $replacementOf ? 'pending_replacement' : 'active',
                 'replacement_of_sale_id' => $replacementOf?->id,
                 'metadata' => $data['metadata'] ?? null,
@@ -170,6 +179,8 @@ class InventoryService
                     'unit_price' => round((float) ($line['unit_price'] ?? 0), 4),
                     'discount_amount' => round((float) ($line['discount_amount'] ?? 0), 2),
                     'net_total' => round((float) ($line['net_total'] ?? 0), 2),
+                    'tax_amount' => round((float) ($line['tax_amount'] ?? 0), 2),
+                    'total_amount' => round((float) ($line['total_amount'] ?? (($line['net_total'] ?? 0) + ($line['tax_amount'] ?? 0))), 2),
                     'reference_unit_cost' => round((float) ($line['reference_unit_cost'] ?? $item?->reference_cost ?? 0), 4),
                 ]);
             }
@@ -1108,5 +1119,60 @@ class InventoryService
         $text = trim((string) $value);
 
         return $text === '' ? null : $text;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array{operation_kind:string,fiscal_document_type:?string,reporting_sign:int,net_amount:float,tax_amount:float,total_amount:float}
+     */
+    private function saleFinancials(array $data): array
+    {
+        $metadata = is_array($data['metadata'] ?? null) ? $data['metadata'] : [];
+        $rawType = $data['fiscal_document_type'] ?? $metadata['document_type'] ?? null;
+        $documentType = $this->blankToNull($rawType);
+        $documentType = $documentType !== null ? str_pad($documentType, 2, '0', STR_PAD_LEFT) : null;
+        $kind = match ($documentType) {
+            '05' => 'credit_note',
+            '06' => 'debit_note',
+            '14' => 'excluded_subject_purchase',
+            default => 'sale',
+        };
+        $sign = $documentType === '05' ? -1 : ($documentType === '14' ? 0 : 1);
+        $lines = is_array($data['lines'] ?? null) ? $data['lines'] : [];
+        $net = round((float) ($data['net_amount'] ?? collect($lines)->sum(fn (array $line): float => (float) ($line['net_total'] ?? 0))), 2);
+        $tax = round((float) ($data['tax_amount'] ?? collect($lines)->sum(fn (array $line): float => (float) ($line['tax_amount'] ?? 0))), 2);
+        $lineTotal = collect($lines)->sum(
+            fn (array $line): float => (float) ($line['total_amount'] ?? (($line['net_total'] ?? 0) + ($line['tax_amount'] ?? 0)))
+        );
+        $total = round((float) ($data['total_amount'] ?? $lineTotal), 2);
+
+        return [
+            'operation_kind' => $kind,
+            'fiscal_document_type' => $documentType,
+            'reporting_sign' => $sign,
+            'net_amount' => max(0, $net),
+            'tax_amount' => max(0, $tax),
+            'total_amount' => max(0, $total),
+        ];
+    }
+
+    /** @param array<int, array<string, mixed>> $incoming */
+    private function refreshSaleLineFinancials(InventorySale $sale, array $incoming): void
+    {
+        $stored = $sale->lines()->orderBy('id')->get();
+        if ($stored->count() !== count($incoming)) {
+            throw new InvalidArgumentException('El detalle fiscal no coincide con las líneas de la venta comercial existente.');
+        }
+
+        foreach ($stored->values() as $index => $line) {
+            $data = $incoming[$index];
+            $line->forceFill([
+                'unit_price' => round((float) ($data['unit_price'] ?? $line->unit_price), 4),
+                'discount_amount' => round((float) ($data['discount_amount'] ?? $line->discount_amount), 2),
+                'net_total' => round((float) ($data['net_total'] ?? $line->net_total), 2),
+                'tax_amount' => round((float) ($data['tax_amount'] ?? 0), 2),
+                'total_amount' => round((float) ($data['total_amount'] ?? (($data['net_total'] ?? $line->net_total) + ($data['tax_amount'] ?? 0))), 2),
+            ])->save();
+        }
     }
 }

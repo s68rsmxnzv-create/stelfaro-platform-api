@@ -234,27 +234,42 @@ class FiscalSyncService
         }
 
         $number = (string) ($fact['numeroControl'] ?? $fact['numero_control'] ?? $fact['codigoGeneracion'] ?? '');
+        $documentType = str_pad((string) ($fact['tipoDte'] ?? $fact['tipo_dte'] ?? data_get($operation->payload, 'sale.metadata.document_type', '')), 2, '0', STR_PAD_LEFT);
         $reservation = $this->reservation($tenant, $operation);
-        if ($reservation) {
+        if ($reservation && in_array($documentType, ['01', '03'], true)) {
             $this->inventory->confirmReservation($tenant, $reservation, [
                 'source_type' => 'dte',
                 'source_id' => $documentId,
                 'source_number' => $number,
             ], $operation->created_by);
+        } elseif ($reservation) {
+            $this->releaseReservation($tenant, $operation);
+        }
+
+        if ($documentType === '14') {
+            return $this->complete($operation, [
+                ...$fact,
+                'outcome' => 'accepted',
+                'commercial_outcome' => 'excluded_subject_purchase',
+            ]);
         }
 
         $sale = $operation->payload['sale'];
+        $sale['fiscal_document_type'] = $documentType;
         $sale['source_id'] = ($sale['source_type'] ?? 'dte') === 'workshop_order'
             ? (string) ($operation->payload['workshop_order_id'] ?? '')
             : $documentId;
         $sale['source_number'] = $number;
         $sale['metadata'] = array_merge($sale['metadata'] ?? [], [
+            'document_type' => $documentType,
             'core_dte_document_id' => (int) $documentId,
             'dte_number' => $number,
             'fiscal_sync_operation_id' => $operation->id,
         ]);
         $this->inventory->recordSale($tenant, $sale, $operation->created_by);
-        $this->linkWorkshopOrder($tenant, $operation, $fact, $documentId, $number);
+        if (in_array($documentType, ['01', '03'], true)) {
+            $this->linkWorkshopOrder($tenant, $operation, $fact, $documentId, $number);
+        }
 
         return $this->complete($operation, [...$fact, 'outcome' => 'accepted']);
     }

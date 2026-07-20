@@ -24,6 +24,22 @@ class FiscalSyncCoreClient
     }
 
     /** @return array<string, mixed>|null */
+    public function dte(string $documentId): ?array
+    {
+        $response = $this->client()->get($this->baseUrl().'/dte/drafts/'.$documentId);
+        if ($response->status() === 404) {
+            return null;
+        }
+        if ($response->failed()) {
+            throw new RuntimeException((string) ($response->json('message') ?? 'No fue posible consultar el DTE en el core fiscal.'));
+        }
+
+        $document = $response->json();
+
+        return is_array($document) ? $document : null;
+    }
+
+    /** @return array<string, mixed>|null */
     private function dteByIdempotencyKey(string $key): ?array
     {
         $response = $this->client()->get($this->baseUrl().'/dte/drafts', [

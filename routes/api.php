@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\Platform\CatalogCategoryController;
 use App\Http\Controllers\Api\V1\Platform\CatalogItemController;
+use App\Http\Controllers\Api\V1\Platform\CommercialDashboardController;
 use App\Http\Controllers\Api\V1\Platform\FiscalSyncController;
 use App\Http\Controllers\Api\V1\Platform\GlobalUserController;
 use App\Http\Controllers\Api\V1\Platform\InternalNotificationController;
@@ -79,6 +80,8 @@ Route::prefix('v1')->group(function (): void {
                 Route::post('operations/{operation}/attach', [FiscalSyncController::class, 'attach']);
                 Route::post('operations/{operation}/complete', [FiscalSyncController::class, 'complete']);
             });
+        Route::get('platform/tenants/{tenant}/commercial/dashboard', CommercialDashboardController::class)
+            ->middleware('tenant.app:facturacion');
         Route::prefix('platform/tenants/{tenant}/workshop')
             ->middleware('tenant.app:taller')
             ->group(function (): void {

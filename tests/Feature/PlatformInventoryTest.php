@@ -594,6 +594,36 @@ class PlatformInventoryTest extends TestCase
             ->assertJsonFragment(['name' => 'Descripcion libre', 'quantity' => '3.000', 'sales_total' => 15]);
     }
 
+    public function test_invoicing_existing_workshop_sale_updates_financial_breakdown_without_duplication(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        $url = "/api/v1/platform/tenants/{$tenant->id}/inventory/sales";
+        $base = [
+            'source_type' => 'workshop_order',
+            'source_id' => '77',
+            'source_number' => 'T-000077',
+            'lines' => [['description' => 'Reparación', 'quantity' => 1, 'unit_price' => 113, 'net_total' => 113, 'total_amount' => 113]],
+        ];
+        $this->actingAs($owner)->postJson($url, $base)->assertCreated();
+
+        $this->postJson($url, [
+            ...$base,
+            'fiscal_document_type' => '03',
+            'net_amount' => 100,
+            'tax_amount' => 13,
+            'total_amount' => 113,
+            'lines' => [['description' => 'Reparación', 'quantity' => 1, 'unit_price' => 100, 'net_total' => 100, 'tax_amount' => 13, 'total_amount' => 113]],
+        ])->assertOk()
+            ->assertJsonPath('data.fiscal_document_type', '03')
+            ->assertJsonPath('data.net_amount', '100.00')
+            ->assertJsonPath('data.tax_amount', '13.00')
+            ->assertJsonPath('data.lines.0.net_total', '100.00')
+            ->assertJsonPath('data.lines.0.tax_amount', '13.00');
+
+        $this->assertDatabaseCount('inventory_sales', 1);
+        $this->assertDatabaseCount('inventory_sale_lines', 1);
+    }
+
     public function test_reverse_by_source_marks_sale_and_restores_confirmed_reservation(): void
     {
         [$owner, $tenant] = $this->userWithTenantRole('owner');

@@ -43,9 +43,11 @@ class InventoryReportController extends Controller
                 'inventory_sale_lines.line_origin',
                 DB::raw("COALESCE(catalog_items.sku, 'LIBRE') as sku"),
                 DB::raw("COALESCE(catalog_items.name, inventory_sale_lines.description_snapshot, 'Descripción libre') as name"),
-                DB::raw('SUM(inventory_sale_lines.quantity) as quantity'),
-                DB::raw('SUM(inventory_sale_lines.net_total) as sales_total'),
-                DB::raw('SUM(inventory_sale_lines.quantity * inventory_sale_lines.reference_unit_cost) as reference_cost_total'),
+                DB::raw('SUM(inventory_sale_lines.quantity * inventory_sales.reporting_sign) as quantity'),
+                DB::raw('SUM(inventory_sale_lines.net_total * inventory_sales.reporting_sign) as net_sales_total'),
+                DB::raw('SUM(inventory_sale_lines.tax_amount * inventory_sales.reporting_sign) as tax_total'),
+                DB::raw('SUM(inventory_sale_lines.total_amount * inventory_sales.reporting_sign) as sales_total'),
+                DB::raw('SUM(inventory_sale_lines.quantity * inventory_sale_lines.reference_unit_cost * inventory_sales.reporting_sign) as reference_cost_total'),
             ])
             ->orderByDesc('sales_total')
             ->limit(200)
@@ -642,5 +644,4 @@ class InventoryReportController extends Controller
 
         return $company.'-'.$report.'-'.now()->format('Ymd-His');
     }
-
 }

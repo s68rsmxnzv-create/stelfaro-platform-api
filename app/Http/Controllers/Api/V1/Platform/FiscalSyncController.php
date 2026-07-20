@@ -102,6 +102,10 @@ class FiscalSyncController extends Controller
             'sale.core_sucursal_name' => ['nullable', 'string', 'max:160'],
             'sale.source_type' => ['nullable', 'string', Rule::in(['dte', 'workshop_order'])],
             'sale.sale_date' => ['nullable', 'date'],
+            'sale.fiscal_document_type' => ['nullable', 'string', Rule::in(['01', '03', '05', '06', '14'])],
+            'sale.net_amount' => ['nullable', 'numeric', 'gte:0'],
+            'sale.tax_amount' => ['nullable', 'numeric', 'gte:0'],
+            'sale.total_amount' => ['nullable', 'numeric', 'gte:0'],
             'sale.metadata' => ['nullable', 'array'],
             'sale.replacement_of_source_type' => ['nullable', 'string', Rule::in(['dte'])],
             'sale.replacement_of_source_id' => ['nullable', 'string', 'max:80'],
@@ -115,6 +119,8 @@ class FiscalSyncController extends Controller
             'sale.lines.*.unit_price' => ['nullable', 'numeric', 'gte:0'],
             'sale.lines.*.discount_amount' => ['nullable', 'numeric', 'gte:0'],
             'sale.lines.*.net_total' => ['nullable', 'numeric', 'gte:0'],
+            'sale.lines.*.tax_amount' => ['nullable', 'numeric', 'gte:0'],
+            'sale.lines.*.total_amount' => ['nullable', 'numeric', 'gte:0'],
             'sale.lines.*.reference_unit_cost' => ['nullable', 'numeric', 'gte:0'],
         ];
     }

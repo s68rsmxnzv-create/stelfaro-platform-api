@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['tenant_id', 'inventory_sale_id', 'catalog_item_id', 'line_origin', 'inherited_from_line_id', 'description_snapshot', 'quantity', 'inherited_quantity', 'unit_price', 'discount_amount', 'net_total', 'reference_unit_cost'])]
+#[Fillable(['tenant_id', 'inventory_sale_id', 'catalog_item_id', 'line_origin', 'inherited_from_line_id', 'description_snapshot', 'quantity', 'inherited_quantity', 'unit_price', 'discount_amount', 'net_total', 'tax_amount', 'total_amount', 'reference_unit_cost'])]
 class InventorySaleLine extends Model
 {
     protected function casts(): array
@@ -17,6 +17,8 @@ class InventorySaleLine extends Model
             'unit_price' => 'decimal:4',
             'discount_amount' => 'decimal:2',
             'net_total' => 'decimal:2',
+            'tax_amount' => 'decimal:2',
+            'total_amount' => 'decimal:2',
             'reference_unit_cost' => 'decimal:4',
         ];
     }

@@ -25,6 +25,10 @@ class InventorySaleController extends Controller
             'source_id' => ['required', 'string', 'max:80'],
             'source_number' => ['nullable', 'string', 'max:120'],
             'sale_date' => ['nullable', 'date'],
+            'fiscal_document_type' => ['nullable', 'string', Rule::in(['01', '03', '05', '06', '14'])],
+            'net_amount' => ['nullable', 'numeric', 'gte:0'],
+            'tax_amount' => ['nullable', 'numeric', 'gte:0'],
+            'total_amount' => ['nullable', 'numeric', 'gte:0'],
             'metadata' => ['nullable', 'array'],
             'replacement_of_source_type' => ['nullable', 'string', 'max:40'],
             'replacement_of_source_id' => ['nullable', 'string', 'max:80'],
@@ -42,6 +46,8 @@ class InventorySaleController extends Controller
             'lines.*.unit_price' => ['nullable', 'numeric', 'gte:0'],
             'lines.*.discount_amount' => ['nullable', 'numeric', 'gte:0'],
             'lines.*.net_total' => ['nullable', 'numeric', 'gte:0'],
+            'lines.*.tax_amount' => ['nullable', 'numeric', 'gte:0'],
+            'lines.*.total_amount' => ['nullable', 'numeric', 'gte:0'],
             'lines.*.reference_unit_cost' => ['nullable', 'numeric', 'gte:0'],
         ]);
 

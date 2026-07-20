@@ -9,6 +9,7 @@ use App\Models\WorkshopDevice;
 use App\Models\WorkshopOrder;
 use App\Models\WorkshopOrderPhoto;
 use App\Models\WorkshopPhotoSession;
+use App\Services\Inventory\CommercialSummaryService;
 use App\Services\Inventory\InventoryService;
 use App\Services\PlatformAccessPolicy;
 use Illuminate\Http\JsonResponse;
@@ -22,7 +23,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class WorkshopOrderController extends Controller
 {
-    public function dashboard(Request $request, Tenant $tenant, PlatformAccessPolicy $policy): JsonResponse
+    public function dashboard(Request $request, Tenant $tenant, PlatformAccessPolicy $policy, CommercialSummaryService $commercial): JsonResponse
     {
         abort_unless($policy->canViewTenantCatalog($request->user(), $tenant), 403);
 
@@ -34,11 +35,6 @@ class WorkshopOrderController extends Controller
             ->with('payments')
             ->get()
             ->sum(fn (WorkshopOrder $order): float => max(0, round((float) $order->final_total - $this->netPaid($order), 2)));
-
-        $salesBase = DB::table('inventory_sale_lines')
-            ->join('inventory_sales', 'inventory_sales.id', '=', 'inventory_sale_lines.inventory_sale_id')
-            ->where('inventory_sales.tenant_id', $tenant->id)
-            ->where('inventory_sales.status', 'active');
 
         $recent = (clone $orders)
             ->whereIn('status', $activeStatuses)
@@ -58,8 +54,7 @@ class WorkshopOrderController extends Controller
                 'urgent' => (clone $orders)->whereIn('status', $activeStatuses)->where('priority', 'urgent')->count(),
             ],
             'commercial' => [
-                'sales_today' => round((float) (clone $salesBase)->whereDate('inventory_sales.sale_date', today())->sum('inventory_sale_lines.net_total'), 2),
-                'sales_month' => round((float) (clone $salesBase)->whereDate('inventory_sales.sale_date', '>=', now()->startOfMonth())->sum('inventory_sale_lines.net_total'), 2),
+                ...$commercial->totals($tenant),
                 'receivables' => round((float) $receivables, 2),
             ],
             'recent_orders' => $recent->map(fn (WorkshopOrder $order): array => $this->payload($order))->values(),
