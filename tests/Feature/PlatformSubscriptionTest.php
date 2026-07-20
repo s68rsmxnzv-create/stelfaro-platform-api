@@ -6,7 +6,9 @@ use App\Models\PlatformApp;
 use App\Models\SubscriptionPlan;
 use App\Models\Tenant;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class PlatformSubscriptionTest extends TestCase
@@ -224,6 +226,13 @@ class PlatformSubscriptionTest extends TestCase
 
     public function test_suspended_subscription_suspends_included_app_access(): void
     {
+        config([
+            'services.dte_core.base_url' => 'https://core.test/api/v1',
+            'services.dte_core.internal_token' => 'internal-secret',
+        ]);
+        Http::fake([
+            'https://core.test/api/v1/internal/auth/billing-session/revoke' => Http::response(['revoked' => 1]),
+        ]);
         $owner = User::factory()->create(['platform_role' => 'platform_owner']);
         $tenant = Tenant::query()->create([
             'slug' => 'cliente-demo',
@@ -232,6 +241,13 @@ class PlatformSubscriptionTest extends TestCase
         $facturacion = PlatformApp::query()->create([
             'key' => 'facturacion',
             'name' => 'Facturacion',
+        ]);
+        $member = User::factory()->create();
+        $member->memberships()->create([
+            'tenant_id' => $tenant->id,
+            'role' => 'billing_user',
+            'status' => 'active',
+            'is_default' => true,
         ]);
         $plan = SubscriptionPlan::query()->where('key', 'starter')->firstOrFail();
 
@@ -248,6 +264,8 @@ class PlatformSubscriptionTest extends TestCase
             'platform_app_id' => $facturacion->id,
             'status' => 'suspended',
         ]);
+        Http::assertSent(fn ($request): bool => $request->url() === 'https://core.test/api/v1/internal/auth/billing-session/revoke'
+            && $request['platform_user_ids'] === [$member->id]);
     }
 
     public function test_platform_owner_can_assign_subscription_by_core_company_for_custom_days(): void
@@ -275,7 +293,7 @@ class PlatformSubscriptionTest extends TestCase
             ->assertJsonPath('subscription.tenant_id', $tenant->id)
             ->assertJsonPath('subscription.status', 'active');
 
-        $endsAt = \Carbon\CarbonImmutable::parse((string) $response->json('subscription.current_period_ends_at'));
+        $endsAt = CarbonImmutable::parse((string) $response->json('subscription.current_period_ends_at'));
 
         $this->assertTrue($endsAt->between(now()->addDays(89), now()->addDays(91)));
         $this->assertDatabaseHas('tenant_subscriptions', [

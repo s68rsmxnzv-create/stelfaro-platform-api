@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Tenant;
 use App\Models\UserFiscalAssignment;
 use App\Models\UserTenantMembership;
+use App\Services\CoreBillingSessionBroker;
 use App\Services\CoreFiscalScopeClient;
 use App\Services\PlatformAccessPolicy;
 use App\Services\TenantFiscalLinkResolver;
@@ -13,6 +14,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
 
 class TenantFiscalAssignmentController extends Controller
 {
@@ -34,6 +36,7 @@ class TenantFiscalAssignmentController extends Controller
         PlatformAccessPolicy $policy,
         TenantFiscalLinkResolver $links,
         CoreFiscalScopeClient $core,
+        CoreBillingSessionBroker $billingSessions,
     ): JsonResponse {
         $membership->load('tenant');
         abort_unless($policy->canChangeTenantMemberRole($request->user(), $membership->tenant), 403);
@@ -47,6 +50,12 @@ class TenantFiscalAssignmentController extends Controller
 
         $coreEmpresaId = $links->coreEmpresaId($membership->tenant);
         $this->assertValidFiscalAssignments($validated['assignments'], $core->companyScope($coreEmpresaId));
+
+        try {
+            $billingSessions->revokePlatformUsers([$membership->user_id]);
+        } catch (RuntimeException) {
+            abort(503, 'No pudimos actualizar el alcance fiscal porque hay una sesion activa. Intenta nuevamente.');
+        }
 
         DB::transaction(function () use ($membership, $validated, $coreEmpresaId): void {
             $membership->fiscalAssignments()->delete();

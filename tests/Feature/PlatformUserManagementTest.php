@@ -173,6 +173,7 @@ class PlatformUserManagementTest extends TestCase
 
     public function test_platform_owner_can_create_company_owner_with_temporary_password(): void
     {
+        $this->fakeFiscalRevocation();
         $platformOwner = User::factory()->create(['platform_role' => 'platform_owner']);
         $tenant = Tenant::query()->create([
             'slug' => 'cliente-nuevo',
@@ -414,6 +415,7 @@ class PlatformUserManagementTest extends TestCase
 
     public function test_platform_owner_can_reset_company_owner_temporary_password(): void
     {
+        $this->fakeFiscalRevocation();
         $platformOwner = User::factory()->create(['platform_role' => 'platform_owner']);
         [$companyOwner, $tenant] = $this->userWithTenantRole('owner');
         $membership = $companyOwner->memberships()->where('tenant_id', $tenant->id)->firstOrFail();
@@ -444,6 +446,7 @@ class PlatformUserManagementTest extends TestCase
 
     public function test_owner_can_suspend_reactivate_and_remove_company_member(): void
     {
+        $this->fakeFiscalRevocation();
         [$owner, $tenant] = $this->userWithTenantRole('owner');
         [$member] = $this->userWithTenantRole('billing_user', $tenant);
         $membership = $member->memberships()->where('tenant_id', $tenant->id)->firstOrFail();
@@ -462,6 +465,45 @@ class PlatformUserManagementTest extends TestCase
             ->deleteJson("/api/v1/platform/memberships/{$membership->id}")
             ->assertOk()
             ->assertJsonPath('membership.status', 'removed');
+
+        Http::assertSentCount(2);
+        Http::assertSent(fn ($request): bool => $request->url() === 'https://core.test/api/v1/internal/auth/billing-session/revoke'
+            && $request['platform_user_ids'] === [$member->id]);
+    }
+
+    public function test_membership_change_is_not_applied_when_fiscal_sessions_cannot_be_revoked(): void
+    {
+        $this->fakeFiscalRevocation(503);
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        [$member] = $this->userWithTenantRole('billing_user', $tenant);
+        $membership = $member->memberships()->where('tenant_id', $tenant->id)->firstOrFail();
+
+        $this->actingAs($owner)
+            ->patchJson("/api/v1/platform/memberships/{$membership->id}/suspend")
+            ->assertServiceUnavailable();
+
+        $this->assertDatabaseHas('user_tenant_memberships', [
+            'id' => $membership->id,
+            'status' => 'active',
+        ]);
+    }
+
+    public function test_changing_member_role_revokes_existing_fiscal_sessions(): void
+    {
+        $this->fakeFiscalRevocation();
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        [$member] = $this->userWithTenantRole('billing_user', $tenant);
+        $membership = $member->memberships()->where('tenant_id', $tenant->id)->firstOrFail();
+
+        $this->actingAs($owner)
+            ->patchJson("/api/v1/platform/memberships/{$membership->id}/role", [
+                'role' => 'viewer',
+            ])
+            ->assertOk()
+            ->assertJsonPath('membership.role', 'viewer');
+
+        Http::assertSent(fn ($request): bool => $request->url() === 'https://core.test/api/v1/internal/auth/billing-session/revoke'
+            && $request['platform_user_ids'] === [$member->id]);
     }
 
     public function test_company_owner_can_view_tenant_fiscal_scope(): void
@@ -498,6 +540,7 @@ class PlatformUserManagementTest extends TestCase
 
         Http::fake([
             'https://core.test/api/v1/internal/billing/companies/123/fiscal-scope' => Http::response($this->fiscalScopePayload()),
+            'https://core.test/api/v1/internal/auth/billing-session/revoke' => Http::response(['revoked' => 1]),
         ]);
 
         $this->actingAs($owner)
@@ -656,5 +699,20 @@ class PlatformUserManagementTest extends TestCase
         ]);
 
         return [$user, $tenant];
+    }
+
+    private function fakeFiscalRevocation(int $status = 200): void
+    {
+        config([
+            'services.dte_core.base_url' => 'https://core.test/api/v1',
+            'services.dte_core.internal_token' => 'internal-secret',
+        ]);
+
+        Http::fake([
+            'https://core.test/api/v1/internal/auth/billing-session/revoke' => Http::response(
+                $status < 400 ? ['revoked' => 1] : ['message' => 'Core fiscal no disponible.'],
+                $status,
+            ),
+        ]);
     }
 }

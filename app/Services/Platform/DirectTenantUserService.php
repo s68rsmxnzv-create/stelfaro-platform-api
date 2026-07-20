@@ -4,6 +4,7 @@ namespace App\Services\Platform;
 
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\CoreBillingSessionBroker;
 use App\Services\PlatformAccessPolicy;
 use App\Services\UserTenantMembershipManager;
 use App\Support\Platform\PlatformRoles;
@@ -16,6 +17,7 @@ class DirectTenantUserService
     public function __construct(
         private readonly UserTenantMembershipManager $memberships,
         private readonly PlatformAccessPolicy $accessPolicy,
+        private readonly CoreBillingSessionBroker $billingSessions,
     ) {}
 
     /**
@@ -104,23 +106,26 @@ class DirectTenantUserService
 
     private function replaceExistingTenantOwners(Tenant $tenant, User $newOwner, User $creator): void
     {
-        $tenant->memberships()
+        $memberships = $tenant->memberships()
             ->where('role', PlatformRoles::OWNER)
             ->where('status', 'active')
             ->where('user_id', '!=', $newOwner->id)
-            ->get()
-            ->each(function ($membership) use ($creator, $newOwner): void {
-                $membership->forceFill([
-                    'status' => 'removed',
-                    'is_default' => false,
-                    'metadata' => [
-                        ...($membership->metadata ?? []),
-                        'replaced_by' => $newOwner->id,
-                        'replaced_by_platform_owner' => $creator->id,
-                        'replaced_directly_at' => now()->toISOString(),
-                    ],
-                ])->save();
-            });
+            ->get();
+
+        $this->billingSessions->revokePlatformUsers($memberships->pluck('user_id')->all());
+
+        $memberships->each(function ($membership) use ($creator, $newOwner): void {
+            $membership->forceFill([
+                'status' => 'removed',
+                'is_default' => false,
+                'metadata' => [
+                    ...($membership->metadata ?? []),
+                    'replaced_by' => $newOwner->id,
+                    'replaced_by_platform_owner' => $creator->id,
+                    'replaced_directly_at' => now()->toISOString(),
+                ],
+            ])->save();
+        });
     }
 
     private function temporaryPassword(): string

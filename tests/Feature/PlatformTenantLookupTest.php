@@ -6,6 +6,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class PlatformTenantLookupTest extends TestCase
@@ -72,6 +73,13 @@ class PlatformTenantLookupTest extends TestCase
 
     public function test_platform_owner_can_purge_tenant_by_core_empresa_id(): void
     {
+        config([
+            'services.dte_core.base_url' => 'https://core.test/api/v1',
+            'services.dte_core.internal_token' => 'internal-secret',
+        ]);
+        Http::fake([
+            'https://core.test/api/v1/internal/auth/billing-session/revoke' => Http::response(['revoked' => 2]),
+        ]);
         $owner = User::factory()->create(['platform_role' => 'platform_owner']);
         $tenantOnlyUser = User::factory()->create(['platform_role' => null]);
         $globalUser = User::factory()->create(['platform_role' => 'platform_owner']);
@@ -139,6 +147,7 @@ class PlatformTenantLookupTest extends TestCase
         $this->assertDatabaseMissing('users', ['id' => $tenantOnlyUser->id]);
         $this->assertDatabaseHas('users', ['id' => $globalUser->id]);
         $this->assertDatabaseHas('users', ['id' => $owner->id]);
+        Http::assertSent(fn ($request): bool => $request['platform_user_ids'] === [$tenantOnlyUser->id, $globalUser->id]);
     }
 
     public function test_company_owner_cannot_purge_tenant_by_core_empresa_id(): void

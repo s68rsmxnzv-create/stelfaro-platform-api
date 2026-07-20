@@ -88,6 +88,57 @@ class CoreBillingSessionBroker
     }
 
     /**
+     * @param  iterable<int|string>  $platformUserIds
+     */
+    public function revokePlatformUsers(iterable $platformUserIds): int
+    {
+        $userIds = collect($platformUserIds)
+            ->map(fn (int|string $userId): int => (int) $userId)
+            ->filter(fn (int $userId): bool => $userId > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($userIds === []) {
+            return 0;
+        }
+
+        $baseUrl = rtrim((string) config('services.dte_core.base_url'), '/');
+        $internalToken = config('services.dte_core.internal_token');
+
+        if ($baseUrl === '' || ! is_string($internalToken) || $internalToken === '') {
+            throw new RuntimeException('La conexion con el core fiscal no esta configurada.');
+        }
+
+        try {
+            $response = Http::acceptJson()
+                ->withToken($internalToken)
+                ->timeout(10)
+                ->post($baseUrl.'/internal/auth/billing-session/revoke', [
+                    'platform_user_ids' => $userIds,
+                ]);
+        } catch (\Throwable $exception) {
+            Log::error('No fue posible revocar las sesiones fiscales de usuarios de plataforma.', [
+                'platform_user_ids' => $userIds,
+                'error' => $exception->getMessage(),
+            ]);
+
+            throw new RuntimeException('No fue posible cerrar las sesiones fiscales activas.', previous: $exception);
+        }
+
+        if ($response->failed()) {
+            Log::error('El core fiscal rechazo la revocacion de sesiones de usuarios de plataforma.', [
+                'platform_user_ids' => $userIds,
+                'status' => $response->status(),
+            ]);
+
+            throw new RuntimeException((string) ($response->json('message') ?? 'No fue posible cerrar las sesiones fiscales activas.'));
+        }
+
+        return (int) $response->json('revoked', 0);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function openBackoffice(): array

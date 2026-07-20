@@ -4,10 +4,15 @@ namespace App\Services\Platform;
 
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\CoreBillingSessionBroker;
 use Illuminate\Support\Facades\DB;
 
 class TenantPurgeService
 {
+    public function __construct(
+        private readonly CoreBillingSessionBroker $billingSessions,
+    ) {}
+
     public function purgeByCoreEmpresaId(int $coreEmpresaId): bool
     {
         $tenant = Tenant::query()
@@ -25,6 +30,13 @@ class TenantPurgeService
 
     public function purge(Tenant $tenant): void
     {
+        $userIds = DB::table('user_tenant_memberships')
+            ->where('tenant_id', $tenant->id)
+            ->pluck('user_id')
+            ->all();
+
+        $this->billingSessions->revokePlatformUsers($userIds);
+
         DB::transaction(function () use ($tenant): void {
             $userIds = DB::table('user_tenant_memberships')
                 ->where('tenant_id', $tenant->id)

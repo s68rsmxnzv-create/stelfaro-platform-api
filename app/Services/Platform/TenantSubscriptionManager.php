@@ -7,11 +7,16 @@ use App\Models\SubscriptionPlan;
 use App\Models\Tenant;
 use App\Models\TenantSubscription;
 use App\Models\User;
+use App\Services\CoreBillingSessionBroker;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
 class TenantSubscriptionManager
 {
+    public function __construct(
+        private readonly CoreBillingSessionBroker $billingSessions,
+    ) {}
+
     /**
      * @param  array<string, mixed>  $data
      */
@@ -38,6 +43,14 @@ class TenantSubscriptionManager
      */
     private function applyWithMetadata(Tenant $tenant, SubscriptionPlan $plan, array $data, ?User $actor, array $metadata): TenantSubscription
     {
+        $status = (string) ($data['status'] ?? 'trialing');
+
+        if ($this->disablesFiscalAccess($plan, $status)) {
+            $this->billingSessions->revokePlatformUsers(
+                $tenant->memberships()->pluck('user_id')->all(),
+            );
+        }
+
         return DB::transaction(function () use ($tenant, $plan, $data, $actor, $metadata): TenantSubscription {
             $status = (string) ($data['status'] ?? 'trialing');
             $durationDays = isset($data['duration_days']) ? (int) $data['duration_days'] : null;
@@ -144,5 +157,13 @@ class TenantSubscriptionManager
                     ],
                 ])->save();
             });
+    }
+
+    private function disablesFiscalAccess(SubscriptionPlan $plan, string $subscriptionStatus): bool
+    {
+        $enabled = in_array($subscriptionStatus, ['trialing', 'active', 'past_due'], true);
+        $includesBilling = collect($plan->included_app_keys ?? [])->contains('facturacion');
+
+        return ! $enabled || ! $includesBilling;
     }
 }

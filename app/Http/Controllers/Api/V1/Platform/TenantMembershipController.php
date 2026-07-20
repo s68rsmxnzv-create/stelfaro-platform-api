@@ -4,16 +4,18 @@ namespace App\Http\Controllers\Api\V1\Platform;
 
 use App\Http\Controllers\Controller;
 use App\Models\UserTenantMembership;
+use App\Services\CoreBillingSessionBroker;
 use App\Services\PlatformAccessPolicy;
 use App\Support\Platform\PlatformRoles;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use RuntimeException;
 
 class TenantMembershipController extends Controller
 {
-    public function updateRole(Request $request, UserTenantMembership $membership, PlatformAccessPolicy $policy): JsonResponse
+    public function updateRole(Request $request, UserTenantMembership $membership, PlatformAccessPolicy $policy, CoreBillingSessionBroker $billingSessions): JsonResponse
     {
         $membership->load('tenant', 'user');
         abort_unless($policy->canChangeTenantMemberRole($request->user(), $membership->tenant), 403);
@@ -28,17 +30,21 @@ class TenantMembershipController extends Controller
             ])],
         ]);
 
-        $membership->forceFill(['role' => $validated['role']])->save();
+        if ($membership->role !== $validated['role']) {
+            $this->revokeFiscalSessions($membership, $billingSessions);
+            $membership->forceFill(['role' => $validated['role']])->save();
+        }
 
         return response()->json(['membership' => $this->payload($membership->refresh())]);
     }
 
-    public function suspend(Request $request, UserTenantMembership $membership, PlatformAccessPolicy $policy): JsonResponse
+    public function suspend(Request $request, UserTenantMembership $membership, PlatformAccessPolicy $policy, CoreBillingSessionBroker $billingSessions): JsonResponse
     {
         $membership->load('tenant', 'user');
         abort_unless($policy->canSuspendTenantMember($request->user(), $membership->tenant), 403);
         $this->abortIfProtectedOwner($request, $membership, $policy);
 
+        $this->revokeFiscalSessions($membership, $billingSessions);
         $membership->forceFill(['status' => 'suspended', 'is_default' => false])->save();
 
         return response()->json(['membership' => $this->payload($membership->refresh())]);
@@ -54,12 +60,13 @@ class TenantMembershipController extends Controller
         return response()->json(['membership' => $this->payload($membership->refresh())]);
     }
 
-    public function destroy(Request $request, UserTenantMembership $membership, PlatformAccessPolicy $policy): JsonResponse
+    public function destroy(Request $request, UserTenantMembership $membership, PlatformAccessPolicy $policy, CoreBillingSessionBroker $billingSessions): JsonResponse
     {
         $membership->load('tenant', 'user');
         abort_unless($policy->canRemoveTenantAccess($request->user(), $membership->tenant), 403);
         $this->abortIfProtectedOwner($request, $membership, $policy);
 
+        $this->revokeFiscalSessions($membership, $billingSessions);
         $membership->forceFill(['status' => 'removed', 'is_default' => false])->save();
 
         return response()->json(['membership' => $this->payload($membership->refresh())]);
@@ -80,13 +87,14 @@ class TenantMembershipController extends Controller
         return response()->json(['membership' => $this->payload($membership->refresh())]);
     }
 
-    public function resetTemporaryPassword(Request $request, UserTenantMembership $membership, PlatformAccessPolicy $policy): JsonResponse
+    public function resetTemporaryPassword(Request $request, UserTenantMembership $membership, PlatformAccessPolicy $policy, CoreBillingSessionBroker $billingSessions): JsonResponse
     {
         $membership->load('tenant', 'user');
         abort_unless($policy->canSuspendTenantMember($request->user(), $membership->tenant), 403);
         $this->abortIfProtectedOwner($request, $membership, $policy);
         abort_unless($membership->user !== null, 404, 'La membresia no tiene usuario vinculado.');
 
+        $this->revokeFiscalSessions($membership, $billingSessions);
         $temporaryPassword = $this->temporaryPassword($membership->user->email, $membership->tenant->slug);
         $membership->user->forceFill([
             'password' => $temporaryPassword,
@@ -131,5 +139,14 @@ class TenantMembershipController extends Controller
         $tenantCode = Str::upper(Str::substr((string) preg_replace('/[^A-Za-z0-9]/', '', $tenantSlug), 0, 4)) ?: 'TEMP';
 
         return 'Sf-'.$prefix.'-'.$tenantCode.'-'.random_int(1000, 9999);
+    }
+
+    private function revokeFiscalSessions(UserTenantMembership $membership, CoreBillingSessionBroker $billingSessions): void
+    {
+        try {
+            $billingSessions->revokePlatformUsers([$membership->user_id]);
+        } catch (RuntimeException) {
+            abort(503, 'No pudimos cerrar el acceso fiscal activo. No se aplico el cambio; intenta nuevamente.');
+        }
     }
 }
