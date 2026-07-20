@@ -46,7 +46,7 @@ class InertiaPlatformPagesTest extends TestCase
 
     public function test_taller_page_renders(): void
     {
-        $this->actingAs(User::factory()->create())
+        $this->actingAs($this->userWithApp('taller'))
             ->get('https://taller.stelfaro.com')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
@@ -114,7 +114,7 @@ class InertiaPlatformPagesTest extends TestCase
 
     public function test_facturacion_page_renders(): void
     {
-        $this->actingAs(User::factory()->create())
+        $this->actingAs($this->userWithApp('facturacion'))
             ->get('https://facturacion.stelfaro.com')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
@@ -142,6 +142,17 @@ class InertiaPlatformPagesTest extends TestCase
             'name' => 'Servicio Técnico El Faro',
             'metadata' => ['core_empresa_id' => 123],
         ]);
+        $taller = PlatformApp::query()->create([
+            'key' => 'taller',
+            'name' => 'Taller electrónico',
+            'host' => 'taller.stelfaro.com',
+            'default_path' => '/',
+        ]);
+        $tenant->appAccesses()->create([
+            'platform_app_id' => $taller->id,
+            'status' => 'active',
+            'is_default' => true,
+        ]);
         $user = User::factory()->create();
         $user->memberships()->create([
             'tenant_id' => $tenant->id,
@@ -163,7 +174,7 @@ class InertiaPlatformPagesTest extends TestCase
 
     public function test_taller_reuses_billing_package_modules(): void
     {
-        $user = User::factory()->create();
+        $user = $this->userWithApp('taller');
 
         $this->actingAs($user)
             ->get('https://taller.stelfaro.com/comprobantes')
@@ -201,5 +212,46 @@ class InertiaPlatformPagesTest extends TestCase
                 ->component('Apps/Taller/BillingWorkspace')
                 ->where('module', 'settings')
             );
+    }
+
+    public function test_facturacion_only_user_is_redirected_away_from_taller(): void
+    {
+        $user = $this->userWithApp('facturacion');
+
+        $this->actingAs($user)
+            ->get('https://taller.stelfaro.com/ordenes')
+            ->assertRedirect('https://facturacion.stelfaro.com');
+    }
+
+    private function userWithApp(string $appKey): User
+    {
+        $app = PlatformApp::query()->firstOrCreate(
+            ['key' => $appKey],
+            [
+                'name' => $appKey === 'taller' ? 'Taller electrónico' : 'Facturación',
+                'host' => $appKey.'.stelfaro.com',
+                'default_path' => '/',
+                'status' => 'active',
+            ],
+        );
+        $tenant = Tenant::query()->create([
+            'slug' => fake()->unique()->slug(2),
+            'name' => fake()->company(),
+            'primary_app_id' => $app->id,
+        ]);
+        $tenant->appAccesses()->create([
+            'platform_app_id' => $app->id,
+            'status' => 'active',
+            'is_default' => true,
+        ]);
+        $user = User::factory()->create();
+        $user->memberships()->create([
+            'tenant_id' => $tenant->id,
+            'role' => 'owner',
+            'status' => 'active',
+            'is_default' => true,
+        ]);
+
+        return $user;
     }
 }

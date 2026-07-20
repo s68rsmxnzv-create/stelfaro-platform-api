@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\PlatformApp;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\PlatformAccessPolicy;
@@ -114,6 +115,37 @@ class PlatformAccessPolicyTest extends TestCase
             ->update(['status' => 'suspended']);
 
         $this->assertFalse($policy->canOperateTenant($billingUser, $tenant));
+    }
+
+    public function test_tenant_app_access_requires_active_membership_and_active_assignment(): void
+    {
+        $policy = app(PlatformAccessPolicy::class);
+        [$user, $tenant] = $this->userWithTenantRole('owner');
+        $facturacion = PlatformApp::query()->create([
+            'key' => 'facturacion',
+            'name' => 'Facturación',
+            'status' => 'active',
+        ]);
+        $taller = PlatformApp::query()->create([
+            'key' => 'taller',
+            'name' => 'Taller electrónico',
+            'status' => 'active',
+        ]);
+        $tenant->appAccesses()->create([
+            'platform_app_id' => $facturacion->id,
+            'status' => 'active',
+        ]);
+        $tenant->appAccesses()->create([
+            'platform_app_id' => $taller->id,
+            'status' => 'inactive',
+        ]);
+
+        $this->assertTrue($policy->canAccessTenantApp($user, $tenant, 'facturacion'));
+        $this->assertFalse($policy->canAccessTenantApp($user, $tenant, 'taller'));
+
+        $user->memberships()->where('tenant_id', $tenant->id)->update(['status' => 'suspended']);
+
+        $this->assertFalse($policy->canAccessTenantApp($user, $tenant, 'facturacion'));
     }
 
     public function test_user_can_change_active_tenant_only_with_active_membership(): void

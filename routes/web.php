@@ -35,7 +35,7 @@ Route::domain(config('platform.hosts.taller'))
     });
 
 Route::domain(config('platform.hosts.taller'))
-    ->middleware(['auth', 'verified', EnsurePasswordIsChanged::class])
+    ->middleware(['auth', 'verified', EnsurePasswordIsChanged::class, 'tenant.app:taller'])
     ->group(function (): void {
         Route::get('/', [PlatformPortalController::class, 'taller'])->name('apps.taller');
         Route::get('/recepcion', [PlatformPortalController::class, 'tallerReception'])->name('apps.taller.reception');
@@ -59,7 +59,7 @@ Route::domain(config('platform.hosts.taller'))
     });
 
 Route::domain(config('platform.hosts.facturacion'))
-    ->middleware(['auth', 'verified', EnsurePasswordIsChanged::class])
+    ->middleware(['auth', 'verified', EnsurePasswordIsChanged::class, 'tenant.app:facturacion'])
     ->group(function (): void {
         Route::get('/', [PlatformPortalController::class, 'facturacion'])->name('apps.facturacion');
         Route::get('/clientes', [PlatformPortalController::class, 'facturacionCustomers'])->name('apps.facturacion.customers');

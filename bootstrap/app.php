@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\AddSecurityHeaders;
 use App\Http\Middleware\AuditPlatformActivity;
+use App\Http\Middleware\EnsureTenantAppAccess;
 use App\Http\Middleware\ExpireIdlePlatformSession;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\RejectSuspiciousInput;
@@ -19,6 +20,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->alias([
+            'tenant.app' => EnsureTenantAppAccess::class,
+        ]);
+
         $middleware->append([
             AddSecurityHeaders::class,
             RejectSuspiciousInput::class,

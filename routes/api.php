@@ -70,17 +70,21 @@ Route::prefix('v1')->group(function (): void {
         Route::patch('platform/tenants/{tenant}/catalog/categories/{category}', [CatalogCategoryController::class, 'update']);
         Route::delete('platform/tenants/{tenant}/catalog/categories/{category}', [CatalogCategoryController::class, 'destroy']);
         Route::get('platform/tenants/{tenant}/catalog/items', [CatalogItemController::class, 'index']);
-        Route::get('platform/tenants/{tenant}/workshop/dashboard', [WorkshopOrderController::class, 'dashboard']);
-        Route::get('platform/tenants/{tenant}/workshop/orders', [WorkshopOrderController::class, 'index']);
-        Route::get('platform/tenants/{tenant}/workshop/orders/{order}', [WorkshopOrderController::class, 'show']);
-        Route::post('platform/tenants/{tenant}/workshop/orders', [WorkshopOrderController::class, 'store']);
-        Route::patch('platform/tenants/{tenant}/workshop/orders/{order}', [WorkshopOrderController::class, 'update']);
-        Route::post('platform/tenants/{tenant}/workshop/orders/{order}/settlement', [WorkshopOrderController::class, 'settle']);
-        Route::post('platform/tenants/{tenant}/workshop/orders/{order}/payments', [WorkshopOrderController::class, 'recordPayment']);
-        Route::post('platform/tenants/{tenant}/workshop/orders/{order}/invoice-link', [WorkshopOrderController::class, 'linkInvoice']);
-        Route::get('platform/tenants/{tenant}/workshop/orders/{order}/photos', [WorkshopOrderController::class, 'photos']);
-        Route::get('platform/tenants/{tenant}/workshop/orders/{order}/photos/{photo}', [WorkshopOrderController::class, 'photo']);
-        Route::post('platform/tenants/{tenant}/workshop/orders/{order}/photo-session', [WorkshopOrderController::class, 'photoSession']);
+        Route::prefix('platform/tenants/{tenant}/workshop')
+            ->middleware('tenant.app:taller')
+            ->group(function (): void {
+                Route::get('dashboard', [WorkshopOrderController::class, 'dashboard']);
+                Route::get('orders', [WorkshopOrderController::class, 'index']);
+                Route::get('orders/{order}', [WorkshopOrderController::class, 'show']);
+                Route::post('orders', [WorkshopOrderController::class, 'store']);
+                Route::patch('orders/{order}', [WorkshopOrderController::class, 'update']);
+                Route::post('orders/{order}/settlement', [WorkshopOrderController::class, 'settle']);
+                Route::post('orders/{order}/payments', [WorkshopOrderController::class, 'recordPayment']);
+                Route::post('orders/{order}/invoice-link', [WorkshopOrderController::class, 'linkInvoice']);
+                Route::get('orders/{order}/photos', [WorkshopOrderController::class, 'photos']);
+                Route::get('orders/{order}/photos/{photo}', [WorkshopOrderController::class, 'photo']);
+                Route::post('orders/{order}/photo-session', [WorkshopOrderController::class, 'photoSession']);
+            });
         Route::post('platform/tenants/{tenant}/catalog/items', [CatalogItemController::class, 'store']);
         Route::patch('platform/tenants/{tenant}/catalog/items/{item}', [CatalogItemController::class, 'update']);
         Route::delete('platform/tenants/{tenant}/catalog/items/{item}', [CatalogItemController::class, 'destroy']);

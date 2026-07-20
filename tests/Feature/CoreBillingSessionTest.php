@@ -44,6 +44,7 @@ class CoreBillingSessionTest extends TestCase
             'name' => 'Cliente Demo',
             'metadata' => ['core_empresa_id' => 123],
         ]);
+        $this->enableTaller($tenant);
         $user = User::factory()->create([
             'email' => 'armando@example.test',
         ]);
@@ -90,6 +91,7 @@ class CoreBillingSessionTest extends TestCase
             'name' => 'Cliente Readonly',
             'metadata' => ['core_empresa_id' => 456],
         ]);
+        $this->enableTaller($tenant);
         $user = User::factory()->create();
         $user->memberships()->create([
             'tenant_id' => $tenant->id,
@@ -127,6 +129,7 @@ class CoreBillingSessionTest extends TestCase
             'name' => 'Cliente Caja',
             'metadata' => ['core_empresa_id' => 123],
         ]);
+        $this->enableTaller($tenant);
         $user = User::factory()->create();
         $membership = $user->memberships()->create([
             'tenant_id' => $tenant->id,
@@ -177,8 +180,7 @@ class CoreBillingSessionTest extends TestCase
 
         $this->actingAs($user)
             ->getJson('https://taller.stelfaro.com/platform/core-billing-session')
-            ->assertStatus(503)
-            ->assertJsonPath('message', 'No hay una empresa fiscal activa vinculada a este usuario.');
+            ->assertForbidden();
 
         Http::assertNothingSent();
     }
@@ -260,5 +262,18 @@ class CoreBillingSessionTest extends TestCase
         $this->actingAs($user)
             ->getJson('https://platform.stelfaro.com/api/v1/admin/core/health')
             ->assertForbidden();
+    }
+
+    private function enableTaller(Tenant $tenant): void
+    {
+        $taller = PlatformApp::query()->firstOrCreate(
+            ['key' => 'taller'],
+            ['name' => 'Taller electrónico', 'host' => 'taller.stelfaro.com', 'default_path' => '/', 'status' => 'active'],
+        );
+        $tenant->appAccesses()->create([
+            'platform_app_id' => $taller->id,
+            'status' => 'active',
+            'is_default' => true,
+        ]);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\PlatformApp;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Models\WorkshopCustomer;
@@ -84,6 +85,15 @@ class WorkshopPhotoUploadTest extends TestCase
     private function order(): array
     {
         $tenant = Tenant::query()->create(['slug' => 'photos', 'name' => 'Photos', 'status' => 'active']);
+        $taller = PlatformApp::query()->firstOrCreate(
+            ['key' => 'taller'],
+            ['name' => 'Taller electrónico', 'host' => 'taller.stelfaro.com', 'default_path' => '/', 'status' => 'active'],
+        );
+        $tenant->appAccesses()->create([
+            'platform_app_id' => $taller->id,
+            'status' => 'active',
+            'is_default' => true,
+        ]);
         $user = User::factory()->create(['email_verified_at' => now(), 'must_change_password' => false]);
         $user->memberships()->create(['tenant_id' => $tenant->id, 'role' => 'company_admin', 'status' => 'active', 'is_default' => true]);
         $customer = WorkshopCustomer::query()->create(['tenant_id' => $tenant->id, 'core_customer_id' => 1, 'name' => 'Cliente']);

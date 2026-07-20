@@ -30,6 +30,24 @@ class PlatformAccessPolicy
         return $this->canViewTenantUsers($user, $tenant);
     }
 
+    public function canAccessTenantApp(?User $user, Tenant $tenant, string $appKey): bool
+    {
+        if (! $user || ! Tenant::query()->whereKey($tenant->id)->where('status', 'active')->exists()) {
+            return false;
+        }
+
+        if (! $this->hasGlobalAdminRole($user) && ! $this->activeMembershipFor($user, $tenant)) {
+            return false;
+        }
+
+        return $tenant->appAccesses()
+            ->where('status', 'active')
+            ->whereHas('app', fn ($query) => $query
+                ->where('key', $appKey)
+                ->where('status', 'active'))
+            ->exists();
+    }
+
     public function canViewTenantAudit(?User $user, Tenant|int $tenant): bool
     {
         if ($this->hasGlobalAdminRole($user)) {
