@@ -120,6 +120,7 @@ class InertiaPlatformPagesTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Apps/Taller/BillingWorkspace')
                 ->where('app.id', 'facturacion')
+                ->where('module', 'dashboard')
             );
     }
 

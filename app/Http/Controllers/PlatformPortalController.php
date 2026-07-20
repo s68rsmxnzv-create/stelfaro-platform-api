@@ -124,8 +124,7 @@ class PlatformPortalController extends Controller
                 'name' => 'Facturación',
                 'description' => 'Emisión libre de DTE, clientes, productos, recepción y entrega automática por correo.',
             ],
-            'module' => 'billing',
-            'documentSlug' => 'fe',
+            'module' => 'dashboard',
         ]);
     }
 
