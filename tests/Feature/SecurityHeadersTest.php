@@ -44,7 +44,7 @@ class SecurityHeadersTest extends TestCase
             'platform.hosts.taller' => 'taller.stelfaro.com',
             'platform.hosts.facturacion' => 'facturacion.stelfaro.com',
             'platform.hosts.admin' => 'admin.stelfaro.com',
-            'services.dte_core.base_url' => 'https://dte.stelfaro.me/api/v1',
+            'services.dte_core.base_url' => 'https://coredte.stelfaro.com/api/v1',
         ]);
 
         $response = $this->get('/login')->assertOk();
@@ -55,7 +55,7 @@ class SecurityHeadersTest extends TestCase
         $this->assertStringContainsString('https://taller.stelfaro.com', $contentSecurityPolicy);
         $this->assertStringContainsString('https://facturacion.stelfaro.com', $contentSecurityPolicy);
         $this->assertStringContainsString('https://admin.stelfaro.com', $contentSecurityPolicy);
-        $this->assertStringContainsString('https://dte.stelfaro.me', $contentSecurityPolicy);
+        $this->assertStringContainsString('https://coredte.stelfaro.com', $contentSecurityPolicy);
     }
 
     public function test_csp_allows_only_loopback_print_agent_connections(): void
