@@ -18,6 +18,7 @@ use App\Http\Controllers\PlatformPortalController;
 use App\Http\Controllers\PlatformRedirectController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicWorkshopPhotoController;
+use App\Http\Controllers\PublicWorkshopDeviceController;
 use App\Http\Controllers\WompiPaymentConfirmationController;
 use App\Http\Controllers\WompiPaymentReturnController;
 use App\Http\Middleware\EnsurePasswordIsChanged;
@@ -30,6 +31,7 @@ Route::get('/payments/wompi/confirmation', WompiPaymentConfirmationController::c
 
 Route::domain(config('platform.hosts.taller'))
     ->group(function (): void {
+        Route::get('/equipo/{token}', [PublicWorkshopDeviceController::class, 'show'])->name('workshop.device.public');
         Route::get('/fotos/{token}', [PublicWorkshopPhotoController::class, 'show'])->name('workshop.photos.public');
         Route::get('/fotos/{token}/imagenes/{photo}', [PublicWorkshopPhotoController::class, 'photo'])->name('workshop.photos.image');
     });

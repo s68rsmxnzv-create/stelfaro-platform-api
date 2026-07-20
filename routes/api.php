@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\V1\Platform\TenantMembershipController;
 use App\Http\Controllers\Api\V1\Platform\TenantPurgeController;
 use App\Http\Controllers\Api\V1\Platform\TenantUserController;
 use App\Http\Controllers\Api\V1\Platform\WorkshopOrderController;
+use App\Http\Controllers\Api\V1\Platform\WorkshopTicketSettingsController;
 use App\Http\Controllers\Api\V1\PlatformSessionController;
 use App\Http\Controllers\Api\V1\WompiWebhookController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
@@ -32,10 +33,16 @@ use App\Http\Controllers\PlatformAdmin\CoreSessionController;
 use App\Http\Controllers\PlatformAdmin\NotificationProxyController;
 use App\Http\Controllers\PlatformAdmin\TenantAppOnboardingController;
 use App\Http\Controllers\PublicWorkshopPhotoController;
+use App\Http\Controllers\PublicWorkshopDeviceController;
 use App\Http\Middleware\EnsurePasswordIsChanged;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function (): void {
+    Route::prefix('workshop/device-access/{token}')->middleware('throttle:30,1')->group(function (): void {
+        Route::post('unlock', [PublicWorkshopDeviceController::class, 'unlock']);
+        Route::get('secret', [PublicWorkshopDeviceController::class, 'reveal']);
+        Route::patch('status', [PublicWorkshopDeviceController::class, 'updateStatus']);
+    });
     Route::post('workshop/photo-upload/{token}', [PublicWorkshopPhotoController::class, 'store'])->middleware('throttle:20,1');
     Route::delete('workshop/photo-upload/{token}/{photo}', [PublicWorkshopPhotoController::class, 'destroy'])->middleware('throttle:20,1');
     Route::get('health', fn () => response()->json([
@@ -85,6 +92,8 @@ Route::prefix('v1')->group(function (): void {
         Route::prefix('platform/tenants/{tenant}/workshop')
             ->middleware('tenant.app:taller')
             ->group(function (): void {
+                Route::get('ticket-settings', [WorkshopTicketSettingsController::class, 'show']);
+                Route::patch('ticket-settings', [WorkshopTicketSettingsController::class, 'update']);
                 Route::get('dashboard', [WorkshopOrderController::class, 'dashboard']);
                 Route::get('orders', [WorkshopOrderController::class, 'index']);
                 Route::get('orders/{order}', [WorkshopOrderController::class, 'show']);
@@ -96,6 +105,7 @@ Route::prefix('v1')->group(function (): void {
                 Route::get('orders/{order}/photos', [WorkshopOrderController::class, 'photos']);
                 Route::get('orders/{order}/photos/{photo}', [WorkshopOrderController::class, 'photo']);
                 Route::post('orders/{order}/photo-session', [WorkshopOrderController::class, 'photoSession']);
+                Route::post('orders/{order}/device-access', [WorkshopOrderController::class, 'deviceAccess']);
             });
         Route::post('platform/tenants/{tenant}/catalog/items', [CatalogItemController::class, 'store']);
         Route::patch('platform/tenants/{tenant}/catalog/items/{item}', [CatalogItemController::class, 'update']);

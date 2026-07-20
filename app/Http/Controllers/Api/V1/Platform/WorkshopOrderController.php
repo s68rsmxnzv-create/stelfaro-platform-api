@@ -12,6 +12,7 @@ use App\Models\WorkshopPhotoSession;
 use App\Services\Inventory\CommercialSummaryService;
 use App\Services\Inventory\InventoryService;
 use App\Services\PlatformAccessPolicy;
+use App\Services\WorkshopDeviceAccessService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -110,7 +111,7 @@ class WorkshopOrderController extends Controller
         ]);
     }
 
-    public function store(Request $request, Tenant $tenant, PlatformAccessPolicy $policy): JsonResponse
+    public function store(Request $request, Tenant $tenant, PlatformAccessPolicy $policy, WorkshopDeviceAccessService $deviceAccess): JsonResponse
     {
         abort_unless($policy->canOperateTenant($request->user(), $tenant), 403);
         $data = $request->validate([
@@ -182,7 +183,18 @@ class WorkshopOrderController extends Controller
             return $order;
         });
 
-        return response()->json(['data' => $this->payload($order->load(['device.customer', 'payments']))], 201);
+        return response()->json(['data' => [
+            ...$this->payload($order->load(['device.customer', 'payments'])),
+            'device_access' => $deviceAccess->ensure($order),
+        ]], 201);
+    }
+
+    public function deviceAccess(Request $request, Tenant $tenant, WorkshopOrder $order, PlatformAccessPolicy $policy, WorkshopDeviceAccessService $deviceAccess): JsonResponse
+    {
+        abort_unless($order->tenant_id === $tenant->id, 404);
+        abort_unless($policy->canOperateTenant($request->user(), $tenant), 403);
+
+        return response()->json(['data' => $deviceAccess->ensure($order)]);
     }
 
     public function show(Request $request, Tenant $tenant, WorkshopOrder $order, PlatformAccessPolicy $policy): JsonResponse
