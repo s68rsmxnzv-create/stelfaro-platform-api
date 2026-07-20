@@ -48,6 +48,42 @@ class WorkshopOrderTest extends TestCase
         $this->actingAs($user)->getJson("/api/v1/platform/tenants/{$tenant->id}/workshop/orders")->assertOk();
     }
 
+    public function test_viewer_can_consult_workshop_but_cannot_change_it(): void
+    {
+        [$operator, $tenant] = $this->member();
+        $order = $this->actingAs($operator)->postJson("/api/v1/platform/tenants/{$tenant->id}/workshop/orders", [
+            'customer' => ['core_customer_id' => 49, 'name' => 'Cliente visible'],
+            'device' => ['type' => 'phone', 'brand' => 'Motorola', 'model' => 'G54', 'power_status' => 'on'],
+            'reported_fault' => 'No carga',
+        ])->assertCreated()->json('data');
+
+        $viewer = User::factory()->create(['email_verified_at' => now(), 'must_change_password' => false]);
+        $viewer->memberships()->create([
+            'tenant_id' => $tenant->id,
+            'role' => 'viewer',
+            'status' => 'active',
+            'is_default' => true,
+        ]);
+        $orderUrl = "/api/v1/platform/tenants/{$tenant->id}/workshop/orders/{$order['id']}";
+
+        $this->actingAs($viewer)->getJson("/api/v1/platform/tenants/{$tenant->id}/workshop/dashboard")->assertOk();
+        $this->getJson("/api/v1/platform/tenants/{$tenant->id}/workshop/orders")->assertOk();
+        $this->getJson($orderUrl)->assertOk();
+
+        $this->postJson("/api/v1/platform/tenants/{$tenant->id}/workshop/orders", [])->assertForbidden();
+        $this->patchJson($orderUrl, ['status' => 'diagnosing'])->assertForbidden();
+        $this->postJson($orderUrl.'/settlement', [])->assertForbidden();
+        $this->postJson($orderUrl.'/payments', [])->assertForbidden();
+        $this->postJson($orderUrl.'/invoice-link', [])->assertForbidden();
+        $this->postJson($orderUrl.'/photo-session', [])->assertForbidden();
+
+        $this->assertDatabaseHas('workshop_orders', [
+            'id' => $order['id'],
+            'status' => 'received',
+        ]);
+        $this->assertDatabaseCount('workshop_order_payments', 0);
+    }
+
     public function test_reception_accepts_an_explicit_zero_advance_without_creating_payment(): void
     {
         [$user, $tenant] = $this->member();

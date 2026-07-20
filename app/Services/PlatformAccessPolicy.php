@@ -52,6 +52,23 @@ class PlatformAccessPolicy
             || $this->hasTenantUserAdminRole($user, $tenant);
     }
 
+    public function canOperateTenant(?User $user, Tenant|int $tenant): bool
+    {
+        if ($this->hasGlobalAdminRole($user)) {
+            return true;
+        }
+
+        $membership = $this->activeMembershipFor($user, $tenant);
+
+        return $membership !== null
+            && in_array($membership->role, [
+                PlatformRoles::OWNER,
+                PlatformRoles::COMPANY_ADMIN,
+                PlatformRoles::BILLING_ADMIN,
+                PlatformRoles::BILLING_USER,
+            ], true);
+    }
+
     public function canInviteTenantUsers(?User $user, Tenant|int $tenant): bool
     {
         return $this->hasGlobalAdminRole($user)

@@ -94,6 +94,28 @@ class PlatformAccessPolicyTest extends TestCase
         $this->assertFalse($policy->canRemoveTenantAccess($viewer, $tenant));
     }
 
+    public function test_operational_permissions_allow_billing_roles_but_exclude_viewers_and_suspended_users(): void
+    {
+        $policy = app(PlatformAccessPolicy::class);
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        [$companyAdmin] = $this->userWithTenantRole('company_admin', $tenant);
+        [$billingAdmin] = $this->userWithTenantRole('billing_admin', $tenant);
+        [$billingUser] = $this->userWithTenantRole('billing_user', $tenant);
+        [$viewer] = $this->userWithTenantRole('viewer', $tenant);
+
+        $this->assertTrue($policy->canOperateTenant($owner, $tenant));
+        $this->assertTrue($policy->canOperateTenant($companyAdmin, $tenant));
+        $this->assertTrue($policy->canOperateTenant($billingAdmin, $tenant));
+        $this->assertTrue($policy->canOperateTenant($billingUser, $tenant));
+        $this->assertFalse($policy->canOperateTenant($viewer, $tenant));
+
+        $billingUser->memberships()
+            ->where('tenant_id', $tenant->id)
+            ->update(['status' => 'suspended']);
+
+        $this->assertFalse($policy->canOperateTenant($billingUser, $tenant));
+    }
+
     public function test_user_can_change_active_tenant_only_with_active_membership(): void
     {
         $policy = app(PlatformAccessPolicy::class);

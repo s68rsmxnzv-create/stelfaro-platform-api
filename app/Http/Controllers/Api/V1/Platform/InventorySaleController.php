@@ -15,7 +15,7 @@ class InventorySaleController extends Controller
 {
     public function store(Request $request, Tenant $tenant, PlatformAccessPolicy $policy, InventoryService $inventory): JsonResponse
     {
-        abort_unless($policy->canViewTenantCatalog($request->user(), $tenant), 403);
+        abort_unless($policy->canOperateTenant($request->user(), $tenant), 403);
 
         $data = $request->validate([
             'core_sucursal_id' => ['nullable', 'integer', 'min:1'],
@@ -74,7 +74,7 @@ class InventorySaleController extends Controller
 
     public function supersedeBySource(Request $request, Tenant $tenant, PlatformAccessPolicy $policy, InventoryService $inventory): JsonResponse
     {
-        abort_unless($policy->canViewTenantCatalog($request->user(), $tenant), 403);
+        abort_unless($policy->canOperateTenant($request->user(), $tenant), 403);
 
         $data = $request->validate([
             'source_type' => ['nullable', 'string', 'max:40'],
@@ -95,7 +95,7 @@ class InventorySaleController extends Controller
 
     public function reverseBySource(Request $request, Tenant $tenant, PlatformAccessPolicy $policy, InventoryService $inventory): JsonResponse
     {
-        abort_unless($policy->canViewTenantCatalog($request->user(), $tenant), 403);
+        abort_unless($policy->canOperateTenant($request->user(), $tenant), 403);
 
         $data = $request->validate([
             'source_type' => ['nullable', 'string', 'max:40'],

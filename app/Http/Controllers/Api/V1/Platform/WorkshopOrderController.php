@@ -117,7 +117,7 @@ class WorkshopOrderController extends Controller
 
     public function store(Request $request, Tenant $tenant, PlatformAccessPolicy $policy): JsonResponse
     {
-        abort_unless($policy->canViewTenantCatalog($request->user(), $tenant), 403);
+        abort_unless($policy->canOperateTenant($request->user(), $tenant), 403);
         $data = $request->validate([
             'customer.core_customer_id' => ['required', 'integer', 'min:1'],
             'customer.name' => ['required', 'string', 'max:160'],
@@ -200,7 +200,7 @@ class WorkshopOrderController extends Controller
     public function update(Request $request, Tenant $tenant, WorkshopOrder $order, PlatformAccessPolicy $policy): JsonResponse
     {
         abort_unless($order->tenant_id === $tenant->id, 404);
-        abort_unless($policy->canViewTenantCatalog($request->user(), $tenant), 403);
+        abort_unless($policy->canOperateTenant($request->user(), $tenant), 403);
         $data = $request->validate([
             'status' => ['sometimes', Rule::in(['received', 'diagnosing', 'awaiting_approval', 'approved', 'repairing', 'ready', 'delivered', 'cancelled'])],
             'diagnosis' => ['nullable', 'string', 'max:10000'],
@@ -233,7 +233,7 @@ class WorkshopOrderController extends Controller
 
     public function settle(Request $request, Tenant $tenant, WorkshopOrder $order, PlatformAccessPolicy $policy, InventoryService $inventory): JsonResponse
     {
-        $this->authorizeOrder($request, $tenant, $order, $policy);
+        $this->authorizeOrderOperation($request, $tenant, $order, $policy);
         $data = $request->validate([
             'action' => ['required', Rule::in(['deliver_close', 'cancel_close'])],
             'final_total' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
@@ -298,7 +298,7 @@ class WorkshopOrderController extends Controller
 
     public function linkInvoice(Request $request, Tenant $tenant, WorkshopOrder $order, PlatformAccessPolicy $policy): JsonResponse
     {
-        $this->authorizeOrder($request, $tenant, $order, $policy);
+        $this->authorizeOrderOperation($request, $tenant, $order, $policy);
         abort_unless($order->closed_at !== null, 422, 'La orden debe estar cerrada antes de vincular un DTE.');
         $data = $request->validate([
             'core_dte_document_id' => ['required', 'integer', 'min:1'],
@@ -316,7 +316,7 @@ class WorkshopOrderController extends Controller
 
     public function recordPayment(Request $request, Tenant $tenant, WorkshopOrder $order, PlatformAccessPolicy $policy, InventoryService $inventory): JsonResponse
     {
-        $this->authorizeOrder($request, $tenant, $order, $policy);
+        $this->authorizeOrderOperation($request, $tenant, $order, $policy);
         abort_unless($order->closed_at !== null && $order->financial_status === 'pending', 422, 'La orden no tiene saldo pendiente de una venta cerrada.');
         $data = $request->validate([
             'amount' => ['required', 'numeric', 'min:0.01', 'max:999999999.99'],
@@ -347,7 +347,7 @@ class WorkshopOrderController extends Controller
     public function photoSession(Request $request, Tenant $tenant, WorkshopOrder $order, PlatformAccessPolicy $policy): JsonResponse
     {
         abort_unless($order->tenant_id === $tenant->id, 404);
-        abort_unless($policy->canViewTenantCatalog($request->user(), $tenant), 403);
+        abort_unless($policy->canOperateTenant($request->user(), $tenant), 403);
         WorkshopPhotoSession::query()->where('workshop_order_id', $order->id)->whereNull('revoked_at')->update(['revoked_at' => now()]);
         $token = Str::random(64);
         $session = WorkshopPhotoSession::query()->create([
@@ -394,6 +394,12 @@ class WorkshopOrderController extends Controller
     {
         abort_unless($order->tenant_id === $tenant->id, 404);
         abort_unless($policy->canViewTenantCatalog($request->user(), $tenant), 403);
+    }
+
+    private function authorizeOrderOperation(Request $request, Tenant $tenant, WorkshopOrder $order, PlatformAccessPolicy $policy): void
+    {
+        abort_unless($order->tenant_id === $tenant->id, 404);
+        abort_unless($policy->canOperateTenant($request->user(), $tenant), 403);
     }
 
     private function payload(WorkshopOrder $order): array

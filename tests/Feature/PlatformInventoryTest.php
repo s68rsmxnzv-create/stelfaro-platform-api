@@ -20,6 +20,39 @@ class PlatformInventoryTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_viewer_can_consult_inventory_but_cannot_change_stock_or_sales(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        [$viewer] = $this->userWithTenantRole('viewer', $tenant);
+        $item = $this->inventoryItem($tenant, 'VIEW-001');
+        $this->lot($tenant, $item, 'VIEW-LOT', '2026-07-20', 2, 10);
+        $item->forceFill(['stock_quantity' => 2, 'reference_cost' => 10, 'cost_source' => 'real'])->save();
+
+        $reservation = $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/reservations", [
+                'idempotency_key' => 'viewer-permission-check',
+                'lines' => [['catalog_item_id' => $item->id, 'quantity' => 1]],
+            ])
+            ->assertCreated()
+            ->json('data');
+
+        $base = "/api/v1/platform/tenants/{$tenant->id}/inventory";
+        $this->actingAs($viewer)->getJson($base.'/reports/summary')->assertOk();
+
+        $this->postJson($base.'/reservations', [])->assertForbidden();
+        $this->postJson($base."/reservations/{$reservation['id']}/confirm", [])->assertForbidden();
+        $this->postJson($base."/reservations/{$reservation['id']}/release", [])->assertForbidden();
+        $this->postJson($base."/reservations/{$reservation['id']}/reverse", [])->assertForbidden();
+        $this->postJson($base.'/sales', [])->assertForbidden();
+        $this->postJson($base.'/sales/supersede-by-source', [])->assertForbidden();
+        $this->postJson($base.'/sales/reverse-by-source', [])->assertForbidden();
+
+        $this->assertDatabaseHas('inventory_reservations', [
+            'id' => $reservation['id'],
+            'status' => 'reserved',
+        ]);
+    }
+
     public function test_purchase_creates_lot_entry_movement_and_updates_stock(): void
     {
         [$owner, $tenant] = $this->userWithTenantRole('owner');

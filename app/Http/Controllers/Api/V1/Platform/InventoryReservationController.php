@@ -16,7 +16,7 @@ class InventoryReservationController extends Controller
 {
     public function store(Request $request, Tenant $tenant, PlatformAccessPolicy $policy, InventoryService $inventory): JsonResponse
     {
-        abort_unless($policy->canViewTenantCatalog($request->user(), $tenant), 403);
+        abort_unless($policy->canOperateTenant($request->user(), $tenant), 403);
 
         $data = $request->validate([
             'idempotency_key' => ['required', 'string', 'max:120'],
@@ -45,7 +45,7 @@ class InventoryReservationController extends Controller
     public function confirm(Request $request, Tenant $tenant, InventoryReservation $reservation, PlatformAccessPolicy $policy, InventoryService $inventory): JsonResponse
     {
         abort_unless($reservation->tenant_id === $tenant->id, 404);
-        abort_unless($policy->canViewTenantCatalog($request->user(), $tenant), 403);
+        abort_unless($policy->canOperateTenant($request->user(), $tenant), 403);
 
         $data = $request->validate([
             'source_type' => ['nullable', 'string', 'max:40'],
@@ -65,7 +65,7 @@ class InventoryReservationController extends Controller
     public function release(Request $request, Tenant $tenant, InventoryReservation $reservation, PlatformAccessPolicy $policy, InventoryService $inventory): JsonResponse
     {
         abort_unless($reservation->tenant_id === $tenant->id, 404);
-        abort_unless($policy->canViewTenantCatalog($request->user(), $tenant), 403);
+        abort_unless($policy->canOperateTenant($request->user(), $tenant), 403);
 
         try {
             $reservation = $inventory->releaseReservation($tenant, $reservation, $request->user()?->id);
