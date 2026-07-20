@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\Platform\CatalogCategoryController;
 use App\Http\Controllers\Api\V1\Platform\CatalogItemController;
+use App\Http\Controllers\Api\V1\Platform\FiscalSyncController;
 use App\Http\Controllers\Api\V1\Platform\GlobalUserController;
 use App\Http\Controllers\Api\V1\Platform\InternalNotificationController;
 use App\Http\Controllers\Api\V1\Platform\InventoryCountController;
@@ -70,6 +71,14 @@ Route::prefix('v1')->group(function (): void {
         Route::patch('platform/tenants/{tenant}/catalog/categories/{category}', [CatalogCategoryController::class, 'update']);
         Route::delete('platform/tenants/{tenant}/catalog/categories/{category}', [CatalogCategoryController::class, 'destroy']);
         Route::get('platform/tenants/{tenant}/catalog/items', [CatalogItemController::class, 'index']);
+        Route::prefix('platform/tenants/{tenant}/fiscal-sync')
+            ->middleware('tenant.app:facturacion')
+            ->group(function (): void {
+                Route::post('dte-issues', [FiscalSyncController::class, 'prepareDteIssue']);
+                Route::post('invalidations', [FiscalSyncController::class, 'prepareInvalidation']);
+                Route::post('operations/{operation}/attach', [FiscalSyncController::class, 'attach']);
+                Route::post('operations/{operation}/complete', [FiscalSyncController::class, 'complete']);
+            });
         Route::prefix('platform/tenants/{tenant}/workshop')
             ->middleware('tenant.app:taller')
             ->group(function (): void {
