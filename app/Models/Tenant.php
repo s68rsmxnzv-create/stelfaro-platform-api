@@ -85,4 +85,9 @@ class Tenant extends Model
     {
         return $this->hasMany(InternalNotification::class);
     }
+
+    public function requests(): HasMany
+    {
+        return $this->hasMany(TenantRequest::class);
+    }
 }

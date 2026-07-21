@@ -63,7 +63,7 @@ const user = computed(() => page.props.auth?.user ?? null);
 const error = ref(props.coreSessionError || '');
 const authToken = ref(props.coreSession?.token || null);
 const isTaller = computed(() => props.app.id === 'taller');
-const requiresCoreSession = computed(() => !['catalog', 'operational-placeholder'].includes(props.module));
+const requiresCoreSession = computed(() => !['catalog', 'operational-placeholder', 'settings', 'audit'].includes(props.module));
 const appBaseUrl = computed(() => (isTaller.value ? 'https://taller.stelfaro.com' : 'https://facturacion.stelfaro.com'));
 const currentPath = computed(() => new URL(page.url, window.location.origin).pathname);
 const extraNavItems = computed(() => {

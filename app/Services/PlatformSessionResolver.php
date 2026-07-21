@@ -104,6 +104,7 @@ class PlatformSessionResolver
             'id' => $user->id,
             'name' => $user->name,
             'email' => $user->email,
+            'phone' => $user->phone,
             'platform_role' => $user->platform_role,
         ];
     }

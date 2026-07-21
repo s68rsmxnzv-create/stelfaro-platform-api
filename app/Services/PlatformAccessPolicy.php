@@ -93,6 +93,22 @@ class PlatformAccessPolicy
             || $this->hasTenantUserAdminRole($user, $tenant);
     }
 
+    public function canCreateTenantRequest(?User $user, Tenant|int $tenant): bool
+    {
+        return $this->hasGlobalAdminRole($user)
+            || $this->hasTenantUserAdminRole($user, $tenant);
+    }
+
+    public function canViewTenantRequests(?User $user, Tenant|int $tenant): bool
+    {
+        return $this->canCreateTenantRequest($user, $tenant);
+    }
+
+    public function canManageTenantRequests(?User $user): bool
+    {
+        return $this->hasGlobalAdminRole($user);
+    }
+
     public function canChangeTenantMemberRole(?User $user, Tenant|int $tenant): bool
     {
         return $this->hasGlobalAdminRole($user)

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\Platform\CatalogCategoryController;
+use App\Http\Controllers\Api\V1\Platform\AdminTenantRequestController;
 use App\Http\Controllers\Api\V1\Platform\CatalogItemController;
 use App\Http\Controllers\Api\V1\Platform\CommercialDashboardController;
 use App\Http\Controllers\Api\V1\Platform\FiscalSyncController;
@@ -23,6 +24,9 @@ use App\Http\Controllers\Api\V1\Platform\TenantLookupController;
 use App\Http\Controllers\Api\V1\Platform\TenantMembershipController;
 use App\Http\Controllers\Api\V1\Platform\TenantPurgeController;
 use App\Http\Controllers\Api\V1\Platform\TenantUserController;
+use App\Http\Controllers\Api\V1\Platform\TenantRequestController;
+use App\Http\Controllers\Api\V1\Platform\UserProfileController;
+use App\Http\Controllers\Api\V1\Platform\UserSecurityController;
 use App\Http\Controllers\Api\V1\Platform\WorkshopOrderController;
 use App\Http\Controllers\Api\V1\Platform\WorkshopTicketSettingsController;
 use App\Http\Controllers\Api\V1\PlatformSessionController;
@@ -56,6 +60,12 @@ Route::prefix('v1')->group(function (): void {
 
     Route::middleware(['web', 'auth', 'verified', EnsurePasswordIsChanged::class])->group(function (): void {
         Route::get('me', PlatformSessionController::class);
+        Route::get('me/profile', [UserProfileController::class, 'show']);
+        Route::patch('me/profile', [UserProfileController::class, 'update']);
+        Route::put('me/password', [UserProfileController::class, 'password']);
+        Route::get('me/security', [UserSecurityController::class, 'index']);
+        Route::delete('me/security/sessions/{sessionId}', [UserSecurityController::class, 'destroy']);
+        Route::post('me/security/sessions/revoke-others', [UserSecurityController::class, 'destroyOthers']);
         Route::get('platform/notifications', [InternalNotificationController::class, 'index']);
         Route::post('platform/notifications/read-all', [InternalNotificationController::class, 'readAll']);
         Route::post('platform/notifications/{notification}/read', [InternalNotificationController::class, 'read']);
@@ -63,6 +73,8 @@ Route::prefix('v1')->group(function (): void {
         Route::get('admin/platform/users', [GlobalUserController::class, 'index']);
         Route::get('admin/platform/audit-logs', [PlatformAuditLogController::class, 'index']);
         Route::get('admin/platform/subscriptions', [SubscriptionController::class, 'index']);
+        Route::get('admin/platform/requests', [AdminTenantRequestController::class, 'index']);
+        Route::patch('admin/platform/requests/{tenantRequest}', [AdminTenantRequestController::class, 'update']);
         Route::put('admin/platform/tenants/{tenant}/subscription', [SubscriptionController::class, 'update']);
         Route::get('admin/platform/tenants/by-core-empresa/{coreEmpresaId}/subscription', [SubscriptionController::class, 'showByCoreEmpresa']);
         Route::put('admin/platform/tenants/by-core-empresa/{coreEmpresaId}/subscription', [SubscriptionController::class, 'updateByCoreEmpresa']);
@@ -73,6 +85,8 @@ Route::prefix('v1')->group(function (): void {
         Route::get('admin/platform/apps', [TenantAppOnboardingController::class, 'apps']);
         Route::post('admin/platform/tenants', [TenantAppOnboardingController::class, 'store']);
         Route::get('platform/tenants/{tenant}/users', [TenantUserController::class, 'index']);
+        Route::get('platform/tenants/{tenant}/requests', [TenantRequestController::class, 'index']);
+        Route::post('platform/tenants/{tenant}/requests', [TenantRequestController::class, 'store']);
         Route::get('platform/tenants/{tenant}/audit-logs', [PlatformAuditLogController::class, 'tenant']);
         Route::get('platform/tenants/{tenant}/catalog/categories', [CatalogCategoryController::class, 'index']);
         Route::post('platform/tenants/{tenant}/catalog/categories', [CatalogCategoryController::class, 'store']);

@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'platform_role', 'password', 'must_change_password', 'password_changed_at'])]
+#[Fillable(['name', 'email', 'phone', 'platform_role', 'password', 'must_change_password', 'password_changed_at'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -41,5 +41,10 @@ class User extends Authenticatable
     public function internalNotifications(): HasMany
     {
         return $this->hasMany(InternalNotification::class);
+    }
+
+    public function tenantRequests(): HasMany
+    {
+        return $this->hasMany(TenantRequest::class, 'requested_by_user_id');
     }
 }
