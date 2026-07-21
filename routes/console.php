@@ -1,5 +1,6 @@
 <?php
 
+use App\Services\Cash\CashAutomationService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -14,5 +15,10 @@ Schedule::command('tax-notifications:generate')
     ->withoutOverlapping();
 
 Schedule::command('fiscal-sync:reconcile')
+    ->everyMinute()
+    ->withoutOverlapping();
+
+Schedule::call(fn () => app(CashAutomationService::class)->process())
+    ->name('cash-sessions:automate')
     ->everyMinute()
     ->withoutOverlapping();

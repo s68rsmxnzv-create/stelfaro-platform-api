@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['tenant_id', 'workshop_device_id', 'received_by', 'assigned_to', 'ticket_number', 'status', 'priority', 'reported_fault', 'physical_condition', 'physical_conditions', 'accessories', 'diagnosis', 'estimated_total', 'final_total', 'financial_status', 'billing_status', 'dte_type', 'core_dte_document_id', 'dte_number', 'dte_generation_code', 'invoiced_at', 'approval_decision', 'approval_method', 'approval_notes', 'approval_recorded_by', 'approval_decided_at', 'received_at', 'completed_at', 'delivered_at', 'closed_at', 'closed_by'])]
+#[Fillable(['tenant_id', 'core_sucursal_id', 'core_sucursal_code', 'core_sucursal_name', 'workshop_device_id', 'received_by', 'assigned_to', 'ticket_number', 'status', 'priority', 'reported_fault', 'physical_condition', 'physical_conditions', 'accessories', 'diagnosis', 'estimated_total', 'final_total', 'financial_status', 'billing_status', 'dte_type', 'core_dte_document_id', 'dte_number', 'dte_generation_code', 'invoiced_at', 'approval_decision', 'approval_method', 'approval_notes', 'approval_recorded_by', 'approval_decided_at', 'received_at', 'completed_at', 'delivered_at', 'closed_at', 'closed_by'])]
 class WorkshopOrder extends Model
 {
     protected function casts(): array

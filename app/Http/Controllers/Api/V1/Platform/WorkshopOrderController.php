@@ -120,6 +120,9 @@ class WorkshopOrderController extends Controller
             'customer.name' => ['required', 'string', 'max:160'],
             'customer.phone' => ['nullable', 'string', 'max:40'],
             'customer.email' => ['nullable', 'email', 'max:160'],
+            'core_sucursal_id' => ['nullable', 'integer', 'min:1'],
+            'core_sucursal_code' => ['nullable', 'string', 'max:30'],
+            'core_sucursal_name' => ['nullable', 'string', 'max:160'],
             'device.type' => ['required', Rule::in(['phone', 'tablet', 'laptop', 'desktop', 'console', 'controller', 'instrument', 'tv', 'audio', 'other'])],
             'device.brand' => ['required', 'string', 'max:80'],
             'device.model' => ['required', 'string', 'max:120'],
@@ -168,6 +171,9 @@ class WorkshopOrderController extends Controller
             $ticket = ((int) WorkshopOrder::query()->where('tenant_id', $tenant->id)->max('ticket_number')) + 1;
             $order = WorkshopOrder::query()->create([
                 'tenant_id' => $tenant->id, 'workshop_device_id' => $device->id,
+                'core_sucursal_id' => $data['core_sucursal_id'] ?? null,
+                'core_sucursal_code' => $data['core_sucursal_code'] ?? null,
+                'core_sucursal_name' => $data['core_sucursal_name'] ?? null,
                 'received_by' => $request->user()->id, 'ticket_number' => $ticket,
                 'status' => 'received', 'priority' => $data['priority'] ?? 'normal',
                 'reported_fault' => $data['reported_fault'], 'physical_condition' => $data['physical_condition'] ?? null,
@@ -280,6 +286,7 @@ class WorkshopOrderController extends Controller
                 $locked->forceFill(['status' => 'delivered', 'final_total' => $total, 'financial_status' => $paymentTiming === 'credit' && $due > 0 ? 'pending' : 'settled', 'billing_status' => $wantsDte ? 'pending' : 'unbilled', 'dte_type' => $wantsDte ? ($data['dte_type'] ?? '01') : null, 'delivered_at' => now(), 'closed_at' => now(), 'closed_by' => $request->user()->id])->save();
                 $inventory->recordSale($tenant, [
                     'source_type' => 'workshop_order', 'source_id' => (string) $locked->id,
+                    'core_sucursal_id' => $locked->core_sucursal_id, 'core_sucursal_code' => $locked->core_sucursal_code, 'core_sucursal_name' => $locked->core_sucursal_name,
                     'source_number' => 'T-'.str_pad((string) $locked->ticket_number, 6, '0', STR_PAD_LEFT),
                     'sale_date' => now()->toDateString(),
                     'metadata' => ['customer_id' => $locked->device->customer->core_customer_id, 'customer_name' => $locked->device->customer->name, 'payment_status' => $paymentTiming === 'credit' && $due > 0 ? 'receivable' : 'paid', 'billing_status' => $wantsDte ? 'pending' : 'unbilled'],
@@ -349,7 +356,7 @@ class WorkshopOrderController extends Controller
             if ($remaining <= 0) {
                 $locked->forceFill(['financial_status' => 'settled'])->save();
             }
-            $inventory->recordSale($tenant, ['source_type' => 'workshop_order', 'source_id' => (string) $locked->id, 'source_number' => 'T-'.str_pad((string) $locked->ticket_number, 6, '0', STR_PAD_LEFT), 'metadata' => ['payment_status' => $remaining <= 0 ? 'paid' : 'receivable'], 'lines' => []], $request->user()->id);
+            $inventory->recordSale($tenant, ['source_type' => 'workshop_order', 'source_id' => (string) $locked->id, 'source_number' => 'T-'.str_pad((string) $locked->ticket_number, 6, '0', STR_PAD_LEFT), 'core_sucursal_id' => $locked->core_sucursal_id, 'core_sucursal_code' => $locked->core_sucursal_code, 'core_sucursal_name' => $locked->core_sucursal_name, 'metadata' => ['payment_status' => $remaining <= 0 ? 'paid' : 'receivable'], 'lines' => []], $request->user()->id);
 
             return $locked->refresh()->load(['device.customer', 'payments']);
         });
@@ -431,6 +438,7 @@ class WorkshopOrderController extends Controller
             'financial' => ['status' => $order->financial_status, 'final_total' => $order->final_total !== null ? (float) $order->final_total : null, 'closed_at' => $order->closed_at?->toISOString()],
             'billing' => ['status' => $order->billing_status, 'dte_type' => $order->dte_type, 'core_document_id' => $order->core_dte_document_id, 'number' => $order->dte_number, 'generation_code' => $order->dte_generation_code, 'invoiced_at' => $order->invoiced_at?->toISOString()],
             'received_at' => $order->received_at?->toISOString(),
+            'branch' => $order->core_sucursal_id ? ['id' => $order->core_sucursal_id, 'code' => $order->core_sucursal_code, 'name' => $order->core_sucursal_name] : null,
             'photo_count' => isset($order->photos_count) ? (int) $order->photos_count : $order->photos()->count(),
             'customer' => ['id' => $order->device->customer->core_customer_id, 'name' => $order->device->customer->name, 'phone' => $order->device->customer->phone],
             'device' => ['id' => $order->device->id, 'type' => $order->device->type, 'brand' => $order->device->brand, 'model' => $order->device->model, 'color' => $order->device->color, 'imei' => $order->device->imei, 'serial_number' => $order->device->serial_number, 'identifier_not_visible' => $order->device->identifier_not_visible, 'power_status' => $order->device->power_status, 'functional_tests' => $order->device->functional_tests ?? [], 'is_locked' => $order->device->is_locked, 'access_type' => $order->device->access_type, 'has_access_secret' => filled($order->device->access_secret)],

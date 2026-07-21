@@ -25,7 +25,8 @@ class FiscalSyncService
     public function prepareDteIssue(Tenant $tenant, array $data, ?int $userId): FiscalSyncOperation
     {
         if ((float) data_get($data, 'sale.metadata.cash_amount', 0) > 0 && empty($data['workshop_order_id'])) {
-            $this->cash->ensureCashSession($tenant, $userId);
+            $branchId = data_get($data, 'sale.core_sucursal_id');
+            $this->cash->ensureCashSession($tenant, $userId, $branchId ? (int) $branchId : null);
         }
         $payload = [
             'sale' => $data['sale'],

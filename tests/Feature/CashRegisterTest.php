@@ -2,11 +2,15 @@
 
 namespace Tests\Feature;
 
+use App\Models\CashRegister;
+use App\Models\CashRegisterSetting;
 use App\Models\InventoryPurchase;
 use App\Models\InventorySale;
 use App\Models\PlatformApp;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\Cash\CashAutomationService;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -50,6 +54,41 @@ class CashRegisterTest extends TestCase
 
         $this->actingAs($user)->getJson("/api/v1/platform/tenants/{$tenant->id}/cash/sales-report")
             ->assertOk()->assertJsonPath('summary.transactions', 2)->assertJsonPath('summary.net', 80)->assertJsonPath('summary.total', 90.4);
+    }
+
+    public function test_cash_settings_are_scoped_to_a_branch(): void
+    {
+        [$user, $tenant] = $this->member();
+        $payload = [
+            'core_sucursal_id' => 21, 'core_sucursal_code' => 'S021', 'core_sucursal_name' => 'Centro', 'name' => 'Caja Centro',
+            'timezone' => 'America/El_Salvador', 'default_opening_balance' => 40, 'carry_forward_balance' => true,
+            'auto_open_enabled' => true, 'auto_open_time' => '08:00', 'auto_close_enabled' => true, 'auto_close_time' => '18:00',
+            'close_grace_minutes' => 10, 'working_days' => [1, 2, 3, 4, 5, 6], 'non_working_dates' => [],
+            'use_official_holidays' => false, 'allow_non_cash_when_closed' => true, 'active' => true,
+        ];
+
+        $this->actingAs($user)->postJson("/api/v1/platform/tenants/{$tenant->id}/cash/settings", $payload)
+            ->assertOk()->assertJsonPath('data.core_sucursal_id', 21)->assertJsonPath('data.settings.default_opening_balance', 40);
+        $this->assertDatabaseHas('cash_registers', ['tenant_id' => $tenant->id, 'core_sucursal_id' => 21]);
+        $this->assertDatabaseCount('cash_register_settings', 1);
+    }
+
+    public function test_scheduler_opens_and_cuts_off_each_branch_idempotently(): void
+    {
+        [, $tenant] = $this->member();
+        $register = CashRegister::query()->create(['tenant_id' => $tenant->id, 'core_sucursal_id' => 7, 'core_sucursal_code' => 'M007', 'core_sucursal_name' => 'Casa matriz', 'name' => 'Caja matriz', 'status' => 'active']);
+        CashRegisterSetting::query()->create(['tenant_id' => $tenant->id, 'cash_register_id' => $register->id, 'timezone' => 'America/El_Salvador', 'default_opening_balance' => 25, 'carry_forward_balance' => false, 'auto_open_enabled' => true, 'auto_open_time' => '08:00', 'auto_close_enabled' => true, 'auto_close_time' => '18:00', 'close_grace_minutes' => 15, 'working_days' => [1, 2, 3, 4, 5, 6, 7], 'non_working_dates' => [], 'use_official_holidays' => false, 'allow_non_cash_when_closed' => true, 'active' => true]);
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-07-21 08:01:00', 'America/El_Salvador'));
+
+        app(CashAutomationService::class)->process();
+        app(CashAutomationService::class)->process();
+        $this->assertDatabaseCount('cash_sessions', 1);
+        $this->assertDatabaseHas('cash_sessions', ['cash_register_id' => $register->id, 'status' => 'open', 'opening_balance' => 25]);
+
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-07-21 18:16:00', 'America/El_Salvador'));
+        app(CashAutomationService::class)->process();
+        $this->assertDatabaseHas('cash_sessions', ['cash_register_id' => $register->id, 'status' => 'closed_unverified', 'count_status' => 'pending_count', 'expected_balance' => 25]);
+        CarbonImmutable::setTestNow();
     }
 
     private function member(): array

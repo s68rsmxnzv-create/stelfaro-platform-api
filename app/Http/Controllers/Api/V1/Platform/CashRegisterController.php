@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Platform;
 use App\Http\Controllers\Controller;
 use App\Models\CashExpense;
 use App\Models\CashMovement;
+use App\Models\CashRegister;
 use App\Models\CashSession;
 use App\Models\InventoryPurchase;
 use App\Models\Tenant;
@@ -28,18 +29,29 @@ class CashRegisterController extends Controller
             'method' => ['nullable', Rule::in(['cash', 'card', 'transfer', 'other'])],
             'direction' => ['nullable', Rule::in(['in', 'out'])],
             'page' => ['nullable', 'integer', 'min:1'], 'per_page' => ['nullable', 'integer', 'min:5', 'max:100'],
+            'cash_register_id' => ['nullable', Rule::exists('cash_registers', 'id')->where('tenant_id', $tenant->id)],
         ]);
         $query = CashMovement::query()->where('tenant_id', $tenant->id)->with(['expense.supplier', 'order.device.customer']);
+        $query->when($data['cash_register_id'] ?? null, fn ($q, $registerId) => $q->where('cash_register_id', $registerId));
         $query->when($data['date_from'] ?? null, fn ($q, $date) => $q->whereDate('occurred_at', '>=', $date));
         $query->when($data['date_to'] ?? null, fn ($q, $date) => $q->whereDate('occurred_at', '<=', $date));
         $query->when($data['method'] ?? null, fn ($q, $method) => $q->where('method', $method));
         $query->when($data['direction'] ?? null, fn ($q, $direction) => $q->where('direction', $direction));
         $summaryQuery = clone $query;
         $movements = $query->latest('occurred_at')->paginate((int) ($data['per_page'] ?? 20));
-        $session = $cash->activeSession($tenant, $request->user()?->id);
+        $selectedRegisterId = isset($data['cash_register_id']) ? (int) $data['cash_register_id'] : null;
+        $session = $cash->activeSession($tenant, $request->user()?->id, $selectedRegisterId);
 
         return response()->json([
+            'registers' => $tenant->cashRegisters()->where('status', 'active')->with('setting')->orderBy('core_sucursal_name')->orderBy('name')->get()->map(fn (CashRegister $register) => [
+                'id' => $register->id, 'name' => $register->name, 'status' => $register->status,
+                'branch_id' => $register->core_sucursal_id, 'branch_code' => $register->core_sucursal_code, 'branch_name' => $register->core_sucursal_name,
+                'configured' => $register->setting !== null,
+            ])->values(),
             'active_session' => $session ? $this->sessionPayload($session->load('register'), $cash) : null,
+            'pending_counts' => CashSession::query()->where('tenant_id', $tenant->id)->where('status', 'closed_unverified')
+                ->when($selectedRegisterId, fn ($query) => $query->where('cash_register_id', $selectedRegisterId))
+                ->with('register')->oldest('business_date')->get()->map(fn (CashSession $pending) => $this->sessionPayload($pending, $cash))->values(),
             'summary' => [
                 'inflows' => round((float) (clone $summaryQuery)->whereNull('reversed_at')->where('direction', 'in')->sum('amount'), 2),
                 'outflows' => round((float) (clone $summaryQuery)->whereNull('reversed_at')->where('direction', 'out')->sum('amount'), 2),
@@ -57,18 +69,28 @@ class CashRegisterController extends Controller
             'opening_balance' => ['required', 'numeric', 'min:0', 'max:999999999999.99'],
             'name' => ['nullable', 'string', 'max:120'], 'notes' => ['nullable', 'string', 'max:1000'],
             'core_sucursal_id' => ['nullable', 'integer', 'min:1'], 'core_sucursal_code' => ['nullable', 'string', 'max:30'], 'core_sucursal_name' => ['nullable', 'string', 'max:160'],
+            'cash_register_id' => ['nullable', Rule::exists('cash_registers', 'id')->where('tenant_id', $tenant->id)],
         ]);
 
         $session = DB::transaction(function () use ($tenant, $request, $cash, $data): CashSession {
-            $register = $cash->defaultRegister($tenant, $data);
+            $register = isset($data['cash_register_id'])
+                ? CashRegister::query()->where('tenant_id', $tenant->id)->findOrFail($data['cash_register_id'])
+                : $cash->defaultRegister($tenant, $data);
             $locked = $register->sessions()->where('status', 'open')->lockForUpdate()->first();
             if ($locked) {
                 throw ValidationException::withMessages(['cash_register' => 'Esta caja ya tiene una sesión abierta.']);
             }
 
+            $timezone = $register->setting?->timezone ?? 'America/El_Salvador';
+            $businessDate = now($timezone)->toDateString();
+            if ($register->sessions()->whereDate('business_date', $businessDate)->exists()) {
+                throw ValidationException::withMessages(['cash_register' => 'Esta caja ya tiene una sesión para hoy.']);
+            }
+
             return CashSession::query()->create([
                 'tenant_id' => $tenant->id, 'cash_register_id' => $register->id,
                 'opened_by' => $request->user()->id, 'opening_balance' => $data['opening_balance'],
+                'business_date' => $businessDate, 'opening_source' => 'manual', 'count_status' => 'pending',
                 'status' => 'open', 'opening_notes' => $data['notes'] ?? null, 'opened_at' => now(),
             ])->load('register');
         });
@@ -84,11 +106,13 @@ class CashRegisterController extends Controller
         $data = $request->validate(['declared_balance' => ['required', 'numeric', 'min:0', 'max:999999999999.99'], 'notes' => ['nullable', 'string', 'max:1000']]);
         $session = DB::transaction(function () use ($cashSession, $cash, $data, $request): CashSession {
             $locked = CashSession::query()->whereKey($cashSession->id)->lockForUpdate()->firstOrFail();
-            if ($locked->status !== 'open') {
+            if (! in_array($locked->status, ['open', 'closed_unverified'], true)) {
                 throw ValidationException::withMessages(['cash_session' => 'Esta caja ya fue cerrada.']);
             }
-            $totals = $cash->sessionTotals($locked);
-            $locked->forceFill(['status' => 'closed', 'expected_balance' => $totals['expected'], 'declared_balance' => $data['declared_balance'], 'difference' => round((float) $data['declared_balance'] - $totals['expected'], 2), 'closing_notes' => $data['notes'] ?? null, 'closed_by' => $request->user()->id, 'closed_at' => now()])->save();
+            $expected = $locked->expected_balance !== null && $locked->status === 'closed_unverified'
+                ? (float) $locked->expected_balance
+                : $cash->sessionTotals($locked)['expected'];
+            $locked->forceFill(['status' => 'closed', 'count_status' => 'counted', 'expected_balance' => $expected, 'declared_balance' => $data['declared_balance'], 'difference' => round((float) $data['declared_balance'] - $expected, 2), 'closing_notes' => $data['notes'] ?? $locked->closing_notes, 'closed_by' => $request->user()->id, 'closed_at' => $locked->closed_at ?? now()])->save();
 
             return $locked->load('register');
         });
@@ -111,14 +135,22 @@ class CashRegisterController extends Controller
             'workshop_order_id' => ['nullable', Rule::exists('workshop_orders', 'id')->where('tenant_id', $tenant->id)],
             'expense_category' => ['nullable', Rule::in(['replacement', 'tool', 'service', 'transport', 'general'])],
             'destination' => ['nullable', Rule::in(['direct_order', 'inventory', 'expense'])],
+            'cash_register_id' => ['nullable', Rule::exists('cash_registers', 'id')->where('tenant_id', $tenant->id)],
         ]);
         if (in_array($data['kind'], ['expense', 'supplier_purchase', 'withdrawal'], true) && $data['direction'] !== 'out') {
             throw ValidationException::withMessages(['direction' => 'Este tipo de movimiento debe ser una salida.']);
         }
         $movement = DB::transaction(function () use ($tenant, $request, $cash, $data): CashMovement {
-            $session = $data['method'] === 'cash' ? $cash->activeSession($tenant, $request->user()->id) : null;
+            $registerId = isset($data['cash_register_id']) ? (int) $data['cash_register_id'] : null;
+            $session = $data['method'] === 'cash' ? $cash->activeSession($tenant, $request->user()->id, $registerId) : null;
             if ($data['method'] === 'cash' && ! $session) {
                 throw ValidationException::withMessages(['method' => 'Abre una caja antes de registrar efectivo.']);
+            }
+            if ($data['method'] !== 'cash' && $registerId) {
+                $register = CashRegister::query()->where('tenant_id', $tenant->id)->with('setting')->findOrFail($registerId);
+                if ($register->setting && ! $register->setting->allow_non_cash_when_closed && ! $cash->activeSession($tenant, $request->user()->id, $registerId)) {
+                    throw ValidationException::withMessages(['method' => 'Esta caja debe estar abierta para registrar cualquier forma de pago.']);
+                }
             }
             $expense = null;
             if ($data['direction'] === 'out' && in_array($data['kind'], ['expense', 'supplier_purchase'], true)) {
@@ -185,7 +217,7 @@ class CashRegisterController extends Controller
 
     private function sessionPayload(CashSession $session, CashService $cash): array
     {
-        return ['id' => $session->id, 'status' => $session->status, 'opening_balance' => (float) $session->opening_balance, 'opened_at' => $session->opened_at?->toISOString(), 'closed_at' => $session->closed_at?->toISOString(), 'declared_balance' => $session->declared_balance !== null ? (float) $session->declared_balance : null, 'difference' => $session->difference !== null ? (float) $session->difference : null, 'register' => ['id' => $session->register->id, 'name' => $session->register->name, 'branch_name' => $session->register->core_sucursal_name], ...$cash->sessionTotals($session)];
+        return ['id' => $session->id, 'status' => $session->status, 'business_date' => $session->business_date?->toDateString(), 'opening_source' => $session->opening_source, 'count_status' => $session->count_status, 'opening_balance' => (float) $session->opening_balance, 'opened_at' => $session->opened_at?->toISOString(), 'closed_at' => $session->closed_at?->toISOString(), 'declared_balance' => $session->declared_balance !== null ? (float) $session->declared_balance : null, 'difference' => $session->difference !== null ? (float) $session->difference : null, 'register' => ['id' => $session->register->id, 'name' => $session->register->name, 'branch_id' => $session->register->core_sucursal_id, 'branch_name' => $session->register->core_sucursal_name], ...$cash->sessionTotals($session)];
     }
 
     private function movementPayload(CashMovement $movement): array

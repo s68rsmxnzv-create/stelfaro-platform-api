@@ -23,6 +23,7 @@ class CommercialSalesReportController extends Controller
             'source_type' => ['nullable', Rule::in(['dte', 'workshop_order'])],
             'document_type' => ['nullable', Rule::in(['01', '03', '05', '06', '14'])],
             'payment_status' => ['nullable', Rule::in(['paid', 'receivable'])],
+            'core_sucursal_id' => ['nullable', 'integer', 'min:1'],
             'page' => ['nullable', 'integer', 'min:1'], 'per_page' => ['nullable', 'integer', 'min:5', 'max:100'],
         ]);
         if (($data['date_from'] ?? null) && ($data['date_to'] ?? null) && $data['date_to'] < $data['date_from']) {
@@ -35,6 +36,7 @@ class CommercialSalesReportController extends Controller
         $query->when($data['source_type'] ?? null, fn ($q, $source) => $q->where('source_type', $source));
         $query->when($data['document_type'] ?? null, fn ($q, $type) => $q->where('fiscal_document_type', $type));
         $query->when($data['payment_status'] ?? null, fn ($q, $status) => $q->where('metadata->payment_status', $status));
+        $query->when($data['core_sucursal_id'] ?? null, fn ($q, $branchId) => $q->where('core_sucursal_id', $branchId));
 
         $summary = (clone $query)->selectRaw('COUNT(*) as transactions, COALESCE(SUM(net_amount * reporting_sign), 0) as net, COALESCE(SUM(tax_amount * reporting_sign), 0) as tax, COALESCE(SUM(total_amount * reporting_sign), 0) as total')->first();
         $cost = (float) DB::query()->fromSub(

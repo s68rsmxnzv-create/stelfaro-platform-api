@@ -14,6 +14,27 @@ class FiscalCalendarClient
     /** @return array<int, array<string, mixed>> */
     public function publishedDeadlines(int $year): array
     {
+        return collect($this->publishedEntries($year))
+            ->filter(fn ($entry): bool => ($entry['type'] ?? null) === 'declaration_deadline')
+            ->values()
+            ->all();
+    }
+
+    /** @return array<int, string> */
+    public function publishedHolidays(int $year): array
+    {
+        return collect($this->publishedEntries($year))
+            ->filter(fn ($entry): bool => ($entry['type'] ?? null) === 'holiday')
+            ->pluck('date')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private function publishedEntries(int $year): array
+    {
         $baseUrl = rtrim((string) config('services.dte_core.base_url'), '/');
         abort_if($baseUrl === '', 503, 'La conexión con el calendario fiscal no está configurada.');
 
@@ -36,9 +57,7 @@ class FiscalCalendarClient
         return collect($response->json('data', []))
             ->filter(fn ($calendar): bool => is_array($calendar) && ($calendar['status'] ?? null) === 'published')
             ->flatMap(fn (array $calendar) => $calendar['entries'] ?? [])
-            ->filter(fn ($entry): bool => is_array($entry)
-                && ($entry['type'] ?? null) === 'declaration_deadline'
-                && ($entry['active'] ?? false) === true)
+            ->filter(fn ($entry): bool => is_array($entry) && ($entry['active'] ?? false) === true)
             ->values()
             ->all();
     }

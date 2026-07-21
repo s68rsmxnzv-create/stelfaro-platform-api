@@ -12,12 +12,13 @@ use Illuminate\Validation\ValidationException;
 
 class CashService
 {
-    public function activeSession(Tenant $tenant, ?int $userId = null, ?int $registerId = null): ?CashSession
+    public function activeSession(Tenant $tenant, ?int $userId = null, ?int $registerId = null, ?int $branchId = null): ?CashSession
     {
         return CashSession::query()
             ->where('tenant_id', $tenant->id)
             ->where('status', 'open')
             ->when($registerId, fn ($query) => $query->where('cash_register_id', $registerId))
+            ->when($branchId && ! $registerId, fn ($query) => $query->whereHas('register', fn ($register) => $register->where('core_sucursal_id', $branchId)))
             ->when($userId && ! $registerId, fn ($query) => $query->orderByRaw('CASE WHEN opened_by = ? THEN 0 ELSE 1 END', [$userId]))
             ->latest('opened_at')
             ->first();
@@ -26,8 +27,9 @@ class CashService
     public function recordWorkshopPayment(Tenant $tenant, WorkshopOrderPayment $payment): CashMovement
     {
         $direction = $payment->kind === 'refund' ? 'out' : 'in';
+        $order = $payment->order;
         $session = $payment->method === 'cash'
-            ? $this->activeSession($tenant, $payment->received_by)
+            ? $this->activeSession($tenant, $payment->received_by, null, $order?->core_sucursal_id)
             : null;
 
         if ($payment->method === 'cash' && ! $session) {
@@ -57,9 +59,9 @@ class CashService
         );
     }
 
-    public function ensureCashSession(Tenant $tenant, ?int $userId): CashSession
+    public function ensureCashSession(Tenant $tenant, ?int $userId, ?int $branchId = null): CashSession
     {
-        $session = $this->activeSession($tenant, $userId);
+        $session = $this->activeSession($tenant, $userId, null, $branchId);
         if (! $session) {
             throw ValidationException::withMessages(['cash' => 'Abre una caja antes de emitir una venta cobrada en efectivo.']);
         }
@@ -76,7 +78,8 @@ class CashService
         if ($amount <= 0) {
             return null;
         }
-        $session = $this->ensureCashSession($tenant, $operation->created_by);
+        $branchId = data_get($operation->payload, 'sale.core_sucursal_id');
+        $session = $this->ensureCashSession($tenant, $operation->created_by, $branchId ? (int) $branchId : null);
 
         return CashMovement::query()->firstOrCreate(
             ['tenant_id' => $tenant->id, 'idempotency_key' => 'dte-cash:'.$operation->id],

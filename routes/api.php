@@ -1,11 +1,12 @@
 <?php
 
 use App\Http\Controllers\Api\V1\Platform\AdminTenantRequestController;
+use App\Http\Controllers\Api\V1\Platform\CashRegisterController;
+use App\Http\Controllers\Api\V1\Platform\CashSettingsController;
 use App\Http\Controllers\Api\V1\Platform\CatalogCategoryController;
 use App\Http\Controllers\Api\V1\Platform\CatalogItemController;
-use App\Http\Controllers\Api\V1\Platform\CashRegisterController;
-use App\Http\Controllers\Api\V1\Platform\CommercialSalesReportController;
 use App\Http\Controllers\Api\V1\Platform\CommercialDashboardController;
+use App\Http\Controllers\Api\V1\Platform\CommercialSalesReportController;
 use App\Http\Controllers\Api\V1\Platform\FiscalSyncController;
 use App\Http\Controllers\Api\V1\Platform\GlobalUserController;
 use App\Http\Controllers\Api\V1\Platform\InternalNotificationController;
@@ -110,6 +111,9 @@ Route::prefix('v1')->group(function (): void {
             ->middleware('tenant.app:facturacion')
             ->group(function (): void {
                 Route::get('/', [CashRegisterController::class, 'overview']);
+                Route::get('settings', [CashSettingsController::class, 'index']);
+                Route::post('settings', [CashSettingsController::class, 'upsert']);
+                Route::put('settings/{cashRegister}', [CashSettingsController::class, 'update']);
                 Route::post('sessions', [CashRegisterController::class, 'open']);
                 Route::post('sessions/{cashSession}/close', [CashRegisterController::class, 'close']);
                 Route::post('movements', [CashRegisterController::class, 'storeMovement']);
