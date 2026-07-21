@@ -299,9 +299,6 @@ class WorkshopOrderController extends Controller
             if (isset($data['payment'])) {
                 $this->recordOpenOrderPayment($locked, $tenant, $request, $data['payment'], $cash, 'Abono al aprobar presupuesto');
             }
-            if ($locked->status === 'cancelled' && $this->netPaid($locked) === 0.0) {
-                $locked->forceFill(['final_total' => 0, 'financial_status' => 'settled', 'closed_at' => now(), 'closed_by' => $request->user()->id])->save();
-            }
 
             return $locked->refresh()->load(['device.customer', 'payments', 'reception']);
         });
@@ -316,6 +313,7 @@ class WorkshopOrderController extends Controller
             'action' => ['required', Rule::in(['deliver_close', 'cancel_close'])],
             'final_total' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
             'retained_amount' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
+            'diagnostic_charge' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
             'method' => ['nullable', Rule::in(['cash', 'card', 'transfer', 'other'])],
             'reference' => ['nullable', 'string', 'max:120'],
             'notes' => ['nullable', 'string', 'max:2000'],
@@ -324,6 +322,9 @@ class WorkshopOrderController extends Controller
             'payment_timing' => ['nullable', Rule::in(['paid_now', 'credit'])],
             'amount_received' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
         ]);
+        if (($data['action'] ?? null) === 'cancel_close' && blank($data['notes'] ?? null)) {
+            throw ValidationException::withMessages(['notes' => 'Indica por qué se canceló la orden.']);
+        }
 
         $order = DB::transaction(function () use ($data, $request, $tenant, $order, $inventory, $cash): WorkshopOrder {
             $locked = WorkshopOrder::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
@@ -363,19 +364,31 @@ class WorkshopOrderController extends Controller
                 ], $request->user()->id);
             } else {
                 abort_unless($locked->status === 'cancelled', 422, 'Solo una orden cancelada puede liquidarse como cancelación.');
-                $retained = (float) ($data['retained_amount'] ?? 0);
-                if ($retained > $paid) {
-                    throw ValidationException::withMessages(['retained_amount' => 'El monto aplicado no puede superar lo recibido.']);
-                }
-                $refund = round($paid - $retained, 2);
-                if ($refund > 0 && empty($data['method'])) {
-                    throw ValidationException::withMessages(['method' => 'Selecciona cómo se devolvió el anticipo.']);
+                $diagnosticCharge = round((float) ($data['diagnostic_charge'] ?? $data['retained_amount'] ?? 0), 2);
+                $refund = max(0, round($paid - $diagnosticCharge, 2));
+                $collection = max(0, round($diagnosticCharge - $paid, 2));
+                if (($refund > 0 || $collection > 0) && empty($data['method'])) {
+                    throw ValidationException::withMessages(['method' => $refund > 0 ? 'Selecciona cómo se devolvió el anticipo.' : 'Selecciona cómo se recibió el cobro de diagnóstico.']);
                 }
                 if ($refund > 0) {
                     $payment = $locked->payments()->create(['tenant_id' => $tenant->id, 'received_by' => $request->user()->id, 'kind' => 'refund', 'amount' => $refund, 'method' => $data['method'], 'reference' => $data['reference'] ?? null, 'notes' => $data['notes'] ?? 'Devolución por cancelación', 'received_at' => now()]);
                     $cash->recordWorkshopPayment($tenant, $payment);
                 }
-                $locked->forceFill(['final_total' => $retained, 'financial_status' => 'settled', 'closed_at' => now(), 'closed_by' => $request->user()->id])->save();
+                if ($collection > 0) {
+                    $payment = $locked->payments()->create(['tenant_id' => $tenant->id, 'received_by' => $request->user()->id, 'kind' => 'payment', 'amount' => $collection, 'method' => $data['method'], 'reference' => $data['reference'] ?? null, 'notes' => $data['notes'] ?? 'Cobro de diagnóstico al cancelar', 'received_at' => now()]);
+                    $cash->recordWorkshopPayment($tenant, $payment);
+                }
+                $locked->forceFill(['final_total' => $diagnosticCharge, 'financial_status' => 'settled', 'closed_at' => now(), 'closed_by' => $request->user()->id])->save();
+                if ($diagnosticCharge > 0) {
+                    $inventory->recordSale($tenant, [
+                        'source_type' => 'workshop_order', 'source_id' => (string) $locked->id,
+                        'core_sucursal_id' => $locked->core_sucursal_id, 'core_sucursal_code' => $locked->core_sucursal_code, 'core_sucursal_name' => $locked->core_sucursal_name,
+                        'source_number' => 'T-'.str_pad((string) $locked->ticket_number, 6, '0', STR_PAD_LEFT),
+                        'sale_date' => now()->toDateString(),
+                        'metadata' => ['customer_id' => $locked->device->customer->core_customer_id, 'customer_name' => $locked->device->customer->name, 'payment_status' => 'paid', 'outstanding_amount' => 0, 'billing_status' => 'unbilled', 'cancelled_repair' => true],
+                        'lines' => [['description' => 'Servicio de diagnóstico '.$locked->device->brand.' '.$locked->device->model, 'quantity' => 1, 'unit_price' => $diagnosticCharge, 'net_total' => $diagnosticCharge, 'line_origin' => 'free']],
+                    ], $request->user()->id);
+                }
             }
 
             return $locked->load(['device.customer', 'payments']);
@@ -591,7 +604,7 @@ class WorkshopOrderController extends Controller
             'awaiting_approval' => ['awaiting_approval', 'approved', 'cancelled'],
             'approved' => ['approved', 'repairing', 'cancelled'],
             'repairing' => ['repairing', 'ready', 'cancelled'],
-            'ready' => ['ready', 'delivered'],
+            'ready' => ['ready', 'delivered', 'cancelled'],
             'delivered' => ['delivered'],
             'cancelled' => ['cancelled'],
         ];

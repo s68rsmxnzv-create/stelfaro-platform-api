@@ -235,6 +235,31 @@ class WorkshopOrderTest extends TestCase
         $this->assertDatabaseHas('workshop_order_payments', ['workshop_order_id' => $order['id'], 'kind' => 'refund', 'amount' => 25]);
     }
 
+    public function test_approved_or_ready_order_can_be_cancelled_and_charge_diagnosis_without_an_advance(): void
+    {
+        [$user, $tenant] = $this->member();
+        $order = $this->actingAs($user)->postJson("/api/v1/platform/tenants/{$tenant->id}/workshop/orders", [
+            'customer' => ['core_customer_id' => 470, 'name' => 'Cliente sin repuesto'],
+            'device' => ['type' => 'console', 'brand' => 'Microsoft', 'model' => 'Xbox Series S', 'power_status' => 'off'],
+            'reported_fault' => 'No da imagen', 'estimated_total' => 80,
+        ])->assertCreated()->json('data');
+        $url = "/api/v1/platform/tenants/{$tenant->id}/workshop/orders/{$order['id']}";
+
+        $this->patchJson($url, ['status' => 'diagnosing'])->assertOk();
+        $this->patchJson($url, ['status' => 'awaiting_approval', 'diagnosis' => 'Requiere circuito no disponible', 'estimated_total' => 80])->assertOk();
+        $this->patchJson($url, ['approval_decision' => 'approved', 'approval_method' => 'call'])->assertOk();
+        $this->patchJson($url, ['status' => 'repairing'])->assertOk();
+        $this->patchJson($url, ['status' => 'ready'])->assertOk();
+        $this->patchJson($url, ['status' => 'cancelled'])->assertOk()->assertJsonPath('data.status', 'cancelled')->assertJsonPath('data.financial.closed_at', null);
+        $this->postJson($url.'/settlement', ['action' => 'cancel_close', 'diagnostic_charge' => 12, 'method' => 'cash'])
+            ->assertUnprocessable()->assertJsonValidationErrors('notes');
+        $this->postJson($url.'/settlement', ['action' => 'cancel_close', 'diagnostic_charge' => 12, 'method' => 'cash', 'notes' => 'No se encontró el repuesto'])
+            ->assertOk()->assertJsonPath('data.financial.status', 'settled')->assertJsonPath('data.financial.final_total', 12)->assertJsonPath('data.paid_total', 12)->assertJsonPath('data.balance', 0);
+        $this->assertDatabaseHas('workshop_order_payments', ['workshop_order_id' => $order['id'], 'kind' => 'payment', 'amount' => 12]);
+        $this->assertDatabaseHas('cash_movements', ['tenant_id' => $tenant->id, 'workshop_order_id' => $order['id'], 'direction' => 'in', 'amount' => 12]);
+        $this->assertDatabaseHas('inventory_sales', ['tenant_id' => $tenant->id, 'source_type' => 'workshop_order', 'source_id' => (string) $order['id'], 'total_amount' => 12]);
+    }
+
     public function test_ready_order_can_close_as_credit_sale_and_receive_payment_later(): void
     {
         [$user, $tenant] = $this->member();
