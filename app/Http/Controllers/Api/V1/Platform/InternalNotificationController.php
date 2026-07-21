@@ -16,6 +16,7 @@ class InternalNotificationController extends Controller
         $validated = $request->validate([
             'tenant_id' => ['nullable', 'integer', 'exists:tenants,id'],
             'scope' => ['nullable', 'string', 'in:tenant,admin'],
+            'category' => ['nullable', 'string', 'max:60'],
             'limit' => ['nullable', 'integer', 'min:1', 'max:50'],
         ]);
         $user = $request->user();
@@ -44,6 +45,7 @@ class InternalNotificationController extends Controller
         $validated = $request->validate([
             'tenant_id' => ['nullable', 'integer', 'exists:tenants,id'],
             'scope' => ['nullable', 'string', 'in:tenant,admin'],
+            'category' => ['nullable', 'string', 'max:60'],
         ]);
 
         $this->inboxQuery($request->user(), $validated, $policy)
@@ -68,16 +70,26 @@ class InternalNotificationController extends Controller
         if (($filters['scope'] ?? 'tenant') === 'admin') {
             abort_unless($policy->canManageTenantRequests($user), 403);
 
-            return InternalNotification::query()->where('user_id', $user->id);
+            $query = InternalNotification::query()->where('user_id', $user->id);
+            if (filled($filters['category'] ?? null)) {
+                $query->where('category', $filters['category']);
+            }
+
+            return $query;
         }
 
         abort_unless(filled($filters['tenant_id'] ?? null), 422, 'Selecciona una empresa.');
         $tenantId = (int) $filters['tenant_id'];
         $this->authorizeTenant($user, $tenantId);
 
-        return InternalNotification::query()
+        $query = InternalNotification::query()
             ->where('user_id', $user->id)
             ->where('tenant_id', $tenantId);
+        if (filled($filters['category'] ?? null)) {
+            $query->where('category', $filters['category']);
+        }
+
+        return $query;
     }
 
     private function authorizeNotification(User $user, InternalNotification $notification, PlatformAccessPolicy $policy): void
@@ -102,11 +114,21 @@ class InternalNotificationController extends Controller
             'category' => $notification->category,
             'title' => $notification->title,
             'message' => $notification->message,
-            'action_url' => $notification->action_url,
+            'action_url' => $this->actionUrl($notification),
             'due_date' => $notification->due_date?->format('Y-m-d'),
             'metadata' => $notification->metadata,
             'read_at' => optional($notification->read_at)->toISOString(),
             'created_at' => optional($notification->created_at)->toISOString(),
         ];
+    }
+
+    private function actionUrl(InternalNotification $notification): ?string
+    {
+        $url = $notification->action_url;
+        if ($notification->category === 'tenant_request' && is_string($url) && str_starts_with($url, '/requests')) {
+            return 'https://'.config('platform.hosts.admin').$url;
+        }
+
+        return $url;
     }
 }

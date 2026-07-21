@@ -100,7 +100,7 @@ class UserSettingsAndRequestsTest extends TestCase
             'user_id' => $owner->id,
             'tenant_id' => $tenant->id,
             'category' => 'tenant_request',
-            'action_url' => '/requests?request='.$first->json('data.id'),
+            'action_url' => 'https://admin.stelfaro.com/requests?request='.$first->json('data.id'),
         ]);
 
         $requestId = $first->json('data.id');

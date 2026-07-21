@@ -101,11 +101,34 @@ class InternalNotificationTest extends TestCase
             ->getJson('/api/v1/platform/notifications?scope=admin')
             ->assertOk()
             ->assertJsonPath('unread_count', 1)
-            ->assertJsonPath('data.0.action_url', '/requests?request=10');
+            ->assertJsonPath('data.0.action_url', 'https://admin.stelfaro.com/requests?request=10');
 
         $this->deleteJson("/api/v1/platform/notifications/{$notification->id}")
             ->assertOk();
         $this->assertDatabaseMissing('internal_notifications', ['id' => $notification->id]);
+    }
+
+    public function test_admin_can_mark_only_request_notifications_as_read(): void
+    {
+        $owner = User::factory()->create(['platform_role' => PlatformRoles::PLATFORM_OWNER]);
+        $tenant = Tenant::query()->create(['slug' => 'filtered-notifications', 'name' => 'Empresa', 'status' => 'active']);
+        foreach (['tenant_request', 'tax_deadline'] as $category) {
+            InternalNotification::query()->create([
+                'user_id' => $owner->id,
+                'tenant_id' => $tenant->id,
+                'category' => $category,
+                'title' => 'Aviso',
+                'message' => 'Mensaje.',
+                'dedupe_key' => 'filtered-'.$category,
+            ]);
+        }
+
+        $this->actingAs($owner)
+            ->postJson('/api/v1/platform/notifications/read-all', ['scope' => 'admin', 'category' => 'tenant_request'])
+            ->assertOk();
+
+        $this->assertDatabaseMissing('internal_notifications', ['category' => 'tenant_request', 'read_at' => null]);
+        $this->assertDatabaseHas('internal_notifications', ['category' => 'tax_deadline', 'read_at' => null]);
     }
 
     public function test_user_cannot_delete_another_users_notification(): void
