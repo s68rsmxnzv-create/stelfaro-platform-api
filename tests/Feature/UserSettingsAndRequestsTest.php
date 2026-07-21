@@ -2,9 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\InternalNotification;
 use App\Models\Tenant;
-use App\Models\TenantRequest;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -98,6 +96,12 @@ class UserSettingsAndRequestsTest extends TestCase
             ->assertJsonPath('data.status', 'pending');
         $this->actingAs($admin)->postJson("/api/v1/platform/tenants/{$tenant->id}/requests", $payload)->assertOk();
         $this->assertDatabaseCount('tenant_requests', 1);
+        $this->assertDatabaseHas('internal_notifications', [
+            'user_id' => $owner->id,
+            'tenant_id' => $tenant->id,
+            'category' => 'tenant_request',
+            'action_url' => '/requests?request='.$first->json('data.id'),
+        ]);
 
         $requestId = $first->json('data.id');
         $this->actingAs($owner)

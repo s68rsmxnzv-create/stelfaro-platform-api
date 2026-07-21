@@ -5,24 +5,21 @@ namespace App\Http\Controllers\Api\V1\Platform;
 use App\Http\Controllers\Controller;
 use App\Models\InternalNotification;
 use App\Models\User;
+use App\Services\PlatformAccessPolicy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class InternalNotificationController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(Request $request, PlatformAccessPolicy $policy): JsonResponse
     {
         $validated = $request->validate([
-            'tenant_id' => ['required', 'integer', 'exists:tenants,id'],
+            'tenant_id' => ['nullable', 'integer', 'exists:tenants,id'],
+            'scope' => ['nullable', 'string', 'in:tenant,admin'],
             'limit' => ['nullable', 'integer', 'min:1', 'max:50'],
         ]);
         $user = $request->user();
-        $tenantId = (int) $validated['tenant_id'];
-        $this->authorizeTenant($user, $tenantId);
-
-        $query = InternalNotification::query()
-            ->where('user_id', $user->id)
-            ->where('tenant_id', $tenantId);
+        $query = $this->inboxQuery($user, $validated, $policy);
 
         return response()->json([
             'data' => (clone $query)->latest()->limit((int) ($validated['limit'] ?? 20))->get()->map(fn (InternalNotification $notification): array => $this->data($notification))->values(),
@@ -30,10 +27,10 @@ class InternalNotificationController extends Controller
         ]);
     }
 
-    public function read(Request $request, InternalNotification $notification): JsonResponse
+    public function read(Request $request, InternalNotification $notification, PlatformAccessPolicy $policy): JsonResponse
     {
         abort_unless((int) $notification->user_id === (int) $request->user()?->id, 404);
-        $this->authorizeTenant($request->user(), (int) $notification->tenant_id);
+        $this->authorizeNotification($request->user(), $notification, $policy);
 
         if (! $notification->read_at) {
             $notification->forceFill(['read_at' => now()])->save();
@@ -42,19 +39,54 @@ class InternalNotificationController extends Controller
         return response()->json(['data' => $this->data($notification->refresh())]);
     }
 
-    public function readAll(Request $request): JsonResponse
+    public function readAll(Request $request, PlatformAccessPolicy $policy): JsonResponse
     {
-        $validated = $request->validate(['tenant_id' => ['required', 'integer', 'exists:tenants,id']]);
-        $tenantId = (int) $validated['tenant_id'];
-        $this->authorizeTenant($request->user(), $tenantId);
+        $validated = $request->validate([
+            'tenant_id' => ['nullable', 'integer', 'exists:tenants,id'],
+            'scope' => ['nullable', 'string', 'in:tenant,admin'],
+        ]);
 
-        InternalNotification::query()
-            ->where('user_id', $request->user()->id)
-            ->where('tenant_id', $tenantId)
+        $this->inboxQuery($request->user(), $validated, $policy)
             ->whereNull('read_at')
             ->update(['read_at' => now(), 'updated_at' => now()]);
 
         return response()->json(['unread_count' => 0]);
+    }
+
+    public function destroy(Request $request, InternalNotification $notification, PlatformAccessPolicy $policy): JsonResponse
+    {
+        abort_unless((int) $notification->user_id === (int) $request->user()?->id, 404);
+        $this->authorizeNotification($request->user(), $notification, $policy);
+        $notification->delete();
+
+        return response()->json(['message' => 'Notificación eliminada.']);
+    }
+
+    /** @param array<string, mixed> $filters */
+    private function inboxQuery(User $user, array $filters, PlatformAccessPolicy $policy)
+    {
+        if (($filters['scope'] ?? 'tenant') === 'admin') {
+            abort_unless($policy->canManageTenantRequests($user), 403);
+
+            return InternalNotification::query()->where('user_id', $user->id);
+        }
+
+        abort_unless(filled($filters['tenant_id'] ?? null), 422, 'Selecciona una empresa.');
+        $tenantId = (int) $filters['tenant_id'];
+        $this->authorizeTenant($user, $tenantId);
+
+        return InternalNotification::query()
+            ->where('user_id', $user->id)
+            ->where('tenant_id', $tenantId);
+    }
+
+    private function authorizeNotification(User $user, InternalNotification $notification, PlatformAccessPolicy $policy): void
+    {
+        if ($policy->canManageTenantRequests($user)) {
+            return;
+        }
+
+        $this->authorizeTenant($user, (int) $notification->tenant_id);
     }
 
     private function authorizeTenant(User $user, int $tenantId): void

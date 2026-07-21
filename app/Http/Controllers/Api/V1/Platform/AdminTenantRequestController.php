@@ -68,10 +68,10 @@ class AdminTenantRequestController extends Controller
                     'category' => 'tenant_request',
                     'title' => 'Solicitud actualizada',
                     'message' => $this->statusMessage($tenantRequest),
-                    'action_url' => '/configuracion?view=requests',
+                    'action_url' => '/configuracion?view=requests&request='.$tenantRequest->id,
                     'source_type' => TenantRequest::class,
                     'source_id' => $tenantRequest->id,
-                    'metadata' => ['request_id' => $tenantRequest->public_id, 'status' => $tenantRequest->status],
+                    'metadata' => ['request_id' => $tenantRequest->public_id, 'request_reference' => 'SOL-'.str_pad((string) $tenantRequest->id, 6, '0', STR_PAD_LEFT), 'status' => $tenantRequest->status],
                 ],
             );
         }

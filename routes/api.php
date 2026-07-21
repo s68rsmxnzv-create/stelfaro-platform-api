@@ -1,7 +1,7 @@
 <?php
 
-use App\Http\Controllers\Api\V1\Platform\CatalogCategoryController;
 use App\Http\Controllers\Api\V1\Platform\AdminTenantRequestController;
+use App\Http\Controllers\Api\V1\Platform\CatalogCategoryController;
 use App\Http\Controllers\Api\V1\Platform\CatalogItemController;
 use App\Http\Controllers\Api\V1\Platform\CommercialDashboardController;
 use App\Http\Controllers\Api\V1\Platform\FiscalSyncController;
@@ -23,8 +23,8 @@ use App\Http\Controllers\Api\V1\Platform\TenantInvitationController;
 use App\Http\Controllers\Api\V1\Platform\TenantLookupController;
 use App\Http\Controllers\Api\V1\Platform\TenantMembershipController;
 use App\Http\Controllers\Api\V1\Platform\TenantPurgeController;
-use App\Http\Controllers\Api\V1\Platform\TenantUserController;
 use App\Http\Controllers\Api\V1\Platform\TenantRequestController;
+use App\Http\Controllers\Api\V1\Platform\TenantUserController;
 use App\Http\Controllers\Api\V1\Platform\UserProfileController;
 use App\Http\Controllers\Api\V1\Platform\UserSecurityController;
 use App\Http\Controllers\Api\V1\Platform\WorkshopOrderController;
@@ -36,8 +36,8 @@ use App\Http\Controllers\PlatformAdmin\CoreProxyController;
 use App\Http\Controllers\PlatformAdmin\CoreSessionController;
 use App\Http\Controllers\PlatformAdmin\NotificationProxyController;
 use App\Http\Controllers\PlatformAdmin\TenantAppOnboardingController;
-use App\Http\Controllers\PublicWorkshopPhotoController;
 use App\Http\Controllers\PublicWorkshopDeviceController;
+use App\Http\Controllers\PublicWorkshopPhotoController;
 use App\Http\Middleware\EnsurePasswordIsChanged;
 use Illuminate\Support\Facades\Route;
 
@@ -69,6 +69,7 @@ Route::prefix('v1')->group(function (): void {
         Route::get('platform/notifications', [InternalNotificationController::class, 'index']);
         Route::post('platform/notifications/read-all', [InternalNotificationController::class, 'readAll']);
         Route::post('platform/notifications/{notification}/read', [InternalNotificationController::class, 'read']);
+        Route::delete('platform/notifications/{notification}', [InternalNotificationController::class, 'destroy']);
         Route::patch('me/active-membership/{membership}', [TenantMembershipController::class, 'setActive']);
         Route::get('admin/platform/users', [GlobalUserController::class, 'index']);
         Route::get('admin/platform/audit-logs', [PlatformAuditLogController::class, 'index']);

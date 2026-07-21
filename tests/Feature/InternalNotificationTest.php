@@ -7,6 +7,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Services\FiscalCalendarClient;
 use App\Services\TaxDeadlineNotificationGenerator;
+use App\Support\Platform\PlatformRoles;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
@@ -80,6 +81,49 @@ class InternalNotificationTest extends TestCase
         $this->actingAs($user)
             ->getJson("/api/v1/platform/notifications?tenant_id={$other->id}")
             ->assertForbidden();
+    }
+
+    public function test_platform_owner_can_use_global_inbox_and_delete_own_notification(): void
+    {
+        $owner = User::factory()->create(['platform_role' => PlatformRoles::PLATFORM_OWNER]);
+        $tenant = Tenant::query()->create(['slug' => 'admin-notifications', 'name' => 'Empresa solicitante', 'status' => 'active']);
+        $notification = InternalNotification::query()->create([
+            'user_id' => $owner->id,
+            'tenant_id' => $tenant->id,
+            'category' => 'tenant_request',
+            'title' => 'Nueva solicitud',
+            'message' => 'La empresa envió una solicitud.',
+            'action_url' => '/requests?request=10',
+            'dedupe_key' => 'admin-notification',
+        ]);
+
+        $this->actingAs($owner)
+            ->getJson('/api/v1/platform/notifications?scope=admin')
+            ->assertOk()
+            ->assertJsonPath('unread_count', 1)
+            ->assertJsonPath('data.0.action_url', '/requests?request=10');
+
+        $this->deleteJson("/api/v1/platform/notifications/{$notification->id}")
+            ->assertOk();
+        $this->assertDatabaseMissing('internal_notifications', ['id' => $notification->id]);
+    }
+
+    public function test_user_cannot_delete_another_users_notification(): void
+    {
+        [$user, $tenant] = $this->member();
+        $other = User::factory()->create();
+        $notification = InternalNotification::query()->create([
+            'user_id' => $other->id,
+            'tenant_id' => $tenant->id,
+            'category' => 'tenant_request',
+            'title' => 'Privada',
+            'message' => 'Solo para otro usuario.',
+            'dedupe_key' => 'foreign-notification',
+        ]);
+
+        $this->actingAs($user)
+            ->deleteJson("/api/v1/platform/notifications/{$notification->id}")
+            ->assertNotFound();
     }
 
     /** @return array{User, Tenant} */

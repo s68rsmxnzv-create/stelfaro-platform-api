@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\Api\V1\Platform;
 
 use App\Http\Controllers\Controller;
+use App\Models\InternalNotification;
 use App\Models\Tenant;
 use App\Models\TenantRequest;
+use App\Models\User;
 use App\Services\PlatformAccessPolicy;
+use App\Support\Platform\PlatformRoles;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -65,10 +68,53 @@ class TenantRequestController extends Controller
             ],
         );
 
+        if ($item->wasRecentlyCreated) {
+            $this->notifyPlatformAdmins($item->loadMissing(['tenant', 'requester']));
+        }
+
         return response()->json(
             ['data' => $this->payload($item->load(['requester', 'assignee']))],
             $item->wasRecentlyCreated ? 201 : 200,
         );
+    }
+
+    private function notifyPlatformAdmins(TenantRequest $item): void
+    {
+        $bootstrapEmails = array_values(array_unique([
+            ...config('platform.admin.platform_emails', []),
+            ...config('platform.admin.emails', []),
+        ]));
+        $admins = User::query()
+            ->where(function ($query) use ($bootstrapEmails): void {
+                $query->whereIn('platform_role', PlatformRoles::globalAdminRoles());
+                if ($bootstrapEmails !== []) {
+                    $query->orWhereIn('email', $bootstrapEmails);
+                }
+            })
+            ->where('id', '!=', $item->requested_by_user_id)
+            ->get(['id']);
+
+        foreach ($admins as $admin) {
+            InternalNotification::query()->firstOrCreate(
+                ['dedupe_key' => 'tenant-request-created:'.$item->id.':'.$admin->id],
+                [
+                    'user_id' => $admin->id,
+                    'tenant_id' => $item->tenant_id,
+                    'category' => 'tenant_request',
+                    'title' => 'Nueva solicitud '.self::reference($item),
+                    'message' => ($item->tenant?->name ?? 'Una empresa').' solicita: '.$item->subject.'.',
+                    'action_url' => '/requests?request='.$item->id,
+                    'source_type' => TenantRequest::class,
+                    'source_id' => $item->id,
+                    'metadata' => ['request_id' => $item->public_id, 'request_reference' => self::reference($item), 'status' => $item->status],
+                ],
+            );
+        }
+    }
+
+    private static function reference(TenantRequest $item): string
+    {
+        return 'SOL-'.str_pad((string) $item->id, 6, '0', STR_PAD_LEFT);
     }
 
     /** @return array<string, mixed> */
@@ -77,7 +123,7 @@ class TenantRequestController extends Controller
         return [
             'id' => $item->id,
             'public_id' => $item->public_id,
-            'reference' => 'SOL-'.str_pad((string) $item->id, 6, '0', STR_PAD_LEFT),
+            'reference' => self::reference($item),
             'tenant' => $item->relationLoaded('tenant') && $item->tenant ? ['id' => $item->tenant->id, 'name' => $item->tenant->name] : ['id' => $item->tenant_id],
             'requester' => $item->requester ? ['id' => $item->requester->id, 'name' => $item->requester->name, 'email' => $item->requester->email] : null,
             'assignee' => $item->assignee ? ['id' => $item->assignee->id, 'name' => $item->assignee->name, 'email' => $item->assignee->email] : null,
