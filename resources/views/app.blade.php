@@ -3,8 +3,17 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#07111f">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="apple-mobile-web-app-title" content="Stelfaro">
 
         <title inertia>{{ config('app.name', 'Stelfaro') }}</title>
+
+        <link rel="manifest" href="/manifest.webmanifest">
+        <link rel="icon" href="/pwa/stelfaro.svg" type="image/svg+xml">
+        <link rel="apple-touch-icon" href="/pwa/stelfaro-192.png">
 
         <script nonce="{{ Vite::cspNonce() }}">
             (() => {
