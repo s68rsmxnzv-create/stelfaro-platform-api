@@ -47,7 +47,9 @@ class CommercialSalesReportController extends Controller
                 ->selectRaw('inventory_sale_lines.quantity * inventory_sale_lines.reference_unit_cost * inventory_sales.reporting_sign as cost'),
             'sale_costs'
         )->sum('cost');
-        $workshopSales = (clone $query)->where('inventory_sales.source_type', 'workshop_order')->select('inventory_sales.source_id');
+        $workshopSales = (clone $query)
+            ->where('inventory_sales.source_type', 'workshop_order')
+            ->selectRaw('CAST(inventory_sales.source_id AS BIGINT)');
         $directWorkshopCost = (float) CashExpense::query()
             ->where('tenant_id', $tenant->id)
             ->where('destination', 'direct_order')

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\CashExpense;
 use App\Models\CashRegister;
 use App\Models\CashRegisterSetting;
 use App\Models\InventoryPurchase;
@@ -9,6 +10,9 @@ use App\Models\InventorySale;
 use App\Models\PlatformApp;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Models\WorkshopCustomer;
+use App\Models\WorkshopDevice;
+use App\Models\WorkshopOrder;
 use App\Services\Cash\CashAutomationService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -54,6 +58,41 @@ class CashRegisterTest extends TestCase
 
         $this->actingAs($user)->getJson("/api/v1/platform/tenants/{$tenant->id}/cash/sales-report")
             ->assertOk()->assertJsonPath('summary.transactions', 2)->assertJsonPath('summary.net', 80)->assertJsonPath('summary.total', 90.4);
+    }
+
+    public function test_sales_report_includes_direct_costs_linked_to_workshop_orders(): void
+    {
+        [$user, $tenant] = $this->member();
+        $customer = WorkshopCustomer::query()->create(['tenant_id' => $tenant->id, 'core_customer_id' => 42, 'name' => 'Cliente taller']);
+        $device = WorkshopDevice::query()->create(['tenant_id' => $tenant->id, 'workshop_customer_id' => $customer->id, 'type' => 'phone', 'brand' => 'Samsung', 'model' => 'A54']);
+        $order = WorkshopOrder::query()->create(['tenant_id' => $tenant->id, 'workshop_device_id' => $device->id, 'received_by' => $user->id, 'ticket_number' => 1, 'status' => 'delivered', 'reported_fault' => 'No carga', 'received_at' => now()]);
+        InventorySale::query()->create([
+            'tenant_id' => $tenant->id,
+            'source_type' => 'workshop_order',
+            'source_id' => (string) $order->id,
+            'sale_date' => today(),
+            'operation_kind' => 'sale',
+            'reporting_sign' => 1,
+            'net_amount' => 100,
+            'tax_amount' => 0,
+            'total_amount' => 100,
+            'status' => 'active',
+        ]);
+        CashExpense::query()->create([
+            'tenant_id' => $tenant->id,
+            'workshop_order_id' => $order->id,
+            'category' => 'replacement',
+            'destination' => 'direct_order',
+            'amount' => 35,
+            'status' => 'pending_document',
+            'description' => 'Repuesto para la orden',
+            'created_by' => $user->id,
+        ]);
+
+        $this->actingAs($user)->getJson("/api/v1/platform/tenants/{$tenant->id}/cash/sales-report")
+            ->assertOk()
+            ->assertJsonPath('summary.cost', 35)
+            ->assertJsonPath('summary.margin', 65);
     }
 
     public function test_cash_settings_are_scoped_to_a_branch(): void
