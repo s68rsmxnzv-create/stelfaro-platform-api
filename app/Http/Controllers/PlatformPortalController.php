@@ -89,6 +89,11 @@ class PlatformPortalController extends Controller
         ]);
     }
 
+    public function tallerCash(): Response
+    {
+        return $this->renderBillingModule(['app' => ['id' => 'taller', 'name' => 'Caja', 'description' => 'Cobros, salidas y ventas conectadas con Taller.'], 'module' => 'cash']);
+    }
+
     public function tallerAnnexes(): Response
     {
         return $this->renderBillingModule([
@@ -175,6 +180,11 @@ class PlatformPortalController extends Controller
             ],
             'module' => 'inventory',
         ]);
+    }
+
+    public function facturacionCash(): Response
+    {
+        return $this->renderBillingModule(['app' => ['id' => 'facturacion', 'name' => 'Caja', 'description' => 'Control de dinero, cobros, salidas y reporte comercial.'], 'module' => 'cash']);
     }
 
     public function facturacionAnnexes(): Response

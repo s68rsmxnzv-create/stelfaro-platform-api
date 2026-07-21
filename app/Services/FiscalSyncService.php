@@ -7,6 +7,7 @@ use App\Models\FiscalSyncOperation;
 use App\Models\InventoryReservation;
 use App\Models\Tenant;
 use App\Models\WorkshopOrder;
+use App\Services\Cash\CashService;
 use App\Services\Inventory\InventoryService;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -17,11 +18,15 @@ class FiscalSyncService
     public function __construct(
         private readonly InventoryService $inventory,
         private readonly FiscalSyncCoreClient $core,
+        private readonly CashService $cash,
     ) {}
 
     /** @param array<string, mixed> $data */
     public function prepareDteIssue(Tenant $tenant, array $data, ?int $userId): FiscalSyncOperation
     {
+        if ((float) data_get($data, 'sale.metadata.cash_amount', 0) > 0 && empty($data['workshop_order_id'])) {
+            $this->cash->ensureCashSession($tenant, $userId);
+        }
         $payload = [
             'sale' => $data['sale'],
             'reservation' => $data['reservation'] ?? null,
@@ -267,6 +272,7 @@ class FiscalSyncService
             'fiscal_sync_operation_id' => $operation->id,
         ]);
         $this->inventory->recordSale($tenant, $sale, $operation->created_by);
+        $this->cash->recordDteCashPayment($tenant, $operation, $documentId, $number);
         if (in_array($documentType, ['01', '03'], true)) {
             $this->linkWorkshopOrder($tenant, $operation, $fact, $documentId, $number);
         }

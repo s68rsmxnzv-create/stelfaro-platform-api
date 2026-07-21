@@ -3,6 +3,8 @@
 use App\Http\Controllers\Api\V1\Platform\AdminTenantRequestController;
 use App\Http\Controllers\Api\V1\Platform\CatalogCategoryController;
 use App\Http\Controllers\Api\V1\Platform\CatalogItemController;
+use App\Http\Controllers\Api\V1\Platform\CashRegisterController;
+use App\Http\Controllers\Api\V1\Platform\CommercialSalesReportController;
 use App\Http\Controllers\Api\V1\Platform\CommercialDashboardController;
 use App\Http\Controllers\Api\V1\Platform\FiscalSyncController;
 use App\Http\Controllers\Api\V1\Platform\GlobalUserController;
@@ -104,6 +106,17 @@ Route::prefix('v1')->group(function (): void {
             });
         Route::get('platform/tenants/{tenant}/commercial/dashboard', CommercialDashboardController::class)
             ->middleware('tenant.app:facturacion');
+        Route::prefix('platform/tenants/{tenant}/cash')
+            ->middleware('tenant.app:facturacion')
+            ->group(function (): void {
+                Route::get('/', [CashRegisterController::class, 'overview']);
+                Route::post('sessions', [CashRegisterController::class, 'open']);
+                Route::post('sessions/{cashSession}/close', [CashRegisterController::class, 'close']);
+                Route::post('movements', [CashRegisterController::class, 'storeMovement']);
+                Route::post('movements/{cashMovement}/reverse', [CashRegisterController::class, 'reverse']);
+                Route::post('expenses/{cashExpense}/reconcile', [CashRegisterController::class, 'reconcileExpense']);
+                Route::get('sales-report', CommercialSalesReportController::class);
+            });
         Route::prefix('platform/tenants/{tenant}/workshop')
             ->middleware('tenant.app:taller')
             ->group(function (): void {

@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\CashRegister;
+use App\Models\CashSession;
 use App\Models\PlatformApp;
 use App\Models\Tenant;
 use App\Models\User;
@@ -262,6 +264,8 @@ class WorkshopOrderTest extends TestCase
         ]);
         $user = User::factory()->create(['email_verified_at' => now(), 'must_change_password' => false]);
         $user->memberships()->create(['tenant_id' => $tenant->id, 'role' => 'company_admin', 'status' => 'active', 'is_default' => true]);
+        $register = CashRegister::query()->create(['tenant_id' => $tenant->id, 'name' => 'Caja principal', 'status' => 'active']);
+        CashSession::query()->create(['tenant_id' => $tenant->id, 'cash_register_id' => $register->id, 'opened_by' => $user->id, 'opening_balance' => 0, 'status' => 'open', 'opened_at' => now()]);
 
         return [$user, $tenant];
     }
