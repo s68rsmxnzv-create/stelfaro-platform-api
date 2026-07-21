@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Platform;
 
 use App\Http\Controllers\Controller;
+use App\Models\InventorySale;
 use App\Models\Tenant;
 use App\Models\WorkshopCustomer;
 use App\Models\WorkshopDevice;
@@ -38,6 +39,13 @@ class WorkshopOrderController extends Controller
             ->with('payments')
             ->get()
             ->sum(fn (WorkshopOrder $order): float => max(0, round((float) $order->final_total - $this->netPaid($order), 2)));
+        $dteReceivables = InventorySale::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('source_type', 'dte')
+            ->where('status', 'active')
+            ->get(['total_amount', 'reporting_sign', 'metadata'])
+            ->filter(fn (InventorySale $sale): bool => data_get($sale->metadata, 'payment_status') === 'receivable')
+            ->sum(fn (InventorySale $sale): float => (float) $sale->total_amount * (int) $sale->reporting_sign);
 
         $recent = (clone $orders)
             ->whereIn('status', $activeStatuses)
@@ -58,7 +66,7 @@ class WorkshopOrderController extends Controller
             ],
             'commercial' => [
                 ...$commercial->totals($tenant),
-                'receivables' => round((float) $receivables, 2),
+                'receivables' => round((float) $receivables + (float) $dteReceivables, 2),
             ],
             'recent_orders' => $recent->map(fn (WorkshopOrder $order): array => $this->payload($order))->values(),
         ]);
@@ -73,6 +81,7 @@ class WorkshopOrderController extends Controller
             'priority' => ['nullable', Rule::in(['low', 'normal', 'high', 'urgent'])],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date'],
+            'payment_status' => ['nullable', Rule::in(['receivable'])],
             'page' => ['nullable', 'integer', 'min:1'],
             'per_page' => ['nullable', 'integer', 'min:5', 'max:100'],
         ]);
@@ -97,6 +106,9 @@ class WorkshopOrderController extends Controller
         }
         if (! empty($data['date_to'])) {
             $query->whereDate('received_at', '<=', $data['date_to']);
+        }
+        if (($data['payment_status'] ?? null) === 'receivable') {
+            $query->whereNotNull('closed_at')->where('financial_status', 'pending');
         }
         $statsQuery = clone $query;
         $stats = collect(['received', 'diagnosing', 'awaiting_approval', 'approved', 'repairing', 'ready', 'delivered', 'cancelled'])
@@ -247,7 +259,7 @@ class WorkshopOrderController extends Controller
         ]]);
     }
 
-    public function update(Request $request, Tenant $tenant, WorkshopOrder $order, PlatformAccessPolicy $policy): JsonResponse
+    public function update(Request $request, Tenant $tenant, WorkshopOrder $order, PlatformAccessPolicy $policy, CashService $cash): JsonResponse
     {
         abort_unless($order->tenant_id === $tenant->id, 404);
         abort_unless($policy->canOperateTenant($request->user(), $tenant), 403);
@@ -258,27 +270,43 @@ class WorkshopOrderController extends Controller
             'approval_decision' => ['nullable', Rule::in(['approved', 'rejected'])],
             'approval_method' => ['nullable', Rule::in(['whatsapp', 'call', 'in_person'])],
             'approval_notes' => ['nullable', 'string', 'max:2000'],
+            'payment.amount' => ['nullable', 'numeric', 'min:0.01', 'max:999999999.99'],
+            'payment.method' => ['required_with:payment.amount', Rule::in(['cash', 'card', 'transfer', 'other'])],
+            'payment.reference' => ['nullable', 'string', 'max:120'],
+            'payment.notes' => ['nullable', 'string', 'max:2000'],
         ]);
-        $nextStatus = $data['status'] ?? $order->status;
-        $this->validateTransition($order, $nextStatus, $data);
-        if (array_key_exists('approval_decision', $data)) {
-            $data['status'] = $data['approval_decision'] === 'approved' ? 'approved' : 'cancelled';
-            $data['approval_recorded_by'] = $request->user()->id;
-            $data['approval_decided_at'] = now();
+        if (isset($data['payment']) && ($data['approval_decision'] ?? null) !== 'approved') {
+            throw ValidationException::withMessages(['payment' => 'El abono al aprobar requiere que el cliente acepte el presupuesto.']);
         }
-        $order->fill($data);
-        if (($data['status'] ?? null) === 'ready') {
-            $order->completed_at = now();
-        }
-        if (($data['status'] ?? null) === 'delivered') {
-            $order->delivered_at = now();
-        }
-        $order->save();
-        if ($order->status === 'cancelled' && $this->netPaid($order) === 0.0) {
-            $order->forceFill(['final_total' => 0, 'financial_status' => 'settled', 'closed_at' => now(), 'closed_by' => $request->user()->id])->save();
-        }
+        $order = DB::transaction(function () use ($data, $request, $tenant, $order, $cash): WorkshopOrder {
+            $locked = WorkshopOrder::query()->whereKey($order->id)->with('payments')->lockForUpdate()->firstOrFail();
+            $nextStatus = $data['status'] ?? $locked->status;
+            $this->validateTransition($locked, $nextStatus, $data);
+            $update = collect($data)->except('payment')->all();
+            if (array_key_exists('approval_decision', $update)) {
+                $update['status'] = $update['approval_decision'] === 'approved' ? 'approved' : 'cancelled';
+                $update['approval_recorded_by'] = $request->user()->id;
+                $update['approval_decided_at'] = now();
+            }
+            $locked->fill($update);
+            if (($update['status'] ?? null) === 'ready') {
+                $locked->completed_at = now();
+            }
+            if (($update['status'] ?? null) === 'delivered') {
+                $locked->delivered_at = now();
+            }
+            $locked->save();
+            if (isset($data['payment'])) {
+                $this->recordOpenOrderPayment($locked, $tenant, $request, $data['payment'], $cash, 'Abono al aprobar presupuesto');
+            }
+            if ($locked->status === 'cancelled' && $this->netPaid($locked) === 0.0) {
+                $locked->forceFill(['final_total' => 0, 'financial_status' => 'settled', 'closed_at' => now(), 'closed_by' => $request->user()->id])->save();
+            }
 
-        return response()->json(['data' => $this->payload($order->refresh()->load(['device.customer', 'payments']))]);
+            return $locked->refresh()->load(['device.customer', 'payments', 'reception']);
+        });
+
+        return response()->json(['data' => $this->payload($order)]);
     }
 
     public function settle(Request $request, Tenant $tenant, WorkshopOrder $order, PlatformAccessPolicy $policy, InventoryService $inventory, CashService $cash): JsonResponse
@@ -294,6 +322,7 @@ class WorkshopOrderController extends Controller
             'document_choice' => ['nullable', Rule::in(['work_order', 'dte'])],
             'dte_type' => ['nullable', Rule::in(['01', '03'])],
             'payment_timing' => ['nullable', Rule::in(['paid_now', 'credit'])],
+            'amount_received' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
         ]);
 
         $order = DB::transaction(function () use ($data, $request, $tenant, $order, $inventory, $cash): WorkshopOrder {
@@ -308,22 +337,28 @@ class WorkshopOrderController extends Controller
                     throw ValidationException::withMessages(['final_total' => 'El total final no puede ser menor que lo ya recibido.']);
                 }
                 $due = round($total - $paid, 2);
-                $paymentTiming = $data['payment_timing'] ?? 'paid_now';
-                if ($paymentTiming === 'paid_now' && $due > 0 && empty($data['method'])) {
+                $amountReceived = array_key_exists('amount_received', $data)
+                    ? round((float) $data['amount_received'], 2)
+                    : (($data['payment_timing'] ?? 'paid_now') === 'paid_now' ? $due : 0.0);
+                if ($amountReceived > $due) {
+                    throw ValidationException::withMessages(['amount_received' => 'El monto recibido no puede superar el saldo pendiente.']);
+                }
+                if ($amountReceived > 0 && empty($data['method'])) {
                     throw ValidationException::withMessages(['method' => 'Selecciona cómo se recibió el saldo final.']);
                 }
-                if ($paymentTiming === 'paid_now' && $due > 0) {
-                    $payment = $locked->payments()->create(['tenant_id' => $tenant->id, 'received_by' => $request->user()->id, 'kind' => 'payment', 'amount' => $due, 'method' => $data['method'], 'reference' => $data['reference'] ?? null, 'notes' => $data['notes'] ?? 'Cobro al entregar y cerrar', 'received_at' => now()]);
+                if ($amountReceived > 0) {
+                    $payment = $locked->payments()->create(['tenant_id' => $tenant->id, 'received_by' => $request->user()->id, 'kind' => 'payment', 'amount' => $amountReceived, 'method' => $data['method'], 'reference' => $data['reference'] ?? null, 'notes' => $data['notes'] ?? 'Cobro al entregar y cerrar', 'received_at' => now()]);
                     $cash->recordWorkshopPayment($tenant, $payment);
                 }
+                $remaining = round($due - $amountReceived, 2);
                 $wantsDte = ($data['document_choice'] ?? 'work_order') === 'dte';
-                $locked->forceFill(['status' => 'delivered', 'final_total' => $total, 'financial_status' => $paymentTiming === 'credit' && $due > 0 ? 'pending' : 'settled', 'billing_status' => $wantsDte ? 'pending' : 'unbilled', 'dte_type' => $wantsDte ? ($data['dte_type'] ?? '01') : null, 'delivered_at' => now(), 'closed_at' => now(), 'closed_by' => $request->user()->id])->save();
+                $locked->forceFill(['status' => 'delivered', 'final_total' => $total, 'financial_status' => $remaining > 0 ? 'pending' : 'settled', 'billing_status' => $wantsDte ? 'pending' : 'unbilled', 'dte_type' => $wantsDte ? ($data['dte_type'] ?? '01') : null, 'delivered_at' => now(), 'closed_at' => now(), 'closed_by' => $request->user()->id])->save();
                 $inventory->recordSale($tenant, [
                     'source_type' => 'workshop_order', 'source_id' => (string) $locked->id,
                     'core_sucursal_id' => $locked->core_sucursal_id, 'core_sucursal_code' => $locked->core_sucursal_code, 'core_sucursal_name' => $locked->core_sucursal_name,
                     'source_number' => 'T-'.str_pad((string) $locked->ticket_number, 6, '0', STR_PAD_LEFT),
                     'sale_date' => now()->toDateString(),
-                    'metadata' => ['customer_id' => $locked->device->customer->core_customer_id, 'customer_name' => $locked->device->customer->name, 'payment_status' => $paymentTiming === 'credit' && $due > 0 ? 'receivable' : 'paid', 'billing_status' => $wantsDte ? 'pending' : 'unbilled'],
+                    'metadata' => ['customer_id' => $locked->device->customer->core_customer_id, 'customer_name' => $locked->device->customer->name, 'payment_status' => $remaining > 0 ? 'receivable' : 'paid', 'outstanding_amount' => $remaining, 'billing_status' => $wantsDte ? 'pending' : 'unbilled'],
                     'lines' => [['description' => 'Servicio de reparación '.$locked->device->brand.' '.$locked->device->model, 'quantity' => 1, 'unit_price' => $total, 'net_total' => $total, 'line_origin' => 'free']],
                 ], $request->user()->id);
             } else {
@@ -370,7 +405,6 @@ class WorkshopOrderController extends Controller
     public function recordPayment(Request $request, Tenant $tenant, WorkshopOrder $order, PlatformAccessPolicy $policy, InventoryService $inventory, CashService $cash): JsonResponse
     {
         $this->authorizeOrderOperation($request, $tenant, $order, $policy);
-        abort_unless($order->closed_at !== null && $order->financial_status === 'pending', 422, 'La orden no tiene saldo pendiente de una venta cerrada.');
         $data = $request->validate([
             'amount' => ['required', 'numeric', 'min:0.01', 'max:999999999.99'],
             'method' => ['required', Rule::in(['cash', 'card', 'transfer', 'other'])],
@@ -379,18 +413,27 @@ class WorkshopOrderController extends Controller
         ]);
 
         $order = DB::transaction(function () use ($data, $request, $tenant, $order, $inventory, $cash): WorkshopOrder {
-            $locked = WorkshopOrder::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
-            $balance = round((float) $locked->final_total - $this->netPaid($locked), 2);
+            $locked = WorkshopOrder::query()->whereKey($order->id)->with('payments')->lockForUpdate()->firstOrFail();
+            abort_if(in_array($locked->status, ['cancelled'], true), 422, 'No se pueden agregar pagos a una orden cancelada.');
+            if ($locked->closed_at !== null) {
+                abort_unless($locked->financial_status === 'pending', 422, 'La orden no tiene saldo pendiente.');
+            } else {
+                abort_if($locked->estimated_total === null, 422, 'Registra un monto estimado antes de recibir un anticipo.');
+            }
+            $charge = (float) ($locked->final_total ?? $locked->estimated_total ?? 0);
+            $balance = round($charge - $this->netPaid($locked), 2);
             if ((float) $data['amount'] > $balance) {
                 throw ValidationException::withMessages(['amount' => 'El pago no puede superar el saldo pendiente.']);
             }
-            $payment = $locked->payments()->create(['tenant_id' => $tenant->id, 'received_by' => $request->user()->id, 'kind' => 'payment', 'amount' => $data['amount'], 'method' => $data['method'], 'reference' => $data['reference'] ?? null, 'notes' => $data['notes'] ?? 'Abono posterior al cierre', 'received_at' => now()]);
+            $payment = $locked->payments()->create(['tenant_id' => $tenant->id, 'received_by' => $request->user()->id, 'kind' => 'payment', 'amount' => $data['amount'], 'method' => $data['method'], 'reference' => $data['reference'] ?? null, 'notes' => $data['notes'] ?? ($locked->closed_at ? 'Abono posterior al cierre' : 'Anticipo durante la orden'), 'received_at' => now()]);
             $cash->recordWorkshopPayment($tenant, $payment);
             $remaining = round($balance - (float) $data['amount'], 2);
-            if ($remaining <= 0) {
+            if ($locked->closed_at !== null && $remaining <= 0) {
                 $locked->forceFill(['financial_status' => 'settled'])->save();
             }
-            $inventory->recordSale($tenant, ['source_type' => 'workshop_order', 'source_id' => (string) $locked->id, 'source_number' => 'T-'.str_pad((string) $locked->ticket_number, 6, '0', STR_PAD_LEFT), 'core_sucursal_id' => $locked->core_sucursal_id, 'core_sucursal_code' => $locked->core_sucursal_code, 'core_sucursal_name' => $locked->core_sucursal_name, 'metadata' => ['payment_status' => $remaining <= 0 ? 'paid' : 'receivable'], 'lines' => []], $request->user()->id);
+            if ($locked->closed_at !== null) {
+                $inventory->recordSale($tenant, ['source_type' => 'workshop_order', 'source_id' => (string) $locked->id, 'source_number' => 'T-'.str_pad((string) $locked->ticket_number, 6, '0', STR_PAD_LEFT), 'core_sucursal_id' => $locked->core_sucursal_id, 'core_sucursal_code' => $locked->core_sucursal_code, 'core_sucursal_name' => $locked->core_sucursal_name, 'metadata' => ['payment_status' => $remaining <= 0 ? 'paid' : 'receivable', 'outstanding_amount' => max(0, $remaining)], 'lines' => []], $request->user()->id);
+            }
 
             return $locked->refresh()->load(['device.customer', 'payments']);
         });
@@ -485,6 +528,27 @@ class WorkshopOrderController extends Controller
         $payments = $order->relationLoaded('payments') ? $order->payments : $order->payments()->get();
 
         return round((float) $payments->whereNull('voided_at')->sum(fn ($payment) => $payment->kind === 'refund' ? -((float) $payment->amount) : (float) $payment->amount), 2);
+    }
+
+    /** @param array{amount:mixed,method:string,reference?:string|null,notes?:string|null} $data */
+    private function recordOpenOrderPayment(WorkshopOrder $order, Tenant $tenant, Request $request, array $data, CashService $cash, string $defaultNotes): void
+    {
+        abort_if($order->closed_at !== null || $order->estimated_total === null, 422, 'La orden necesita un presupuesto abierto para registrar el anticipo.');
+        $balance = round((float) $order->estimated_total - $this->netPaid($order), 2);
+        if ((float) $data['amount'] > $balance) {
+            throw ValidationException::withMessages(['payment.amount' => 'El abono no puede superar el saldo estimado.']);
+        }
+        $payment = $order->payments()->create([
+            'tenant_id' => $tenant->id,
+            'received_by' => $request->user()->id,
+            'kind' => 'payment',
+            'amount' => $data['amount'],
+            'method' => $data['method'],
+            'reference' => $data['reference'] ?? null,
+            'notes' => $data['notes'] ?? $defaultNotes,
+            'received_at' => now(),
+        ]);
+        $cash->recordWorkshopPayment($tenant, $payment);
     }
 
     private function validateReceptionRules(array $data): void

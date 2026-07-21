@@ -166,6 +166,32 @@ class WorkshopOrderTest extends TestCase
         $this->assertDatabaseCount('workshop_order_payments', 0);
     }
 
+    public function test_open_order_accepts_later_advances_and_an_optional_payment_on_approval(): void
+    {
+        [$user, $tenant] = $this->member();
+        $order = $this->actingAs($user)->postJson("/api/v1/platform/tenants/{$tenant->id}/workshop/orders", [
+            'customer' => ['core_customer_id' => 460, 'name' => 'Cliente con abonos'],
+            'device' => ['type' => 'phone', 'brand' => 'Samsung', 'model' => 'A55', 'power_status' => 'on'],
+            'reported_fault' => 'Cambio de pantalla',
+            'estimated_total' => 100,
+        ])->assertCreated()->json('data');
+        $url = "/api/v1/platform/tenants/{$tenant->id}/workshop/orders/{$order['id']}";
+
+        $this->postJson($url.'/payments', ['amount' => 25, 'method' => 'cash'])
+            ->assertOk()->assertJsonPath('data.paid_total', 25)->assertJsonPath('data.balance', 75);
+        $this->assertDatabaseCount('inventory_sales', 0);
+        $this->assertDatabaseHas('cash_movements', ['tenant_id' => $tenant->id, 'workshop_order_id' => $order['id'], 'amount' => 25]);
+
+        $this->patchJson($url, ['status' => 'diagnosing'])->assertOk();
+        $this->patchJson($url, ['status' => 'awaiting_approval', 'diagnosis' => 'Reemplazar pantalla', 'estimated_total' => 100])->assertOk();
+        $this->patchJson($url, [
+            'approval_decision' => 'approved',
+            'approval_method' => 'in_person',
+            'payment' => ['amount' => 15, 'method' => 'transfer', 'reference' => 'TRX-15'],
+        ])->assertOk()->assertJsonPath('data.status', 'approved')->assertJsonPath('data.paid_total', 40)->assertJsonPath('data.balance', 60);
+        $this->assertDatabaseHas('workshop_order_payments', ['workshop_order_id' => $order['id'], 'amount' => 15, 'method' => 'transfer']);
+    }
+
     public function test_diagnosis_and_approval_follow_controlled_transitions(): void
     {
         [$user, $tenant] = $this->member();
@@ -223,11 +249,16 @@ class WorkshopOrderTest extends TestCase
         $this->patchJson($url, ['approval_decision' => 'approved', 'approval_method' => 'call'])->assertOk();
         $this->patchJson($url, ['status' => 'repairing'])->assertOk();
         $this->patchJson($url, ['status' => 'ready'])->assertOk();
-        $this->postJson($url.'/settlement', ['action' => 'deliver_close', 'final_total' => 60, 'payment_timing' => 'credit', 'document_choice' => 'work_order'])
-            ->assertOk()->assertJsonPath('data.status', 'delivered')->assertJsonPath('data.financial.status', 'pending')->assertJsonPath('data.balance', 60);
+        $this->postJson($url.'/settlement', ['action' => 'deliver_close', 'final_total' => 60, 'amount_received' => 20, 'method' => 'cash', 'document_choice' => 'work_order'])
+            ->assertOk()->assertJsonPath('data.status', 'delivered')->assertJsonPath('data.financial.status', 'pending')->assertJsonPath('data.paid_total', 20)->assertJsonPath('data.balance', 40);
         $this->assertDatabaseHas('inventory_sales', ['tenant_id' => $tenant->id, 'source_type' => 'workshop_order', 'source_id' => (string) $order['id']]);
-        $this->postJson($url.'/payments', ['amount' => 20, 'method' => 'cash'])->assertOk()->assertJsonPath('data.balance', 40)->assertJsonPath('data.financial.status', 'pending');
+        $this->getJson("/api/v1/platform/tenants/{$tenant->id}/workshop/orders?payment_status=receivable")
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $order['id']);
+        $this->getJson("/api/v1/platform/tenants/{$tenant->id}/cash/sales-report?payment_status=receivable")
+            ->assertOk()->assertJsonPath('summary.receivable', 40)->assertJsonPath('data.0.outstanding_amount', 40);
         $this->postJson($url.'/payments', ['amount' => 40, 'method' => 'transfer'])->assertOk()->assertJsonPath('data.balance', 0)->assertJsonPath('data.financial.status', 'settled');
+        $this->getJson("/api/v1/platform/tenants/{$tenant->id}/workshop/orders?payment_status=receivable")
+            ->assertOk()->assertJsonCount(0, 'data');
         $this->assertDatabaseCount('inventory_sales', 1);
     }
 
@@ -255,6 +286,7 @@ class WorkshopOrderTest extends TestCase
         $this->actingAs($user)->postJson($base, [
             'source_id' => 'FE-1', 'sale_date' => today()->toDateString(), 'fiscal_document_type' => '01',
             'net_amount' => 100, 'tax_amount' => 13, 'total_amount' => 113,
+            'metadata' => ['payment_status' => 'receivable'],
             'lines' => [['description' => 'Venta', 'quantity' => 1, 'net_total' => 100, 'tax_amount' => 13, 'total_amount' => 113]],
         ])->assertCreated();
         $this->postJson($base, [
@@ -273,9 +305,12 @@ class WorkshopOrderTest extends TestCase
             ->assertJsonPath('commercial.sales_net_today', 80)
             ->assertJsonPath('commercial.sales_tax_today', 10.4)
             ->assertJsonPath('commercial.sales_today', 90.4)
+            ->assertJsonPath('commercial.receivables', 113)
             ->assertJsonPath('commercial.sales_net_month', 80)
             ->assertJsonPath('commercial.sales_tax_month', 10.4)
             ->assertJsonPath('commercial.sales_month', 90.4);
+        $this->getJson("/api/v1/platform/tenants/{$tenant->id}/cash/sales-report?payment_status=receivable")
+            ->assertOk()->assertJsonPath('summary.receivable', 113)->assertJsonPath('data.0.outstanding_amount', 113);
     }
 
     private function member(): array
@@ -289,6 +324,15 @@ class WorkshopOrderTest extends TestCase
             'platform_app_id' => $taller->id,
             'status' => 'active',
             'is_default' => true,
+        ]);
+        $facturacion = PlatformApp::query()->firstOrCreate(
+            ['key' => 'facturacion'],
+            ['name' => 'Facturación', 'host' => 'facturacion.stelfaro.com', 'default_path' => '/', 'status' => 'active'],
+        );
+        $tenant->appAccesses()->create([
+            'platform_app_id' => $facturacion->id,
+            'status' => 'active',
+            'is_default' => false,
         ]);
         $user = User::factory()->create(['email_verified_at' => now(), 'must_change_password' => false]);
         $user->memberships()->create(['tenant_id' => $tenant->id, 'role' => 'company_admin', 'status' => 'active', 'is_default' => true]);
