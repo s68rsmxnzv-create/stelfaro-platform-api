@@ -92,7 +92,8 @@ class CashRegisterTest extends TestCase
         $this->actingAs($user)->getJson("/api/v1/platform/tenants/{$tenant->id}/cash/sales-report")
             ->assertOk()
             ->assertJsonPath('summary.cost', 35)
-            ->assertJsonPath('summary.margin', 65);
+            ->assertJsonPath('summary.margin', 65)
+            ->assertJsonPath('data.0.source_id', (string) $order->id);
     }
 
     public function test_cash_settings_are_scoped_to_a_branch(): void
