@@ -10,7 +10,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('inventory_sales', function (Blueprint $table): void {
-            $table->string('operation_kind', 24)->default('sale')->after('sale_date')->index();
+            $table->string('operation_kind', 40)->default('sale')->after('sale_date')->index();
             $table->string('fiscal_document_type', 4)->nullable()->after('operation_kind')->index();
             $table->smallInteger('reporting_sign')->default(1)->after('fiscal_document_type');
             $table->decimal('net_amount', 14, 2)->default(0)->after('reporting_sign');

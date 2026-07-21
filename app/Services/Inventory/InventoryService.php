@@ -969,9 +969,10 @@ class InventoryService
 
     private function nextPurchaseNumber(Tenant $tenant): int
     {
+        Tenant::query()->whereKey($tenant->id)->lockForUpdate()->firstOrFail();
+
         return (int) InventoryPurchase::query()
             ->where('tenant_id', $tenant->id)
-            ->lockForUpdate()
             ->max('purchase_number') + 1;
     }
 

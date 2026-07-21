@@ -51,7 +51,14 @@ class InventoryReportController extends Controller
             ])
             ->orderByDesc('sales_total')
             ->limit(200)
-            ->get();
+            ->get()
+            ->map(function ($row) {
+                foreach (['quantity', 'net_sales_total', 'tax_total', 'sales_total', 'reference_cost_total'] as $field) {
+                    $row->{$field} = (float) $row->{$field};
+                }
+
+                return $row;
+            });
 
         return response()->json(['data' => $rows]);
     }

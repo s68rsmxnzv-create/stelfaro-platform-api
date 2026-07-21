@@ -163,7 +163,8 @@ class WorkshopOrderController extends Controller
                 'tenant_id' => $tenant->id, 'workshop_customer_id' => $customer->id,
                 ...$data['device'],
             ]);
-            $ticket = ((int) WorkshopOrder::query()->where('tenant_id', $tenant->id)->lockForUpdate()->max('ticket_number')) + 1;
+            Tenant::query()->whereKey($tenant->id)->lockForUpdate()->firstOrFail();
+            $ticket = ((int) WorkshopOrder::query()->where('tenant_id', $tenant->id)->max('ticket_number')) + 1;
             $order = WorkshopOrder::query()->create([
                 'tenant_id' => $tenant->id, 'workshop_device_id' => $device->id,
                 'received_by' => $request->user()->id, 'ticket_number' => $ticket,
