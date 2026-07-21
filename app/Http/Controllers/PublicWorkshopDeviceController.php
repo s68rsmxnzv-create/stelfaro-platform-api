@@ -35,11 +35,13 @@ class PublicWorkshopDeviceController extends Controller
         $rateKey = 'workshop-device-pin:'.$access->id.':'.$request->ip();
         if (RateLimiter::tooManyAttempts($rateKey, 5)) {
             $this->log($access, $request, 'pin_rate_limited');
+
             return response()->json(['message' => 'Demasiados intentos. Espera antes de volver a probar.'], 429);
         }
         if (! Hash::check($data['pin'], $access->pin_hash)) {
             RateLimiter::hit($rateKey, 15 * 60);
             $this->log($access, $request, 'pin_rejected');
+
             return response()->json(['message' => 'El PIN no es correcto.'], 422);
         }
 
@@ -71,6 +73,7 @@ class PublicWorkshopDeviceController extends Controller
         $order = $access->order;
         if (in_array($order->status, ['ready', 'delivered', 'cancelled'], true)) {
             $this->log($access, $request, 'secret_denied_status', ['status' => $order->status]);
+
             return response()->json(['message' => 'El acceso ya no está disponible para el estado actual.'], 422);
         }
         if (! $access->device->is_locked || blank($access->device->access_secret)) {
@@ -150,8 +153,10 @@ class PublicWorkshopDeviceController extends Controller
     private function privatePayload(WorkshopDeviceAccess $access): array
     {
         $order = $access->order;
+
         return [
             'ticket' => 'T-'.str_pad((string) $order->ticket_number, 6, '0', STR_PAD_LEFT),
+            'equipment_label' => 'Equipo '.((int) $order->reception_sequence),
             'status' => $order->status,
             'status_label' => $this->statusLabels()[$order->status] ?? $order->status,
             'next_statuses' => match ($order->status) {

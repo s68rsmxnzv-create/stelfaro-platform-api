@@ -9,6 +9,7 @@ use App\Models\WorkshopDevice;
 use App\Models\WorkshopOrder;
 use App\Models\WorkshopOrderPhoto;
 use App\Models\WorkshopPhotoSession;
+use App\Models\WorkshopReception;
 use App\Services\Cash\CashService;
 use App\Services\Inventory\CommercialSummaryService;
 use App\Services\Inventory\InventoryService;
@@ -78,7 +79,7 @@ class WorkshopOrderController extends Controller
         if (! empty($data['date_from']) && ! empty($data['date_to']) && $data['date_to'] < $data['date_from']) {
             throw ValidationException::withMessages(['date_to' => 'La fecha final debe ser igual o posterior a la fecha inicial.']);
         }
-        $query = $tenant->workshopOrders()->with(['device.customer', 'payments'])->withCount('photos');
+        $query = $tenant->workshopOrders()->with(['device.customer', 'payments', 'reception'])->withCount('photos');
         if ($request->filled('q')) {
             $term = trim((string) $data['q']);
             $query->where(function ($q) use ($term): void {
@@ -116,6 +117,7 @@ class WorkshopOrderController extends Controller
     {
         abort_unless($policy->canOperateTenant($request->user(), $tenant), 403);
         $data = $request->validate([
+            'reception_id' => ['nullable', Rule::exists('workshop_receptions', 'id')->where('tenant_id', $tenant->id)],
             'customer.core_customer_id' => ['required', 'integer', 'min:1'],
             'customer.name' => ['required', 'string', 'max:160'],
             'customer.phone' => ['nullable', 'string', 'max:40'],
@@ -159,22 +161,40 @@ class WorkshopOrderController extends Controller
         }
 
         $order = DB::transaction(function () use ($data, $request, $tenant, $cash): WorkshopOrder {
-            $customer = WorkshopCustomer::query()->updateOrCreate(
-                ['tenant_id' => $tenant->id, 'core_customer_id' => $data['customer']['core_customer_id']],
-                ['name' => trim($data['customer']['name']), 'phone' => $data['customer']['phone'] ?? null, 'email' => $data['customer']['email'] ?? null],
-            );
+            Tenant::query()->whereKey($tenant->id)->lockForUpdate()->firstOrFail();
+            if (! empty($data['reception_id'])) {
+                $reception = WorkshopReception::query()->where('tenant_id', $tenant->id)->with('customer')->lockForUpdate()->findOrFail($data['reception_id']);
+                if ((int) $reception->customer->core_customer_id !== (int) $data['customer']['core_customer_id']) {
+                    throw ValidationException::withMessages(['customer' => 'El equipo adicional debe pertenecer al cliente de la recepción.']);
+                }
+                if ($reception->core_sucursal_id !== null && (int) ($data['core_sucursal_id'] ?? 0) !== (int) $reception->core_sucursal_id) {
+                    throw ValidationException::withMessages(['core_sucursal_id' => 'Todos los equipos de la recepción deben ingresar en la misma sucursal.']);
+                }
+                $customer = $reception->customer;
+                $customer->forceFill(['name' => trim($data['customer']['name']), 'phone' => $data['customer']['phone'] ?? null, 'email' => $data['customer']['email'] ?? null])->save();
+            } else {
+                $customer = WorkshopCustomer::query()->updateOrCreate(
+                    ['tenant_id' => $tenant->id, 'core_customer_id' => $data['customer']['core_customer_id']],
+                    ['name' => trim($data['customer']['name']), 'phone' => $data['customer']['phone'] ?? null, 'email' => $data['customer']['email'] ?? null],
+                );
+                $ticket = ((int) WorkshopReception::query()->where('tenant_id', $tenant->id)->max('ticket_number')) + 1;
+                $reception = WorkshopReception::query()->create([
+                    'tenant_id' => $tenant->id, 'workshop_customer_id' => $customer->id,
+                    'core_sucursal_id' => $data['core_sucursal_id'] ?? null, 'core_sucursal_code' => $data['core_sucursal_code'] ?? null, 'core_sucursal_name' => $data['core_sucursal_name'] ?? null,
+                    'received_by' => $request->user()->id, 'ticket_number' => $ticket, 'received_at' => now(),
+                ]);
+            }
             $device = WorkshopDevice::query()->create([
                 'tenant_id' => $tenant->id, 'workshop_customer_id' => $customer->id,
                 ...$data['device'],
             ]);
-            Tenant::query()->whereKey($tenant->id)->lockForUpdate()->firstOrFail();
-            $ticket = ((int) WorkshopOrder::query()->where('tenant_id', $tenant->id)->max('ticket_number')) + 1;
+            $sequence = ((int) WorkshopOrder::query()->where('workshop_reception_id', $reception->id)->max('reception_sequence')) + 1;
             $order = WorkshopOrder::query()->create([
-                'tenant_id' => $tenant->id, 'workshop_device_id' => $device->id,
+                'tenant_id' => $tenant->id, 'workshop_reception_id' => $reception->id, 'workshop_device_id' => $device->id,
                 'core_sucursal_id' => $data['core_sucursal_id'] ?? null,
                 'core_sucursal_code' => $data['core_sucursal_code'] ?? null,
                 'core_sucursal_name' => $data['core_sucursal_name'] ?? null,
-                'received_by' => $request->user()->id, 'ticket_number' => $ticket,
+                'received_by' => $request->user()->id, 'ticket_number' => $reception->ticket_number, 'reception_sequence' => $sequence,
                 'status' => 'received', 'priority' => $data['priority'] ?? 'normal',
                 'reported_fault' => $data['reported_fault'], 'physical_condition' => $data['physical_condition'] ?? null,
                 'physical_conditions' => $data['physical_conditions'] ?? [],
@@ -193,7 +213,7 @@ class WorkshopOrderController extends Controller
         });
 
         return response()->json(['data' => [
-            ...$this->payload($order->load(['device.customer', 'payments'])),
+            ...$this->payload($order->load(['device.customer', 'payments', 'reception'])),
             'device_access' => $deviceAccess->ensure($order),
         ]], 201);
     }
@@ -210,7 +230,21 @@ class WorkshopOrderController extends Controller
     {
         $this->authorizeOrder($request, $tenant, $order, $policy);
 
-        return response()->json(['data' => $this->payload($order->load(['device.customer', 'payments']))]);
+        return response()->json(['data' => $this->payload($order->load(['device.customer', 'payments', 'reception']))]);
+    }
+
+    public function showReception(Request $request, Tenant $tenant, WorkshopReception $reception, PlatformAccessPolicy $policy): JsonResponse
+    {
+        abort_unless($reception->tenant_id === $tenant->id, 404);
+        abort_unless($policy->canViewTenantCatalog($request->user(), $tenant), 403);
+        $orders = $reception->orders()->with(['device.customer', 'payments', 'reception'])->withCount('photos')->orderBy('reception_sequence')->get();
+
+        return response()->json(['data' => [
+            'id' => $reception->id,
+            'ticket' => 'T-'.str_pad((string) $reception->ticket_number, 6, '0', STR_PAD_LEFT),
+            'received_at' => $reception->received_at?->toISOString(),
+            'orders' => $orders->map(fn (WorkshopOrder $order): array => $this->payload($order))->values(),
+        ]]);
     }
 
     public function update(Request $request, Tenant $tenant, WorkshopOrder $order, PlatformAccessPolicy $policy): JsonResponse
@@ -430,6 +464,7 @@ class WorkshopOrderController extends Controller
 
         return [
             'id' => $order->id, 'ticket' => 'T-'.str_pad((string) $order->ticket_number, 6, '0', STR_PAD_LEFT),
+            'reception' => ['id' => $order->workshop_reception_id, 'sequence' => (int) $order->reception_sequence, 'equipment_label' => 'Equipo '.((int) $order->reception_sequence), 'equipment_count' => $order->reception?->orders()->count() ?? 1],
             'status' => $order->status, 'priority' => $order->priority, 'reported_fault' => $order->reported_fault,
             'physical_condition' => $order->physical_condition, 'physical_conditions' => $order->physical_conditions ?? [], 'accessories' => $order->accessories ?? [],
             'diagnosis' => $order->diagnosis, 'estimated_total' => $order->estimated_total !== null ? (float) $order->estimated_total : null,
@@ -440,7 +475,7 @@ class WorkshopOrderController extends Controller
             'received_at' => $order->received_at?->toISOString(),
             'branch' => $order->core_sucursal_id ? ['id' => $order->core_sucursal_id, 'code' => $order->core_sucursal_code, 'name' => $order->core_sucursal_name] : null,
             'photo_count' => isset($order->photos_count) ? (int) $order->photos_count : $order->photos()->count(),
-            'customer' => ['id' => $order->device->customer->core_customer_id, 'name' => $order->device->customer->name, 'phone' => $order->device->customer->phone],
+            'customer' => ['id' => $order->device->customer->core_customer_id, 'name' => $order->device->customer->name, 'phone' => $order->device->customer->phone, 'email' => $order->device->customer->email],
             'device' => ['id' => $order->device->id, 'type' => $order->device->type, 'brand' => $order->device->brand, 'model' => $order->device->model, 'color' => $order->device->color, 'imei' => $order->device->imei, 'serial_number' => $order->device->serial_number, 'identifier_not_visible' => $order->device->identifier_not_visible, 'power_status' => $order->device->power_status, 'functional_tests' => $order->device->functional_tests ?? [], 'is_locked' => $order->device->is_locked, 'access_type' => $order->device->access_type, 'has_access_secret' => filled($order->device->access_secret)],
         ];
     }

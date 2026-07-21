@@ -128,6 +128,7 @@ Route::prefix('v1')->group(function (): void {
                 Route::patch('ticket-settings', [WorkshopTicketSettingsController::class, 'update']);
                 Route::get('dashboard', [WorkshopOrderController::class, 'dashboard']);
                 Route::get('orders', [WorkshopOrderController::class, 'index']);
+                Route::get('receptions/{reception}', [WorkshopOrderController::class, 'showReception']);
                 Route::get('orders/{order}', [WorkshopOrderController::class, 'show']);
                 Route::post('orders', [WorkshopOrderController::class, 'store']);
                 Route::patch('orders/{order}', [WorkshopOrderController::class, 'update']);

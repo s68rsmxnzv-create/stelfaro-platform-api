@@ -42,6 +42,34 @@ class WorkshopOrderTest extends TestCase
             ->assertJsonPath('data.0.photo_count', 0);
     }
 
+    public function test_multiple_devices_share_one_reception_without_sharing_their_workflow(): void
+    {
+        [$user, $tenant] = $this->member();
+        $base = "/api/v1/platform/tenants/{$tenant->id}/workshop/orders";
+        $first = $this->actingAs($user)->postJson($base, [
+            'customer' => ['core_customer_id' => 55, 'name' => 'Cliente con dos equipos', 'phone' => '7000-0055'],
+            'core_sucursal_id' => 5, 'core_sucursal_code' => 'M001', 'core_sucursal_name' => 'Casa matriz',
+            'device' => ['type' => 'phone', 'brand' => 'Samsung', 'model' => 'A54', 'power_status' => 'on'],
+            'reported_fault' => 'Pantalla quebrada',
+        ])->assertCreated()->assertJsonPath('data.ticket', 'T-000001')->assertJsonPath('data.reception.sequence', 1)->json('data');
+
+        $second = $this->postJson($base, [
+            'reception_id' => $first['reception']['id'],
+            'customer' => ['core_customer_id' => 55, 'name' => 'Cliente con dos equipos', 'phone' => '7000-0055'],
+            'core_sucursal_id' => 5, 'core_sucursal_code' => 'M001', 'core_sucursal_name' => 'Casa matriz',
+            'device' => ['type' => 'console', 'brand' => 'Sony', 'model' => 'PS5', 'power_status' => 'off'],
+            'reported_fault' => 'No enciende',
+        ])->assertCreated()->assertJsonPath('data.ticket', 'T-000001')->assertJsonPath('data.reception.sequence', 2)->assertJsonPath('data.reception.equipment_count', 2)->json('data');
+
+        $this->assertNotSame($first['id'], $second['id']);
+        $this->getJson("/api/v1/platform/tenants/{$tenant->id}/workshop/receptions/{$first['reception']['id']}")
+            ->assertOk()->assertJsonPath('data.ticket', 'T-000001')->assertJsonCount(2, 'data.orders')
+            ->assertJsonPath('data.orders.0.device.model', 'A54')->assertJsonPath('data.orders.1.device.model', 'PS5');
+        $this->patchJson($base."/{$first['id']}", ['status' => 'diagnosing'])->assertOk();
+        $this->assertDatabaseHas('workshop_orders', ['id' => $first['id'], 'status' => 'diagnosing']);
+        $this->assertDatabaseHas('workshop_orders', ['id' => $second['id'], 'status' => 'received']);
+    }
+
     public function test_orders_are_isolated_by_tenant(): void
     {
         [$user, $tenant] = $this->member();
