@@ -51,6 +51,23 @@ class CashRegisterTest extends TestCase
         $this->assertDatabaseCount('cash_movements', 1);
     }
 
+    public function test_transfer_is_visible_in_the_session_without_changing_expected_cash(): void
+    {
+        [$user, $tenant] = $this->member();
+        $base = "/api/v1/platform/tenants/{$tenant->id}/cash";
+        $session = $this->actingAs($user)->postJson($base.'/sessions', ['opening_balance' => 100, 'name' => 'Caja principal'])->assertCreated()->json('data');
+
+        $this->postJson($base.'/movements', ['direction' => 'in', 'kind' => 'manual_income', 'method' => 'transfer', 'amount' => 50, 'description' => 'Cobro por transferencia', 'cash_register_id' => $session['register']['id'], 'idempotency_key' => 'transfer-1'])
+            ->assertCreated();
+
+        $this->getJson($base.'?cash_register_id='.$session['register']['id'])
+            ->assertOk()
+            ->assertJsonPath('active_session.expected', 100)
+            ->assertJsonPath('summary.inflows', 50)
+            ->assertJsonPath('data.0.method', 'transfer');
+        $this->assertDatabaseHas('cash_movements', ['cash_session_id' => $session['id'], 'method' => 'transfer', 'amount' => 50]);
+    }
+
     public function test_sales_report_uses_commercial_ledger_signs(): void
     {
         [$user, $tenant] = $this->member();

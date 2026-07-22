@@ -64,6 +64,35 @@ class FiscalSyncTest extends TestCase
         $this->assertSame(1.0, (float) $item->fresh()->stock_quantity);
     }
 
+    public function test_transfer_payment_is_recorded_without_affecting_physical_cash(): void
+    {
+        [$user, $tenant] = $this->member();
+        $item = $this->inventoryItem($tenant, 1);
+        $payload = $this->issuePayload($item, 'sync-transfer-payment');
+        $payload['sale']['metadata'] = [
+            'document_type' => '01',
+            'customer_name' => 'Cliente transferencia',
+            'payment_status' => 'paid',
+            'payment_methods' => [['method' => 'transfer', 'amount' => 25, 'reference' => 'TRX-25']],
+        ];
+        $operation = $this->actingAs($user)
+            ->postJson($this->base($tenant).'/dte-issues', $payload)
+            ->assertCreated()
+            ->json('data');
+
+        $this->postJson($this->base($tenant)."/operations/{$operation['id']}/complete", ['fact' => $this->acceptedDte(509)])
+            ->assertOk();
+
+        $this->assertDatabaseHas('cash_movements', ['tenant_id' => $tenant->id, 'source_type' => 'dte', 'source_id' => '509', 'method' => 'transfer', 'amount' => 25]);
+        $this->actingAs($user)->getJson("/api/v1/platform/tenants/{$tenant->id}/cash/sales-report")
+            ->assertOk()
+            ->assertJsonPath('summary.total', 25)
+            ->assertJsonPath('summary.payments.cash', 0)
+            ->assertJsonPath('summary.payments.transfer', 25)
+            ->assertJsonPath('summary.payments.unclassified', 0)
+            ->assertJsonPath('data.0.payment_methods.transfer', 25);
+    }
+
     public function test_accepted_fse_is_not_recorded_as_sale_and_does_not_consume_inventory(): void
     {
         [$user, $tenant] = $this->member();

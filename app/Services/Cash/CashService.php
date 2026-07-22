@@ -28,9 +28,7 @@ class CashService
     {
         $direction = $payment->kind === 'refund' ? 'out' : 'in';
         $order = $payment->order;
-        $session = $payment->method === 'cash'
-            ? $this->activeSession($tenant, $payment->received_by, null, $order?->core_sucursal_id)
-            : null;
+        [$register, $session] = $this->paymentRegisterAndSession($tenant, $payment->received_by, $order?->core_sucursal_id);
 
         if ($payment->method === 'cash' && ! $session) {
             throw ValidationException::withMessages([
@@ -41,7 +39,7 @@ class CashService
         return CashMovement::query()->firstOrCreate(
             ['tenant_id' => $tenant->id, 'idempotency_key' => 'workshop-payment:'.$payment->id],
             [
-                'cash_register_id' => $session?->cash_register_id,
+                'cash_register_id' => $register?->id,
                 'cash_session_id' => $session?->id,
                 'workshop_order_id' => $payment->workshop_order_id,
                 'direction' => $direction,
@@ -69,22 +67,48 @@ class CashService
         return $session;
     }
 
-    public function recordDteCashPayment(Tenant $tenant, FiscalSyncOperation $operation, string $documentId, string $number): ?CashMovement
+    public function recordDtePayments(Tenant $tenant, FiscalSyncOperation $operation, string $documentId, string $number): void
     {
         if (filled($operation->payload['workshop_order_id'] ?? null)) {
-            return null;
+            return;
         }
-        $amount = round((float) data_get($operation->payload, 'sale.metadata.cash_amount', 0), 2);
-        if ($amount <= 0) {
-            return null;
-        }
-        $branchId = data_get($operation->payload, 'sale.core_sucursal_id');
-        $session = $this->ensureCashSession($tenant, $operation->created_by, $branchId ? (int) $branchId : null);
 
-        return CashMovement::query()->firstOrCreate(
-            ['tenant_id' => $tenant->id, 'idempotency_key' => 'dte-cash:'.$operation->id],
-            ['cash_register_id' => $session->cash_register_id, 'cash_session_id' => $session->id, 'direction' => 'in', 'kind' => 'sale_collection', 'method' => 'cash', 'amount' => $amount, 'description' => 'Cobro de DTE '.$number, 'reference' => $number, 'source_type' => 'dte', 'source_id' => $documentId, 'metadata' => ['fiscal_sync_operation_id' => $operation->id], 'created_by' => $operation->created_by, 'occurred_at' => now()],
-        );
+        $payments = collect(data_get($operation->payload, 'sale.metadata.payment_methods', []))
+            ->map(fn ($payment) => [
+                'method' => in_array($payment['method'] ?? null, ['cash', 'card', 'transfer', 'other'], true) ? $payment['method'] : 'other',
+                'amount' => round((float) ($payment['amount'] ?? 0), 2),
+                'reference' => filled($payment['reference'] ?? null) ? (string) $payment['reference'] : null,
+            ])
+            ->filter(fn ($payment) => $payment['amount'] > 0)
+            ->groupBy('method')
+            ->map(fn ($group, $method) => [
+                'method' => $method,
+                'amount' => round((float) $group->sum('amount'), 2),
+                'reference' => $group->pluck('reference')->filter()->first(),
+            ])
+            ->values();
+        if ($payments->isEmpty()) {
+            $cashAmount = round((float) data_get($operation->payload, 'sale.metadata.cash_amount', 0), 2);
+            if ($cashAmount > 0) {
+                $payments->push(['method' => 'cash', 'amount' => $cashAmount, 'reference' => null]);
+            }
+        }
+
+        $branchId = data_get($operation->payload, 'sale.core_sucursal_id');
+        [$register, $session] = $this->paymentRegisterAndSession($tenant, $operation->created_by, $branchId ? (int) $branchId : null);
+
+        foreach ($payments as $payment) {
+            if ($payment['method'] === 'cash' && ! $session) {
+                throw ValidationException::withMessages(['cash' => 'Abre una caja antes de emitir una venta cobrada en efectivo.']);
+            }
+            $key = $payment['method'] === 'cash'
+                ? 'dte-cash:'.$operation->id
+                : 'dte-payment:'.$operation->id.':'.$payment['method'];
+            CashMovement::query()->firstOrCreate(
+                ['tenant_id' => $tenant->id, 'idempotency_key' => $key],
+                ['cash_register_id' => $register?->id, 'cash_session_id' => $session?->id, 'direction' => 'in', 'kind' => 'sale_collection', 'method' => $payment['method'], 'amount' => $payment['amount'], 'description' => 'Cobro de DTE '.$number, 'reference' => $payment['reference'] ?? $number, 'source_type' => 'dte', 'source_id' => $documentId, 'metadata' => ['fiscal_sync_operation_id' => $operation->id], 'created_by' => $operation->created_by, 'occurred_at' => now()],
+            );
+        }
     }
 
     /** @return array{inflows:float,outflows:float,expected:float} */
@@ -117,5 +141,21 @@ class CashService
             'core_sucursal_name' => $branch['core_sucursal_name'] ?? null,
             'status' => 'active',
         ]);
+    }
+
+    /** @return array{0:CashRegister|null,1:CashSession|null} */
+    private function paymentRegisterAndSession(Tenant $tenant, ?int $userId, ?int $branchId): array
+    {
+        $session = $this->activeSession($tenant, $userId, null, $branchId);
+        $register = $session?->register;
+        if (! $register && $branchId) {
+            $register = CashRegister::query()
+                ->where('tenant_id', $tenant->id)
+                ->where('core_sucursal_id', $branchId)
+                ->where('status', 'active')
+                ->first();
+        }
+
+        return [$register, $session];
     }
 }

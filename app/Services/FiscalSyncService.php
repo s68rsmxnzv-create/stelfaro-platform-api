@@ -273,7 +273,7 @@ class FiscalSyncService
             'fiscal_sync_operation_id' => $operation->id,
         ]);
         $this->inventory->recordSale($tenant, $sale, $operation->created_by);
-        $this->cash->recordDteCashPayment($tenant, $operation, $documentId, $number);
+        $this->cash->recordDtePayments($tenant, $operation, $documentId, $number);
         if (in_array($documentType, ['01', '03'], true)) {
             $this->linkWorkshopOrder($tenant, $operation, $fact, $documentId, $number);
         }

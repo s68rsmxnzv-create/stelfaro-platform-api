@@ -142,7 +142,7 @@ class CashRegisterController extends Controller
         }
         $movement = DB::transaction(function () use ($tenant, $request, $cash, $data): CashMovement {
             $registerId = isset($data['cash_register_id']) ? (int) $data['cash_register_id'] : null;
-            $session = $data['method'] === 'cash' ? $cash->activeSession($tenant, $request->user()->id, $registerId) : null;
+            $session = $cash->activeSession($tenant, $request->user()->id, $registerId);
             if ($data['method'] === 'cash' && ! $session) {
                 throw ValidationException::withMessages(['method' => 'Abre una caja antes de registrar efectivo.']);
             }
@@ -164,7 +164,7 @@ class CashRegisterController extends Controller
 
             return CashMovement::query()->firstOrCreate(
                 ['tenant_id' => $tenant->id, 'idempotency_key' => $data['idempotency_key'] ?? (string) Str::uuid()],
-                ['cash_register_id' => $session?->cash_register_id, 'cash_session_id' => $session?->id, 'cash_expense_id' => $expense?->id, 'workshop_order_id' => $data['workshop_order_id'] ?? null, 'direction' => $data['direction'], 'kind' => $data['kind'], 'method' => $data['method'], 'amount' => $data['amount'], 'description' => trim($data['description']), 'reference' => $data['reference'] ?? null, 'source_type' => $expense ? 'cash_expense' : 'manual', 'source_id' => $expense ? (string) $expense->id : null, 'created_by' => $request->user()->id, 'occurred_at' => now()],
+                ['cash_register_id' => $session?->cash_register_id ?? $registerId, 'cash_session_id' => $session?->id, 'cash_expense_id' => $expense?->id, 'workshop_order_id' => $data['workshop_order_id'] ?? null, 'direction' => $data['direction'], 'kind' => $data['kind'], 'method' => $data['method'], 'amount' => $data['amount'], 'description' => trim($data['description']), 'reference' => $data['reference'] ?? null, 'source_type' => $expense ? 'cash_expense' : 'manual', 'source_id' => $expense ? (string) $expense->id : null, 'created_by' => $request->user()->id, 'occurred_at' => now()],
             )->load(['expense.supplier', 'order.device.customer']);
         });
         $audit->record($request, 'cash.movement.created', ['cash_movement_id' => $movement->id, 'direction' => $movement->direction, 'amount' => $movement->amount]);
