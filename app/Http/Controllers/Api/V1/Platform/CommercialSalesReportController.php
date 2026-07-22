@@ -7,7 +7,9 @@ use App\Models\CashExpense;
 use App\Models\CashMovement;
 use App\Models\InventorySale;
 use App\Models\Tenant;
+use App\Services\Cash\CashService;
 use App\Services\PlatformAccessPolicy;
+use App\Services\PlatformAuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -73,6 +75,55 @@ class CommercialSalesReportController extends Controller
             })->values(),
             'meta' => ['current_page' => $rows->currentPage(), 'last_page' => $rows->lastPage(), 'total' => $rows->total()],
         ]);
+    }
+
+    public function collect(Request $request, Tenant $tenant, InventorySale $inventorySale, PlatformAccessPolicy $policy, CashService $cash, PlatformAuditLogger $audit): JsonResponse
+    {
+        abort_unless($inventorySale->tenant_id === $tenant->id && $inventorySale->status === 'active', 404);
+        abort_unless($policy->canOperateTenant($request->user(), $tenant), 403);
+        abort_unless($inventorySale->source_type === 'dte' && $inventorySale->reporting_sign === 1, 422, 'Este cobro no corresponde a una venta DTE al crédito.');
+        $data = $request->validate([
+            'amount' => ['required', 'numeric', 'gt:0', 'max:999999999999.99'],
+            'method' => ['required', Rule::in(['cash', 'card', 'transfer', 'other'])],
+            'reference' => ['nullable', 'string', 'max:160'],
+            'notes' => ['nullable', 'string', 'max:500'],
+            'idempotency_key' => ['required', 'string', 'max:160'],
+        ]);
+        $result = DB::transaction(function () use ($tenant, $inventorySale, $request, $cash, $data): array {
+            $sale = InventorySale::query()->where('tenant_id', $tenant->id)->whereKey($inventorySale->id)->lockForUpdate()->firstOrFail();
+            $idempotencyKey = 'commercial-sale-payment:'.$sale->id.':'.$data['idempotency_key'];
+            $existing = CashMovement::query()->where('tenant_id', $tenant->id)->where('idempotency_key', $idempotencyKey)->first();
+            if ($existing) {
+                return ['sale' => $sale, 'movement' => $existing, 'created' => false];
+            }
+            $outstanding = round((float) data_get($sale->metadata, 'outstanding_amount', $sale->total_amount), 2);
+            if (data_get($sale->metadata, 'payment_status') !== 'receivable' || $outstanding <= 0) {
+                throw ValidationException::withMessages(['sale' => 'Esta venta ya no tiene saldo pendiente.']);
+            }
+            if ((float) $data['amount'] > $outstanding) {
+                throw ValidationException::withMessages(['amount' => 'El pago no puede superar el saldo pendiente.']);
+            }
+
+            $movement = $cash->recordCommercialSalePayment($tenant, $sale, $request->user()->id, $data);
+            if ($movement->wasRecentlyCreated) {
+                $remaining = round($outstanding - (float) $data['amount'], 2);
+                $metadata = $sale->metadata ?? [];
+                $metadata['outstanding_amount'] = max(0, $remaining);
+                $metadata['payment_status'] = $remaining <= 0 ? 'paid' : 'receivable';
+                $sale->forceFill(['metadata' => $metadata])->save();
+            }
+
+            return ['sale' => $sale->fresh(), 'movement' => $movement, 'created' => $movement->wasRecentlyCreated];
+        });
+        $audit->record($request, 'commercial_sale.payment_recorded', ['inventory_sale_id' => $inventorySale->id, 'cash_movement_id' => $result['movement']->id, 'amount' => (float) $result['movement']->amount, 'method' => $result['movement']->method]);
+
+        return response()->json(['data' => [
+            'sale_id' => $result['sale']->id,
+            'payment_status' => data_get($result['sale']->metadata, 'payment_status'),
+            'outstanding_amount' => (float) data_get($result['sale']->metadata, 'outstanding_amount', 0),
+            'movement_id' => $result['movement']->id,
+            'created' => $result['created'],
+        ]], $result['created'] ? 201 : 200);
     }
 
     /** @return array{methods:array{cash:float,card:float,transfer:float,other:float},total:float} */

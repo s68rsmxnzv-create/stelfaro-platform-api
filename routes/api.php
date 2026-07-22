@@ -128,6 +128,7 @@ Route::prefix('v1')->group(function (): void {
                 Route::post('movements/{cashMovement}/reverse', [CashRegisterController::class, 'reverse']);
                 Route::post('expenses/{cashExpense}/reconcile', [CashRegisterController::class, 'reconcileExpense']);
                 Route::get('sales-report', CommercialSalesReportController::class);
+                Route::post('sales/{inventorySale}/payments', [CommercialSalesReportController::class, 'collect']);
             });
         Route::prefix('platform/tenants/{tenant}/workshop')
             ->middleware('tenant.app:taller')

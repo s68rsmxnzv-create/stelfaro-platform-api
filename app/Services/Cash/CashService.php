@@ -6,6 +6,7 @@ use App\Models\CashMovement;
 use App\Models\CashRegister;
 use App\Models\CashSession;
 use App\Models\FiscalSyncOperation;
+use App\Models\InventorySale;
 use App\Models\Tenant;
 use App\Models\WorkshopOrderPayment;
 use Illuminate\Validation\ValidationException;
@@ -109,6 +110,33 @@ class CashService
                 ['cash_register_id' => $register?->id, 'cash_session_id' => $session?->id, 'direction' => 'in', 'kind' => 'sale_collection', 'method' => $payment['method'], 'amount' => $payment['amount'], 'description' => 'Cobro de DTE '.$number, 'reference' => $payment['reference'] ?? $number, 'source_type' => 'dte', 'source_id' => $documentId, 'metadata' => ['fiscal_sync_operation_id' => $operation->id], 'created_by' => $operation->created_by, 'occurred_at' => now()],
             );
         }
+    }
+
+    public function recordCommercialSalePayment(Tenant $tenant, InventorySale $sale, int $userId, array $data): CashMovement
+    {
+        [$register, $session] = $this->paymentRegisterAndSession($tenant, $userId, $sale->core_sucursal_id);
+        if ($data['method'] === 'cash' && ! $session) {
+            throw ValidationException::withMessages(['method' => 'Abre una caja antes de recibir este pago en efectivo.']);
+        }
+
+        return CashMovement::query()->firstOrCreate(
+            ['tenant_id' => $tenant->id, 'idempotency_key' => 'commercial-sale-payment:'.$sale->id.':'.$data['idempotency_key']],
+            [
+                'cash_register_id' => $register?->id,
+                'cash_session_id' => $session?->id,
+                'direction' => 'in',
+                'kind' => 'sale_collection',
+                'method' => $data['method'],
+                'amount' => $data['amount'],
+                'description' => 'Cobro de '.$sale->source_number,
+                'reference' => $data['reference'] ?? $sale->source_number,
+                'source_type' => $sale->source_type,
+                'source_id' => $sale->source_id,
+                'metadata' => ['inventory_sale_id' => $sale->id, 'notes' => $data['notes'] ?? null],
+                'created_by' => $userId,
+                'occurred_at' => now(),
+            ],
+        );
     }
 
     /** @return array{inflows:float,outflows:float,expected:float} */

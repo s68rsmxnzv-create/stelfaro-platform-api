@@ -78,6 +78,30 @@ class CashRegisterTest extends TestCase
             ->assertOk()->assertJsonPath('summary.transactions', 2)->assertJsonPath('summary.net', 80)->assertJsonPath('summary.total', 90.4);
     }
 
+    public function test_dte_receivable_accepts_partial_idempotent_payments_and_updates_the_report(): void
+    {
+        [$user, $tenant] = $this->member();
+        $base = "/api/v1/platform/tenants/{$tenant->id}/cash";
+        $session = $this->actingAs($user)->postJson($base.'/sessions', ['opening_balance' => 20, 'name' => 'Caja principal'])->assertCreated()->json('data');
+        $sale = InventorySale::query()->create(['tenant_id' => $tenant->id, 'source_type' => 'dte', 'source_id' => '182', 'source_number' => 'DTE-01-M001P001-000000000000182', 'sale_date' => today(), 'operation_kind' => 'sale', 'fiscal_document_type' => '01', 'reporting_sign' => 1, 'net_amount' => 100, 'tax_amount' => 13, 'total_amount' => 113, 'status' => 'active', 'metadata' => ['payment_status' => 'receivable', 'outstanding_amount' => 113, 'customer_name' => 'Cliente crédito']]);
+        $url = $base."/sales/{$sale->id}/payments";
+
+        $this->postJson($url, ['amount' => 40, 'method' => 'transfer', 'reference' => 'TRX-40', 'idempotency_key' => 'payment-transfer'])
+            ->assertCreated()->assertJsonPath('data.outstanding_amount', 73)->assertJsonPath('data.payment_status', 'receivable');
+        $this->postJson($url, ['amount' => 40, 'method' => 'transfer', 'reference' => 'TRX-40', 'idempotency_key' => 'payment-transfer'])
+            ->assertOk()->assertJsonPath('data.outstanding_amount', 73)->assertJsonPath('data.created', false);
+        $this->postJson($url, ['amount' => 73, 'method' => 'cash', 'idempotency_key' => 'payment-cash'])
+            ->assertCreated()->assertJsonPath('data.outstanding_amount', 0)->assertJsonPath('data.payment_status', 'paid');
+
+        $this->assertDatabaseCount('cash_movements', 2);
+        $this->getJson($base.'?cash_register_id='.$session['register']['id'])->assertOk()->assertJsonPath('active_session.expected', 93);
+        $this->getJson($base.'/sales-report')->assertOk()
+            ->assertJsonPath('summary.payments.cash', 73)
+            ->assertJsonPath('summary.payments.transfer', 40)
+            ->assertJsonPath('summary.receivable', 0)
+            ->assertJsonPath('data.0.payment_status', 'paid');
+    }
+
     public function test_sales_report_includes_direct_costs_linked_to_workshop_orders(): void
     {
         [$user, $tenant] = $this->member();
