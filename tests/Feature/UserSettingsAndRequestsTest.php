@@ -128,6 +128,36 @@ class UserSettingsAndRequestsTest extends TestCase
         ])->assertForbidden();
     }
 
+    public function test_platform_owner_can_fulfill_user_request_and_requester_can_reveal_temporary_credentials(): void
+    {
+        [$admin, $tenant] = $this->tenantUser('company_admin');
+        $owner = User::factory()->create(['platform_role' => 'platform_owner']);
+        $requestId = $this->actingAs($admin)->postJson("/api/v1/platform/tenants/{$tenant->id}/requests", [
+            'idempotency_key' => '495ba25a-a076-4b76-b15b-1b16bc58d499',
+            'type' => 'user_access',
+            'subject' => 'Crear usuario de caja',
+            'payload' => ['action' => 'create', 'name' => 'Ana Caja', 'email' => 'ana.caja@example.test', 'phone' => '7000-1234', 'role' => 'billing_user'],
+        ])->assertCreated()->json('data.id');
+
+        $this->actingAs($owner)->patchJson("/api/v1/admin/platform/requests/{$requestId}", [
+            'status' => 'approved',
+            'admin_response' => 'Solicitud aprobada.',
+        ])->assertOk();
+        $created = $this->postJson("/api/v1/admin/platform/requests/{$requestId}/create-user", [
+            'name' => 'Ana Caja', 'email' => 'ana.caja@example.test', 'phone' => '7000-1234', 'role' => 'billing_user',
+        ])->assertCreated()->assertJsonPath('data.status', 'completed')->assertJsonPath('data.fulfillment.credentials_available', true);
+
+        $this->assertNotEmpty($created->json('temporary_password'));
+        $this->assertDatabaseHas('users', ['email' => 'ana.caja@example.test', 'phone' => '7000-1234']);
+        $this->assertDatabaseHas('tenant_requests', ['id' => $requestId, 'status' => 'completed']);
+        $this->assertDatabaseHas('internal_notifications', ['user_id' => $admin->id, 'category' => 'tenant_request']);
+
+        $this->actingAs($admin)->postJson("/api/v1/platform/tenants/{$tenant->id}/requests/{$requestId}/credentials")
+            ->assertOk()
+            ->assertJsonPath('data.email', 'ana.caja@example.test')
+            ->assertJsonPath('data.temporary_password', $created->json('temporary_password'));
+    }
+
     /** @return array{User, Tenant} */
     private function tenantUser(string $role): array
     {

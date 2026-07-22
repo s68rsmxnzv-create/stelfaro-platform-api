@@ -23,12 +23,12 @@ class DirectTenantUserService
     /**
      * @return array{user: User, temporary_password: string|null, created: bool}
      */
-    public function create(Tenant $tenant, string $name, string $email, string $role, User $creator, ?string $temporaryPassword = null, bool $makeDefault = false): array
+    public function create(Tenant $tenant, string $name, string $email, string $role, User $creator, ?string $temporaryPassword = null, bool $makeDefault = false, ?string $phone = null): array
     {
         $email = strtolower(trim($email));
         $this->ensureAssignableRole($role, $creator);
 
-        return DB::transaction(function () use ($tenant, $name, $email, $role, $creator, $temporaryPassword, $makeDefault): array {
+        return DB::transaction(function () use ($tenant, $name, $email, $role, $creator, $temporaryPassword, $makeDefault, $phone): array {
             $user = User::query()->where('email', $email)->lockForUpdate()->first();
             $created = false;
             $createdPassword = null;
@@ -38,6 +38,7 @@ class DirectTenantUserService
                 $user = User::query()->create([
                     'name' => trim($name),
                     'email' => $email,
+                    'phone' => filled($phone) ? trim($phone) : null,
                     'email_verified_at' => now(),
                     'password' => $createdPassword,
                     'must_change_password' => true,

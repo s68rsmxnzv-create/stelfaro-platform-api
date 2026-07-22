@@ -111,6 +111,7 @@ class TenantUserController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email:rfc', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:40'],
             'role' => ['required', 'string', Rule::in([
                 PlatformRoles::OWNER,
                 PlatformRoles::COMPANY_ADMIN,
@@ -126,6 +127,7 @@ class TenantUserController extends Controller
             (string) $validated['email'],
             (string) $validated['role'],
             $request->user(),
+            phone: $validated['phone'] ?? null,
         );
         $delivery = null;
         $visibleTemporaryPassword = $result['temporary_password'];

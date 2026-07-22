@@ -24,7 +24,7 @@ class TenantRequestController extends Controller
             'type' => ['nullable', 'string', Rule::in(TenantRequest::TYPES)],
         ]);
 
-        $query = $tenant->requests()->with(['requester:id,name,email', 'assignee:id,name,email'])->latest();
+        $query = $tenant->requests()->with(['requester:id,name,email', 'assignee:id,name,email', 'fulfilledUser:id,name,email,must_change_password'])->latest();
         if (filled($validated['status'] ?? null)) {
             $query->where('status', $validated['status']);
         }
@@ -33,6 +33,22 @@ class TenantRequestController extends Controller
         }
 
         return response()->json(['data' => $query->limit(100)->get()->map(fn (TenantRequest $item): array => $this->payload($item))->values()]);
+    }
+
+    public function revealCredentials(Request $request, Tenant $tenant, TenantRequest $tenantRequest, PlatformAccessPolicy $policy): JsonResponse
+    {
+        abort_unless($tenantRequest->tenant_id === $tenant->id, 404);
+        abort_unless($policy->canViewTenantRequests($request->user(), $tenant), 403);
+        abort_unless($tenantRequest->requested_by_user_id === $request->user()->id, 403);
+        abort_if(blank($tenantRequest->temporary_password), 404, 'Esta solicitud no tiene una contraseña temporal disponible.');
+        abort_if($tenantRequest->fulfilledUser && ! $tenantRequest->fulfilledUser->must_change_password, 410, 'La contraseña temporal ya no está vigente.');
+
+        $tenantRequest->forceFill(['credentials_revealed_at' => now()])->save();
+
+        return response()->json(['data' => [
+            'email' => $tenantRequest->fulfilledUser?->email,
+            'temporary_password' => $tenantRequest->temporary_password,
+        ]]);
     }
 
     public function store(Request $request, Tenant $tenant, PlatformAccessPolicy $policy): JsonResponse
@@ -133,6 +149,11 @@ class TenantRequestController extends Controller
             'description' => $item->description,
             'payload' => $item->payload,
             'admin_response' => $item->admin_response,
+            'fulfillment' => $item->fulfilledUser ? [
+                'user' => ['id' => $item->fulfilledUser->id, 'name' => $item->fulfilledUser->name, 'email' => $item->fulfilledUser->email],
+                'credentials_available' => filled($item->temporary_password) && (bool) $item->fulfilledUser->must_change_password,
+                'credentials_revealed_at' => optional($item->credentials_revealed_at)->toISOString(),
+            ] : null,
             'reviewed_at' => optional($item->reviewed_at)->toISOString(),
             'completed_at' => optional($item->completed_at)->toISOString(),
             'created_at' => optional($item->created_at)->toISOString(),

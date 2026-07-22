@@ -7,8 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
-    'tenant_id', 'requested_by_user_id', 'assigned_to_user_id', 'public_id', 'idempotency_key', 'type', 'status',
-    'subject', 'description', 'payload', 'admin_response', 'reviewed_at', 'completed_at',
+    'tenant_id', 'requested_by_user_id', 'assigned_to_user_id', 'fulfilled_user_id', 'public_id', 'idempotency_key', 'type', 'status',
+    'subject', 'description', 'payload', 'admin_response', 'temporary_password', 'credentials_available_at',
+    'credentials_revealed_at', 'reviewed_at', 'completed_at',
 ])]
 class TenantRequest extends Model
 {
@@ -40,6 +41,9 @@ class TenantRequest extends Model
     {
         return [
             'payload' => 'array',
+            'temporary_password' => 'encrypted',
+            'credentials_available_at' => 'datetime',
+            'credentials_revealed_at' => 'datetime',
             'reviewed_at' => 'datetime',
             'completed_at' => 'datetime',
         ];
@@ -58,5 +62,10 @@ class TenantRequest extends Model
     public function assignee(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_to_user_id');
+    }
+
+    public function fulfilledUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'fulfilled_user_id');
     }
 }

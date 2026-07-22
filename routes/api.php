@@ -80,6 +80,7 @@ Route::prefix('v1')->group(function (): void {
         Route::get('admin/platform/subscriptions', [SubscriptionController::class, 'index']);
         Route::get('admin/platform/requests', [AdminTenantRequestController::class, 'index']);
         Route::patch('admin/platform/requests/{tenantRequest}', [AdminTenantRequestController::class, 'update']);
+        Route::post('admin/platform/requests/{tenantRequest}/create-user', [AdminTenantRequestController::class, 'createUser']);
         Route::put('admin/platform/tenants/{tenant}/subscription', [SubscriptionController::class, 'update']);
         Route::get('admin/platform/tenants/by-core-empresa/{coreEmpresaId}/subscription', [SubscriptionController::class, 'showByCoreEmpresa']);
         Route::put('admin/platform/tenants/by-core-empresa/{coreEmpresaId}/subscription', [SubscriptionController::class, 'updateByCoreEmpresa']);
@@ -92,6 +93,7 @@ Route::prefix('v1')->group(function (): void {
         Route::get('platform/tenants/{tenant}/users', [TenantUserController::class, 'index']);
         Route::get('platform/tenants/{tenant}/requests', [TenantRequestController::class, 'index']);
         Route::post('platform/tenants/{tenant}/requests', [TenantRequestController::class, 'store']);
+        Route::post('platform/tenants/{tenant}/requests/{tenantRequest}/credentials', [TenantRequestController::class, 'revealCredentials']);
         Route::get('platform/tenants/{tenant}/audit-logs', [PlatformAuditLogController::class, 'tenant']);
         Route::get('platform/tenants/{tenant}/catalog/categories', [CatalogCategoryController::class, 'index']);
         Route::post('platform/tenants/{tenant}/catalog/categories', [CatalogCategoryController::class, 'store']);

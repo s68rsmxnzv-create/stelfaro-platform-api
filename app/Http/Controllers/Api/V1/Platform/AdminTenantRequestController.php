@@ -5,7 +5,11 @@ namespace App\Http\Controllers\Api\V1\Platform;
 use App\Http\Controllers\Controller;
 use App\Models\InternalNotification;
 use App\Models\TenantRequest;
+use App\Services\Platform\DirectTenantUserService;
+use App\Services\Platform\TemporaryPasswordNotificationClient;
+use App\Services\Platform\TenantEnvironmentResolver;
 use App\Services\PlatformAccessPolicy;
+use App\Support\Platform\PlatformRoles;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -20,7 +24,7 @@ class AdminTenantRequestController extends Controller
             'type' => ['nullable', 'string', Rule::in(TenantRequest::TYPES)],
             'q' => ['nullable', 'string', 'max:120'],
         ]);
-        $query = TenantRequest::query()->with(['tenant:id,name', 'requester:id,name,email', 'assignee:id,name,email'])->latest();
+        $query = TenantRequest::query()->with(['tenant:id,name,slug', 'requester:id,name,email', 'assignee:id,name,email', 'fulfilledUser:id,name,email,must_change_password'])->latest();
         if (filled($validated['status'] ?? null)) {
             $query->where('status', $validated['status']);
         }
@@ -37,6 +41,64 @@ class AdminTenantRequestController extends Controller
         }
 
         return response()->json(['data' => $query->limit(200)->get()->map(fn (TenantRequest $item): array => TenantRequestController::payload($item))->values()]);
+    }
+
+    public function createUser(
+        Request $request,
+        TenantRequest $tenantRequest,
+        PlatformAccessPolicy $policy,
+        DirectTenantUserService $users,
+        TenantEnvironmentResolver $environmentResolver,
+        TemporaryPasswordNotificationClient $temporaryPasswords,
+    ): JsonResponse {
+        abort_unless($policy->canManageTenantRequests($request->user()), 403);
+        abort_unless($tenantRequest->type === 'user_access' && data_get($tenantRequest->payload, 'action') === 'create', 422, 'Esta solicitud no corresponde a la creación de un usuario.');
+        abort_if($tenantRequest->fulfilled_user_id, 422, 'Esta solicitud ya fue atendida.');
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email:rfc', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:40'],
+            'role' => ['required', 'string', Rule::in([PlatformRoles::COMPANY_ADMIN, PlatformRoles::BILLING_ADMIN, PlatformRoles::BILLING_USER, PlatformRoles::VIEWER])],
+        ]);
+
+        $tenant = $tenantRequest->tenant()->firstOrFail();
+        $result = $users->create($tenant, $validated['name'], $validated['email'], $validated['role'], $request->user(), phone: $validated['phone'] ?? null);
+        $delivery = null;
+        if ($environmentResolver->isProduction($tenant) && $result['created'] && $result['temporary_password']) {
+            $delivery = $temporaryPasswords->send($tenant, $result['user'], $validated['role'], $result['temporary_password'], 'tenant_request');
+        }
+
+        $tenantRequest->forceFill([
+            'status' => 'completed',
+            'admin_response' => $tenantRequest->admin_response ?: 'El usuario fue creado y su acceso quedó habilitado.',
+            'assigned_to_user_id' => $request->user()->id,
+            'fulfilled_user_id' => $result['user']->id,
+            'temporary_password' => $result['temporary_password'],
+            'credentials_available_at' => $result['temporary_password'] ? now() : null,
+            'reviewed_at' => $tenantRequest->reviewed_at ?? now(),
+            'completed_at' => now(),
+        ])->save();
+
+        InternalNotification::query()->create([
+            'user_id' => $tenantRequest->requested_by_user_id,
+            'tenant_id' => $tenantRequest->tenant_id,
+            'category' => 'tenant_request',
+            'title' => $result['temporary_password'] ? 'Usuario creado · credenciales disponibles' : 'Acceso de usuario habilitado',
+            'message' => $tenantRequest->subject.' fue completada.',
+            'action_url' => '/configuracion?view=requests&request='.$tenantRequest->id,
+            'source_type' => TenantRequest::class,
+            'source_id' => $tenantRequest->id,
+            'dedupe_key' => 'tenant-request-user-created:'.$tenantRequest->id,
+            'metadata' => ['request_id' => $tenantRequest->public_id, 'status' => 'completed', 'credentials_available' => (bool) $result['temporary_password']],
+        ]);
+
+        return response()->json([
+            'data' => TenantRequestController::payload($tenantRequest->load(['tenant', 'requester', 'assignee', 'fulfilledUser'])),
+            'user' => ['id' => $result['user']->id, 'name' => $result['user']->name, 'email' => $result['user']->email],
+            'temporary_password' => $result['temporary_password'],
+            'temporary_password_delivery' => $delivery,
+            'created' => $result['created'],
+        ], 201);
     }
 
     public function update(Request $request, TenantRequest $tenantRequest, PlatformAccessPolicy $policy): JsonResponse
