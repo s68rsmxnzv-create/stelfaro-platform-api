@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class UserSettingsAndRequestsTest extends TestCase
@@ -88,7 +89,12 @@ class UserSettingsAndRequestsTest extends TestCase
             'type' => 'branch',
             'subject' => 'Nueva sucursal Santa Ana',
             'description' => 'Necesitamos habilitar una segunda ubicación.',
-            'payload' => ['name' => 'Santa Ana', 'address' => 'Centro'],
+            'payload' => [
+                'name' => 'Santa Ana',
+                'address' => 'Centro',
+                'department' => 'Santa Ana',
+                'municipality' => 'Santa Ana',
+            ],
         ];
 
         $first = $this->actingAs($admin)->postJson("/api/v1/platform/tenants/{$tenant->id}/requests", $payload)
@@ -156,6 +162,72 @@ class UserSettingsAndRequestsTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.email', 'ana.caja@example.test')
             ->assertJsonPath('data.temporary_password', $created->json('temporary_password'));
+    }
+
+    public function test_opening_request_starts_review_and_owner_can_correct_and_create_branch(): void
+    {
+        config([
+            'services.dte_core.base_url' => 'https://core.test/api/v1',
+            'services.dte_core.internal_token' => 'internal-secret',
+            'services.dte_core.admin_email' => 'admin@stelfaro.com',
+        ]);
+        Http::fake([
+            'https://core.test/api/v1/internal/auth/billing-session' => Http::response(['token' => 'backoffice-token']),
+            'https://core.test/api/v1/billing/companies/77/sucursales' => Http::response(['empresa' => ['sucursales' => [[
+                'id' => 501, 'codigo' => 'S002', 'nombre' => 'Sucursal Santa Ana', 'puntosVenta' => [['id' => 601, 'codigo' => 'P001']],
+            ]]]], 201),
+        ]);
+        [$admin, $tenant] = $this->tenantUser('company_admin');
+        $tenant->forceFill(['metadata' => ['core_empresa_id' => 77]])->save();
+        $owner = User::factory()->create(['platform_role' => 'platform_owner']);
+        $requestId = $this->actingAs($admin)->postJson("/api/v1/platform/tenants/{$tenant->id}/requests", [
+            'idempotency_key' => '495ba25a-a076-4b76-b15b-1b16bc58d498', 'type' => 'branch', 'subject' => 'Nueva sucursal',
+            'payload' => ['name' => 'Santa Ana', 'establishment_type' => 'branch', 'address' => 'Centro', 'department' => 'Santa Ana', 'municipality' => 'Santa Ana'],
+        ])->assertCreated()->json('data.id');
+
+        $this->actingAs($owner)->postJson("/api/v1/admin/platform/requests/{$requestId}/review")
+            ->assertOk()->assertJsonPath('data.status', 'in_review');
+        $this->postJson("/api/v1/admin/platform/requests/{$requestId}/create-branch", [
+            'nombre' => 'Sucursal Santa Ana', 'codigo' => 'S002', 'direccion' => 'Centro', 'departamento' => 'Santa Ana',
+            'municipio' => 'Santa Ana', 'punto_venta_codigo' => 'P001', 'punto_venta_nombre' => 'Caja principal',
+        ])->assertCreated()->assertJsonPath('data.status', 'completed')->assertJsonPath('data.fulfillment.resource_id', '501');
+
+        $this->assertDatabaseHas('tenant_requests', ['id' => $requestId, 'fulfilled_resource_type' => 'branch', 'fulfilled_resource_id' => '501']);
+        Http::assertSent(fn ($request) => $request->url() === 'https://core.test/api/v1/billing/companies/77/sucursales'
+            && $request->hasHeader('Authorization', 'Bearer backoffice-token')
+            && $request['codigo'] === 'S002');
+    }
+
+    public function test_owner_can_only_create_requested_point_in_a_branch_owned_by_the_tenant(): void
+    {
+        config([
+            'services.dte_core.base_url' => 'https://core.test/api/v1',
+            'services.dte_core.internal_token' => 'internal-secret',
+            'services.dte_core.admin_email' => 'admin@stelfaro.com',
+        ]);
+        Http::fake([
+            'https://core.test/api/v1/internal/billing/companies/77/fiscal-scope' => Http::response([
+                'sucursales' => [['id' => 501, 'nombre' => 'Casa matriz', 'puntos_venta' => []]],
+            ]),
+            'https://core.test/api/v1/internal/auth/billing-session' => Http::response(['token' => 'backoffice-token']),
+            'https://core.test/api/v1/billing/sucursales/501/puntos-venta' => Http::response(['empresa' => ['sucursales' => [[
+                'id' => 501, 'puntosVenta' => [['id' => 602, 'codigo' => 'P002']],
+            ]]]], 201),
+        ]);
+        [$admin, $tenant] = $this->tenantUser('company_admin');
+        $tenant->forceFill(['metadata' => ['core_empresa_id' => 77]])->save();
+        $owner = User::factory()->create(['platform_role' => 'platform_owner']);
+        $requestId = $this->actingAs($admin)->postJson("/api/v1/platform/tenants/{$tenant->id}/requests", [
+            'idempotency_key' => '495ba25a-a076-4b76-b15b-1b16bc58d497', 'type' => 'point_of_sale', 'subject' => 'Nueva caja',
+            'payload' => ['name' => 'Caja dos', 'branch_id' => 501, 'point_type' => 'terminal'],
+        ])->assertCreated()->json('data.id');
+
+        $this->actingAs($owner)->postJson("/api/v1/admin/platform/requests/{$requestId}/create-point-of-sale", [
+            'sucursal_id' => 999, 'codigo' => 'P002', 'nombre' => 'Caja dos', 'tipo' => 'terminal',
+        ])->assertUnprocessable();
+        $this->postJson("/api/v1/admin/platform/requests/{$requestId}/create-point-of-sale", [
+            'sucursal_id' => 501, 'codigo' => 'P002', 'nombre' => 'Caja dos', 'tipo' => 'terminal',
+        ])->assertCreated()->assertJsonPath('data.fulfillment.resource_id', '602');
     }
 
     /** @return array{User, Tenant} */

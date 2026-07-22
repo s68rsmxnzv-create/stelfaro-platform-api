@@ -5,10 +5,13 @@ namespace App\Http\Controllers\Api\V1\Platform;
 use App\Http\Controllers\Controller;
 use App\Models\InternalNotification;
 use App\Models\TenantRequest;
+use App\Services\CoreFiscalScopeClient;
+use App\Services\CoreTenantStructureClient;
 use App\Services\Platform\DirectTenantUserService;
 use App\Services\Platform\TemporaryPasswordNotificationClient;
 use App\Services\Platform\TenantEnvironmentResolver;
 use App\Services\PlatformAccessPolicy;
+use App\Services\TenantFiscalLinkResolver;
 use App\Support\Platform\PlatformRoles;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -73,6 +76,9 @@ class AdminTenantRequestController extends Controller
             'admin_response' => $tenantRequest->admin_response ?: 'El usuario fue creado y su acceso quedó habilitado.',
             'assigned_to_user_id' => $request->user()->id,
             'fulfilled_user_id' => $result['user']->id,
+            'fulfilled_resource_type' => 'user',
+            'fulfilled_resource_id' => (string) $result['user']->id,
+            'reviewed_payload' => $validated,
             'temporary_password' => $result['temporary_password'],
             'credentials_available_at' => $result['temporary_password'] ? now() : null,
             'reviewed_at' => $tenantRequest->reviewed_at ?? now(),
@@ -99,6 +105,108 @@ class AdminTenantRequestController extends Controller
             'temporary_password_delivery' => $delivery,
             'created' => $result['created'],
         ], 201);
+    }
+
+    public function review(Request $request, TenantRequest $tenantRequest, PlatformAccessPolicy $policy): JsonResponse
+    {
+        abort_unless($policy->canManageTenantRequests($request->user()), 403);
+        if ($tenantRequest->status === 'pending') {
+            $tenantRequest->forceFill([
+                'status' => 'in_review',
+                'assigned_to_user_id' => $request->user()->id,
+                'reviewed_at' => now(),
+            ])->save();
+        }
+
+        return response()->json(['data' => TenantRequestController::payload($tenantRequest->load(['tenant', 'requester', 'assignee', 'fulfilledUser']))]);
+    }
+
+    public function createBranch(Request $request, TenantRequest $tenantRequest, PlatformAccessPolicy $policy, TenantFiscalLinkResolver $links, CoreTenantStructureClient $core): JsonResponse
+    {
+        abort_unless($policy->canManageTenantRequests($request->user()), 403);
+        abort_unless($tenantRequest->type === 'branch', 422, 'Esta solicitud no corresponde a una sucursal.');
+        abort_if($tenantRequest->fulfilled_resource_id, 422, 'Esta solicitud ya fue atendida.');
+        $validated = $request->validate([
+            'nombre' => ['required', 'string', 'max:255'],
+            'codigo' => ['required', 'string', 'regex:/^[MBSP][0-9]{3}$/i'],
+            'direccion' => ['required', 'string', 'max:255'],
+            'departamento' => ['required', 'string', 'max:64'],
+            'municipio' => ['required', 'string', 'max:64'],
+            'distrito' => ['nullable', 'string', 'max:64'],
+            'telefono' => ['nullable', 'string', 'max:32'],
+            'email' => ['nullable', 'email', 'max:255'],
+            'punto_venta_codigo' => ['required', 'string', 'regex:/^P[0-9]{3}$/i'],
+            'punto_venta_nombre' => ['required', 'string', 'max:255'],
+            'punto_venta_tipo' => ['nullable', 'string', 'max:64'],
+        ]);
+        $response = $core->createBranch($links->coreEmpresaId($tenantRequest->tenant), [
+            ...$validated,
+            'request_reference' => $tenantRequest->public_id,
+        ]);
+        $empresa = $response['empresa'] ?? [];
+        $branch = collect($empresa['sucursales'] ?? [])->firstWhere('codigo', strtoupper($validated['codigo']));
+        abort_unless(is_array($branch) && isset($branch['id']), 502, 'La sucursal fue procesada, pero no pudimos identificarla.');
+
+        return $this->completeStructure($request, $tenantRequest, 'branch', (string) $branch['id'], $validated);
+    }
+
+    public function createPointOfSale(
+        Request $request,
+        TenantRequest $tenantRequest,
+        PlatformAccessPolicy $policy,
+        TenantFiscalLinkResolver $links,
+        CoreFiscalScopeClient $scope,
+        CoreTenantStructureClient $core,
+    ): JsonResponse {
+        abort_unless($policy->canManageTenantRequests($request->user()), 403);
+        abort_unless($tenantRequest->type === 'point_of_sale', 422, 'Esta solicitud no corresponde a un punto de venta.');
+        abort_if($tenantRequest->fulfilled_resource_id, 422, 'Esta solicitud ya fue atendida.');
+        $validated = $request->validate([
+            'sucursal_id' => ['required', 'integer', 'min:1'],
+            'codigo' => ['required', 'string', 'regex:/^P[0-9]{3}$/i'],
+            'nombre' => ['required', 'string', 'max:255'],
+            'tipo' => ['nullable', 'string', 'max:64'],
+        ]);
+        $companyScope = $scope->companyScope($links->coreEmpresaId($tenantRequest->tenant));
+        $belongsToTenant = collect($companyScope['sucursales'] ?? [])
+            ->contains(fn (array $branch): bool => (int) ($branch['id'] ?? 0) === (int) $validated['sucursal_id']);
+        abort_unless($belongsToTenant, 422, 'La sucursal seleccionada no pertenece a esta empresa.');
+
+        $response = $core->createPointOfSale((int) $validated['sucursal_id'], [
+            'codigo' => $validated['codigo'], 'nombre' => $validated['nombre'], 'tipo' => $validated['tipo'] ?? 'terminal',
+            'request_reference' => $tenantRequest->public_id,
+        ]);
+        $empresa = $response['empresa'] ?? [];
+        $branch = collect($empresa['sucursales'] ?? [])->firstWhere('id', (int) $validated['sucursal_id']);
+        $point = collect($branch['puntosVenta'] ?? [])->firstWhere('codigo', strtoupper($validated['codigo']));
+        abort_unless(is_array($point) && isset($point['id']), 502, 'El punto de venta fue procesado, pero no pudimos identificarlo.');
+
+        return $this->completeStructure($request, $tenantRequest, 'point_of_sale', (string) $point['id'], $validated);
+    }
+
+    /** @param array<string, mixed> $reviewed */
+    private function completeStructure(Request $request, TenantRequest $tenantRequest, string $type, string $id, array $reviewed): JsonResponse
+    {
+        $tenantRequest->forceFill([
+            'status' => 'completed',
+            'admin_response' => $tenantRequest->admin_response ?: 'La solicitud fue aprobada y creada correctamente.',
+            'assigned_to_user_id' => $request->user()->id,
+            'reviewed_payload' => $reviewed,
+            'fulfilled_resource_type' => $type,
+            'fulfilled_resource_id' => $id,
+            'reviewed_at' => $tenantRequest->reviewed_at ?? now(),
+            'completed_at' => now(),
+        ])->save();
+        InternalNotification::query()->firstOrCreate(['dedupe_key' => 'tenant-request-fulfilled:'.$tenantRequest->id], [
+            'user_id' => $tenantRequest->requested_by_user_id, 'tenant_id' => $tenantRequest->tenant_id,
+            'category' => 'tenant_request', 'title' => 'Solicitud completada',
+            'message' => $tenantRequest->subject.' fue aprobada y creada.',
+            'action_url' => '/configuracion?view=requests&request='.$tenantRequest->id,
+            'source_type' => TenantRequest::class, 'source_id' => $tenantRequest->id,
+            'metadata' => ['request_id' => $tenantRequest->public_id, 'status' => 'completed', 'resource_type' => $type, 'resource_id' => $id],
+        ]);
+
+        return response()->json(['data' => TenantRequestController::payload($tenantRequest->load(['tenant', 'requester', 'assignee', 'fulfilledUser']))], 201);
     }
 
     public function update(Request $request, TenantRequest $tenantRequest, PlatformAccessPolicy $policy): JsonResponse

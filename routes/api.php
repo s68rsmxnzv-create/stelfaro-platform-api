@@ -80,7 +80,10 @@ Route::prefix('v1')->group(function (): void {
         Route::get('admin/platform/subscriptions', [SubscriptionController::class, 'index']);
         Route::get('admin/platform/requests', [AdminTenantRequestController::class, 'index']);
         Route::patch('admin/platform/requests/{tenantRequest}', [AdminTenantRequestController::class, 'update']);
+        Route::post('admin/platform/requests/{tenantRequest}/review', [AdminTenantRequestController::class, 'review']);
         Route::post('admin/platform/requests/{tenantRequest}/create-user', [AdminTenantRequestController::class, 'createUser']);
+        Route::post('admin/platform/requests/{tenantRequest}/create-branch', [AdminTenantRequestController::class, 'createBranch']);
+        Route::post('admin/platform/requests/{tenantRequest}/create-point-of-sale', [AdminTenantRequestController::class, 'createPointOfSale']);
         Route::put('admin/platform/tenants/{tenant}/subscription', [SubscriptionController::class, 'update']);
         Route::get('admin/platform/tenants/by-core-empresa/{coreEmpresaId}/subscription', [SubscriptionController::class, 'showByCoreEmpresa']);
         Route::put('admin/platform/tenants/by-core-empresa/{coreEmpresaId}/subscription', [SubscriptionController::class, 'updateByCoreEmpresa']);

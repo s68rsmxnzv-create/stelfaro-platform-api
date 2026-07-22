@@ -13,6 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class TenantRequestController extends Controller
 {
@@ -67,7 +68,16 @@ class TenantRequestController extends Controller
             'payload.address' => ['nullable', 'string', 'max:1000'],
             'payload.code' => ['nullable', 'string', 'max:40'],
             'payload.action' => ['nullable', 'string', 'max:60'],
+            'payload.establishment_type' => ['nullable', 'string', 'max:40'],
+            'payload.department' => ['nullable', 'string', 'max:64'],
+            'payload.municipality' => ['nullable', 'string', 'max:64'],
+            'payload.district' => ['nullable', 'string', 'max:64'],
+            'payload.branch_id' => ['nullable', 'integer', 'min:1'],
+            'payload.branch_name' => ['nullable', 'string', 'max:255'],
+            'payload.point_type' => ['nullable', 'string', 'max:64'],
         ]);
+
+        $this->assertCompleteRequestPayload($validated['type'], $validated['payload'] ?? []);
 
         $item = $tenant->requests()->firstOrCreate(
             [
@@ -92,6 +102,25 @@ class TenantRequestController extends Controller
             ['data' => $this->payload($item->load(['requester', 'assignee']))],
             $item->wasRecentlyCreated ? 201 : 200,
         );
+    }
+
+    /** @param array<string, mixed> $payload */
+    private function assertCompleteRequestPayload(string $type, array $payload): void
+    {
+        $required = match ($type) {
+            'user_access' => ($payload['action'] ?? 'create') === 'create' ? ['name', 'email', 'role'] : [],
+            'branch' => ['name', 'address', 'department', 'municipality'],
+            'point_of_sale' => ['name', 'branch_id', 'point_type'],
+            default => [],
+        };
+
+        foreach ($required as $field) {
+            if (blank($payload[$field] ?? null)) {
+                throw ValidationException::withMessages([
+                    "payload.{$field}" => 'Completa este dato antes de enviar la solicitud.',
+                ]);
+            }
+        }
     }
 
     private function notifyPlatformAdmins(TenantRequest $item): void
@@ -148,12 +177,17 @@ class TenantRequestController extends Controller
             'subject' => $item->subject,
             'description' => $item->description,
             'payload' => $item->payload,
+            'reviewed_payload' => $item->reviewed_payload,
             'admin_response' => $item->admin_response,
             'fulfillment' => $item->fulfilledUser ? [
                 'user' => ['id' => $item->fulfilledUser->id, 'name' => $item->fulfilledUser->name, 'email' => $item->fulfilledUser->email],
                 'credentials_available' => filled($item->temporary_password) && (bool) $item->fulfilledUser->must_change_password,
                 'credentials_revealed_at' => optional($item->credentials_revealed_at)->toISOString(),
-            ] : null,
+            ] : ($item->fulfilled_resource_id ? [
+                'resource_type' => $item->fulfilled_resource_type,
+                'resource_id' => $item->fulfilled_resource_id,
+                'credentials_available' => false,
+            ] : null),
             'reviewed_at' => optional($item->reviewed_at)->toISOString(),
             'completed_at' => optional($item->completed_at)->toISOString(),
             'created_at' => optional($item->created_at)->toISOString(),

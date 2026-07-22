@@ -7,8 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
-    'tenant_id', 'requested_by_user_id', 'assigned_to_user_id', 'fulfilled_user_id', 'public_id', 'idempotency_key', 'type', 'status',
-    'subject', 'description', 'payload', 'admin_response', 'temporary_password', 'credentials_available_at',
+    'tenant_id', 'requested_by_user_id', 'assigned_to_user_id', 'fulfilled_user_id', 'fulfilled_resource_type', 'fulfilled_resource_id', 'public_id', 'idempotency_key', 'type', 'status',
+    'subject', 'description', 'payload', 'reviewed_payload', 'admin_response', 'temporary_password', 'credentials_available_at',
     'credentials_revealed_at', 'reviewed_at', 'completed_at',
 ])]
 class TenantRequest extends Model
@@ -41,6 +41,7 @@ class TenantRequest extends Model
     {
         return [
             'payload' => 'array',
+            'reviewed_payload' => 'array',
             'temporary_password' => 'encrypted',
             'credentials_available_at' => 'datetime',
             'credentials_revealed_at' => 'datetime',
