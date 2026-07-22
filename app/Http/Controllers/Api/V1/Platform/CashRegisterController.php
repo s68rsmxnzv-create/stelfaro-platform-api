@@ -31,7 +31,7 @@ class CashRegisterController extends Controller
             'page' => ['nullable', 'integer', 'min:1'], 'per_page' => ['nullable', 'integer', 'min:5', 'max:100'],
             'cash_register_id' => ['nullable', Rule::exists('cash_registers', 'id')->where('tenant_id', $tenant->id)],
         ]);
-        $query = CashMovement::query()->where('tenant_id', $tenant->id)->with(['expense.supplier', 'order.device.customer']);
+        $query = CashMovement::query()->where('tenant_id', $tenant->id)->with(['expense.supplier', 'order.device.customer', 'salesOrder']);
         $query->when($data['cash_register_id'] ?? null, fn ($q, $registerId) => $q->where('cash_register_id', $registerId));
         $query->when($data['date_from'] ?? null, fn ($q, $date) => $q->whereDate('occurred_at', '>=', $date));
         $query->when($data['date_to'] ?? null, fn ($q, $date) => $q->whereDate('occurred_at', '<=', $date));
@@ -187,7 +187,7 @@ class CashRegisterController extends Controller
                 CashExpense::query()->whereKey($locked->cash_expense_id)->update(['status' => 'reversed']);
             }
 
-            return CashMovement::query()->create(['tenant_id' => $tenant->id, 'cash_register_id' => $locked->cash_register_id, 'cash_session_id' => $locked->cash_session_id, 'workshop_order_id' => $locked->workshop_order_id, 'direction' => $locked->direction === 'in' ? 'out' : 'in', 'kind' => 'reversal', 'method' => $locked->method, 'amount' => $locked->amount, 'description' => 'Reversión: '.$data['reason'], 'source_type' => 'cash_movement', 'source_id' => (string) $locked->id, 'idempotency_key' => 'reversal:'.$locked->id, 'reversal_of_id' => $locked->id, 'created_by' => $request->user()->id, 'occurred_at' => now()]);
+            return CashMovement::query()->create(['tenant_id' => $tenant->id, 'cash_register_id' => $locked->cash_register_id, 'cash_session_id' => $locked->cash_session_id, 'workshop_order_id' => $locked->workshop_order_id, 'sales_order_id' => $locked->sales_order_id, 'direction' => $locked->direction === 'in' ? 'out' : 'in', 'kind' => 'reversal', 'method' => $locked->method, 'amount' => $locked->amount, 'description' => 'Reversión: '.$data['reason'], 'source_type' => 'cash_movement', 'source_id' => (string) $locked->id, 'idempotency_key' => 'reversal:'.$locked->id, 'reversal_of_id' => $locked->id, 'created_by' => $request->user()->id, 'occurred_at' => now()]);
         });
         $audit->record($request, 'cash.movement.reversed', ['cash_movement_id' => $cashMovement->id, 'reversal_id' => $reversal->id]);
 
@@ -222,6 +222,6 @@ class CashRegisterController extends Controller
 
     private function movementPayload(CashMovement $movement): array
     {
-        return ['id' => $movement->id, 'direction' => $movement->direction, 'kind' => $movement->kind, 'method' => $movement->method, 'amount' => (float) $movement->amount, 'description' => $movement->description, 'reference' => $movement->reference, 'occurred_at' => $movement->occurred_at?->toISOString(), 'reversed_at' => $movement->reversed_at?->toISOString(), 'expense' => $movement->expense ? ['id' => $movement->expense->id, 'status' => $movement->expense->status, 'category' => $movement->expense->category, 'supplier' => $movement->expense->supplier?->name] : null, 'order' => $movement->order ? ['id' => $movement->order->id, 'ticket' => 'T-'.str_pad((string) $movement->order->ticket_number, 6, '0', STR_PAD_LEFT)] : null];
+        return ['id' => $movement->id, 'direction' => $movement->direction, 'kind' => $movement->kind, 'method' => $movement->method, 'amount' => (float) $movement->amount, 'description' => $movement->description, 'reference' => $movement->reference, 'occurred_at' => $movement->occurred_at?->toISOString(), 'reversed_at' => $movement->reversed_at?->toISOString(), 'expense' => $movement->expense ? ['id' => $movement->expense->id, 'status' => $movement->expense->status, 'category' => $movement->expense->category, 'supplier' => $movement->expense->supplier?->name] : null, 'order' => $movement->order ? ['id' => $movement->order->id, 'ticket' => 'T-'.str_pad((string) $movement->order->ticket_number, 6, '0', STR_PAD_LEFT)] : ($movement->salesOrder ? ['id' => $movement->salesOrder->id, 'ticket' => 'OV-'.str_pad((string) $movement->salesOrder->order_number, 6, '0', STR_PAD_LEFT), 'type' => 'sales_order'] : null)];
     }
 }

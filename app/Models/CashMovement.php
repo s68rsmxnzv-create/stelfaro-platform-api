@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['tenant_id', 'cash_register_id', 'cash_session_id', 'cash_expense_id', 'workshop_order_id', 'direction', 'kind', 'method', 'amount', 'description', 'reference', 'source_type', 'source_id', 'idempotency_key', 'metadata', 'reversal_of_id', 'reversed_at', 'reversed_by', 'created_by', 'occurred_at'])]
+#[Fillable(['tenant_id', 'cash_register_id', 'cash_session_id', 'cash_expense_id', 'workshop_order_id', 'sales_order_id', 'direction', 'kind', 'method', 'amount', 'description', 'reference', 'source_type', 'source_id', 'idempotency_key', 'metadata', 'reversal_of_id', 'reversed_at', 'reversed_by', 'created_by', 'occurred_at'])]
 class CashMovement extends Model
 {
     protected function casts(): array
@@ -32,6 +32,11 @@ class CashMovement extends Model
     public function order(): BelongsTo
     {
         return $this->belongsTo(WorkshopOrder::class, 'workshop_order_id');
+    }
+
+    public function salesOrder(): BelongsTo
+    {
+        return $this->belongsTo(SalesOrder::class);
     }
 
     public function reversalOf(): BelongsTo

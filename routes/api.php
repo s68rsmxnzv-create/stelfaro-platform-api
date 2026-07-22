@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\V1\Platform\InventorySaleController;
 use App\Http\Controllers\Api\V1\Platform\InventorySupplierController;
 use App\Http\Controllers\Api\V1\Platform\InventoryTransferController;
 use App\Http\Controllers\Api\V1\Platform\PlatformAuditLogController;
+use App\Http\Controllers\Api\V1\Platform\SalesOrderController;
 use App\Http\Controllers\Api\V1\Platform\SubscriptionController;
 use App\Http\Controllers\Api\V1\Platform\TenantFiscalAssignmentController;
 use App\Http\Controllers\Api\V1\Platform\TenantInvitationController;
@@ -107,6 +108,16 @@ Route::prefix('v1')->group(function (): void {
             });
         Route::get('platform/tenants/{tenant}/commercial/dashboard', CommercialDashboardController::class)
             ->middleware('tenant.app:facturacion');
+        Route::prefix('platform/tenants/{tenant}/sales-orders')
+            ->middleware('tenant.app:facturacion')
+            ->group(function (): void {
+                Route::get('/', [SalesOrderController::class, 'index']);
+                Route::post('/', [SalesOrderController::class, 'store']);
+                Route::get('{salesOrder}', [SalesOrderController::class, 'show']);
+                Route::post('{salesOrder}/deliver', [SalesOrderController::class, 'deliver']);
+                Route::post('{salesOrder}/payments', [SalesOrderController::class, 'payment']);
+                Route::post('{salesOrder}/cancel', [SalesOrderController::class, 'cancel']);
+            });
         Route::prefix('platform/tenants/{tenant}/cash')
             ->middleware('tenant.app:facturacion')
             ->group(function (): void {

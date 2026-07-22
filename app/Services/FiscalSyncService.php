@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Exceptions\FiscalSyncPayloadConflictException;
 use App\Models\FiscalSyncOperation;
 use App\Models\InventoryReservation;
+use App\Models\SalesOrder;
 use App\Models\Tenant;
 use App\Models\WorkshopOrder;
 use App\Services\Cash\CashService;
@@ -24,7 +25,7 @@ class FiscalSyncService
     /** @param array<string, mixed> $data */
     public function prepareDteIssue(Tenant $tenant, array $data, ?int $userId): FiscalSyncOperation
     {
-        if ((float) data_get($data, 'sale.metadata.cash_amount', 0) > 0 && empty($data['workshop_order_id'])) {
+        if ((float) data_get($data, 'sale.metadata.cash_amount', 0) > 0 && empty($data['workshop_order_id']) && empty($data['sales_order_id'])) {
             $branchId = data_get($data, 'sale.core_sucursal_id');
             $this->cash->ensureCashSession($tenant, $userId, $branchId ? (int) $branchId : null);
         }
@@ -32,6 +33,7 @@ class FiscalSyncService
             'sale' => $data['sale'],
             'reservation' => $data['reservation'] ?? null,
             'workshop_order_id' => $data['workshop_order_id'] ?? null,
+            'sales_order_id' => $data['sales_order_id'] ?? null,
         ];
 
         return $this->prepare($tenant, FiscalSyncOperation::KIND_DTE_ISSUE, $data['idempotency_key'], $payload, $userId, function (array &$storedPayload) use ($tenant, $data, $userId): void {
@@ -262,9 +264,11 @@ class FiscalSyncService
 
         $sale = $operation->payload['sale'];
         $sale['fiscal_document_type'] = $documentType;
-        $sale['source_id'] = ($sale['source_type'] ?? 'dte') === 'workshop_order'
-            ? (string) ($operation->payload['workshop_order_id'] ?? '')
-            : $documentId;
+        $sale['source_id'] = match ($sale['source_type'] ?? 'dte') {
+            'workshop_order' => (string) ($operation->payload['workshop_order_id'] ?? ''),
+            'sales_order' => (string) ($operation->payload['sales_order_id'] ?? ''),
+            default => $documentId,
+        };
         $sale['source_number'] = $number;
         $sale['metadata'] = array_merge($sale['metadata'] ?? [], [
             'document_type' => $documentType,
@@ -276,6 +280,7 @@ class FiscalSyncService
         $this->cash->recordDteCashPayment($tenant, $operation, $documentId, $number);
         if (in_array($documentType, ['01', '03'], true)) {
             $this->linkWorkshopOrder($tenant, $operation, $fact, $documentId, $number);
+            $this->linkSalesOrder($tenant, $operation, $fact, $documentId, $number);
         }
 
         return $this->complete($operation, [...$fact, 'outcome' => 'accepted']);
@@ -329,6 +334,28 @@ class FiscalSyncService
         $order = WorkshopOrder::query()->where('tenant_id', $tenant->id)->lockForUpdate()->findOrFail($orderId);
         if ($order->core_dte_document_id && (string) $order->core_dte_document_id !== $documentId) {
             throw new InvalidArgumentException('La orden de taller ya está vinculada a otro DTE.');
+        }
+        $order->forceFill([
+            'core_dte_document_id' => (int) $documentId,
+            'dte_number' => $number,
+            'dte_generation_code' => $fact['codigoGeneracion'] ?? $fact['codigo_generacion'] ?? null,
+            'dte_type' => ($fact['tipoDte'] ?? $fact['tipo_dte'] ?? '01') === '03' ? '03' : '01',
+            'billing_status' => 'invoiced',
+            'invoiced_at' => now(),
+        ])->save();
+    }
+
+    /** @param array<string, mixed> $fact */
+    private function linkSalesOrder(Tenant $tenant, FiscalSyncOperation $operation, array $fact, string $documentId, string $number): void
+    {
+        $orderId = (int) ($operation->payload['sales_order_id'] ?? 0);
+        if ($orderId <= 0) {
+            return;
+        }
+
+        $order = SalesOrder::query()->where('tenant_id', $tenant->id)->lockForUpdate()->findOrFail($orderId);
+        if ($order->core_dte_document_id && (string) $order->core_dte_document_id !== $documentId) {
+            throw new InvalidArgumentException('La orden de venta ya está vinculada a otro DTE.');
         }
         $order->forceFill([
             'core_dte_document_id' => (int) $documentId,

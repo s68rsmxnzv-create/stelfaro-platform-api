@@ -17,8 +17,8 @@ use App\Http\Controllers\PlatformInvitationPageController;
 use App\Http\Controllers\PlatformPortalController;
 use App\Http\Controllers\PlatformRedirectController;
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\PublicWorkshopPhotoController;
 use App\Http\Controllers\PublicWorkshopDeviceController;
+use App\Http\Controllers\PublicWorkshopPhotoController;
 use App\Http\Controllers\WompiPaymentConfirmationController;
 use App\Http\Controllers\WompiPaymentReturnController;
 use App\Http\Middleware\EnsurePasswordIsChanged;
@@ -47,6 +47,7 @@ Route::domain(config('platform.hosts.taller'))
         Route::get('/catalogo', [PlatformPortalController::class, 'tallerCatalog'])->name('apps.taller.catalog');
         Route::get('/inventario', [PlatformPortalController::class, 'tallerInventory'])->name('apps.taller.inventory');
         Route::get('/caja', [PlatformPortalController::class, 'tallerCash'])->name('apps.taller.cash');
+        Route::get('/ordenes-venta', [PlatformPortalController::class, 'tallerSalesOrders'])->name('apps.taller.sales-orders');
         Route::get('/anexos', [PlatformPortalController::class, 'tallerAnnexes'])->name('apps.taller.annexes');
         Route::get('/facturacion/{documentSlug?}', [PlatformPortalController::class, 'tallerBilling'])->name('apps.taller.billing');
         Route::get('/comprobantes/{artifactSlug?}', [PlatformPortalController::class, 'tallerArtifacts'])->name('apps.taller.artifacts');
@@ -69,6 +70,7 @@ Route::domain(config('platform.hosts.facturacion'))
         Route::get('/catalogo', [PlatformPortalController::class, 'facturacionCatalog'])->name('apps.facturacion.catalog');
         Route::get('/inventario', [PlatformPortalController::class, 'facturacionInventory'])->name('apps.facturacion.inventory');
         Route::get('/caja', [PlatformPortalController::class, 'facturacionCash'])->name('apps.facturacion.cash');
+        Route::get('/ordenes-venta', [PlatformPortalController::class, 'facturacionSalesOrders'])->name('apps.facturacion.sales-orders');
         Route::get('/anexos', [PlatformPortalController::class, 'facturacionAnnexes'])->name('apps.facturacion.annexes');
         Route::get('/facturacion/{documentSlug?}', [PlatformPortalController::class, 'facturacionBilling'])->name('apps.facturacion.billing');
         Route::get('/comprobantes/{artifactSlug?}', [PlatformPortalController::class, 'facturacionArtifacts'])->name('apps.facturacion.artifacts');

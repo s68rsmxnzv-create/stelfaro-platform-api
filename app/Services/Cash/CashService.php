@@ -6,6 +6,7 @@ use App\Models\CashMovement;
 use App\Models\CashRegister;
 use App\Models\CashSession;
 use App\Models\FiscalSyncOperation;
+use App\Models\SalesOrderPayment;
 use App\Models\Tenant;
 use App\Models\WorkshopOrderPayment;
 use Illuminate\Validation\ValidationException;
@@ -59,6 +60,23 @@ class CashService
         );
     }
 
+    public function recordSalesOrderPayment(Tenant $tenant, SalesOrderPayment $payment): CashMovement
+    {
+        $order = $payment->order;
+        $session = $payment->method === 'cash'
+            ? $this->activeSession($tenant, $payment->received_by, null, $order?->core_sucursal_id)
+            : null;
+
+        if ($payment->method === 'cash' && ! $session) {
+            throw ValidationException::withMessages(['method' => 'Abre una caja antes de registrar un cobro en efectivo.']);
+        }
+
+        return CashMovement::query()->firstOrCreate(
+            ['tenant_id' => $tenant->id, 'idempotency_key' => 'sales-order-payment:'.$payment->id],
+            ['cash_register_id' => $session?->cash_register_id, 'cash_session_id' => $session?->id, 'sales_order_id' => $payment->sales_order_id, 'direction' => 'in', 'kind' => 'sale_collection', 'method' => $payment->method, 'amount' => $payment->amount, 'description' => 'Cobro de orden de venta', 'reference' => $payment->reference, 'source_type' => 'sales_order_payment', 'source_id' => (string) $payment->id, 'metadata' => ['notes' => $payment->notes], 'created_by' => $payment->received_by, 'occurred_at' => $payment->received_at],
+        );
+    }
+
     public function ensureCashSession(Tenant $tenant, ?int $userId, ?int $branchId = null): CashSession
     {
         $session = $this->activeSession($tenant, $userId, null, $branchId);
@@ -71,7 +89,7 @@ class CashService
 
     public function recordDteCashPayment(Tenant $tenant, FiscalSyncOperation $operation, string $documentId, string $number): ?CashMovement
     {
-        if (filled($operation->payload['workshop_order_id'] ?? null)) {
+        if (filled($operation->payload['workshop_order_id'] ?? null) || filled($operation->payload['sales_order_id'] ?? null)) {
             return null;
         }
         $amount = round((float) data_get($operation->payload, 'sale.metadata.cash_amount', 0), 2);
