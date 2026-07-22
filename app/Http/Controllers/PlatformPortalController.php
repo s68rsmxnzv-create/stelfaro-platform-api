@@ -94,9 +94,9 @@ class PlatformPortalController extends Controller
         return $this->renderBillingModule(['app' => ['id' => 'taller', 'name' => 'Caja', 'description' => 'Cobros, salidas y ventas conectadas con Taller.'], 'module' => 'cash']);
     }
 
-    public function tallerSalesOrders(): Response
+    public function tallerFollowUps(): Response
     {
-        return $this->renderBillingModule(['app' => ['id' => 'taller', 'name' => 'Órdenes de venta', 'description' => 'Entregas, cobros pendientes y facturación fuera del flujo de taller.'], 'module' => 'sales-orders']);
+        return $this->renderBillingModule(['app' => ['id' => 'taller', 'name' => 'Pendientes', 'description' => 'Notas y recordatorios operativos sin efectos financieros ni fiscales.'], 'module' => 'follow-ups']);
     }
 
     public function tallerAnnexes(): Response
@@ -192,9 +192,9 @@ class PlatformPortalController extends Controller
         return $this->renderBillingModule(['app' => ['id' => 'facturacion', 'name' => 'Caja', 'description' => 'Control de dinero, cobros, salidas y reporte comercial.'], 'module' => 'cash']);
     }
 
-    public function facturacionSalesOrders(): Response
+    public function facturacionFollowUps(): Response
     {
-        return $this->renderBillingModule(['app' => ['id' => 'facturacion', 'name' => 'Órdenes de venta', 'description' => 'Entregas, cuentas por cobrar y emisión posterior de DTE.'], 'module' => 'sales-orders']);
+        return $this->renderBillingModule(['app' => ['id' => 'facturacion', 'name' => 'Pendientes', 'description' => 'Notas y recordatorios operativos sin efectos financieros ni fiscales.'], 'module' => 'follow-ups']);
     }
 
     public function facturacionAnnexes(): Response

@@ -20,7 +20,7 @@ class CommercialSalesReportController extends Controller
         abort_unless($policy->canViewTenantCatalog($request->user(), $tenant), 403);
         $data = $request->validate([
             'date_from' => ['nullable', 'date'], 'date_to' => ['nullable', 'date'],
-            'source_type' => ['nullable', Rule::in(['dte', 'workshop_order', 'sales_order'])],
+            'source_type' => ['nullable', Rule::in(['dte', 'workshop_order'])],
             'document_type' => ['nullable', Rule::in(['01', '03', '05', '06', '14'])],
             'payment_status' => ['nullable', Rule::in(['paid', 'receivable'])],
             'core_sucursal_id' => ['nullable', 'integer', 'min:1'],

@@ -88,7 +88,6 @@ class FiscalSyncController extends Controller
         return [
             'idempotency_key' => ['required', 'string', 'max:120'],
             'workshop_order_id' => ['nullable', 'integer', Rule::exists('workshop_orders', 'id')->where('tenant_id', $tenant->id)],
-            'sales_order_id' => ['nullable', 'integer', Rule::exists('sales_orders', 'id')->where('tenant_id', $tenant->id)],
             'reservation' => ['nullable', 'array'],
             'reservation.core_sucursal_id' => ['nullable', 'integer', 'min:1'],
             'reservation.core_sucursal_code' => ['nullable', 'string', 'max:30'],
@@ -101,7 +100,7 @@ class FiscalSyncController extends Controller
             'sale.core_sucursal_id' => ['nullable', 'integer', 'min:1'],
             'sale.core_sucursal_code' => ['nullable', 'string', 'max:30'],
             'sale.core_sucursal_name' => ['nullable', 'string', 'max:160'],
-            'sale.source_type' => ['nullable', 'string', Rule::in(['dte', 'workshop_order', 'sales_order'])],
+            'sale.source_type' => ['nullable', 'string', Rule::in(['dte', 'workshop_order'])],
             'sale.sale_date' => ['nullable', 'date'],
             'sale.fiscal_document_type' => ['nullable', 'string', Rule::in(['01', '03', '05', '06', '14'])],
             'sale.net_amount' => ['nullable', 'numeric', 'gte:0'],

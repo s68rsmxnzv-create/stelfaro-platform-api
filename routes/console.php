@@ -18,6 +18,10 @@ Schedule::command('fiscal-sync:reconcile')
     ->everyMinute()
     ->withoutOverlapping();
 
+Schedule::command('follow-up-notes:remind')
+    ->everyMinute()
+    ->withoutOverlapping();
+
 Schedule::call(fn () => app(CashAutomationService::class)->process())
     ->name('cash-sessions:automate')
     ->everyMinute()

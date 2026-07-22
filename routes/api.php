@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\Platform\CatalogItemController;
 use App\Http\Controllers\Api\V1\Platform\CommercialDashboardController;
 use App\Http\Controllers\Api\V1\Platform\CommercialSalesReportController;
 use App\Http\Controllers\Api\V1\Platform\FiscalSyncController;
+use App\Http\Controllers\Api\V1\Platform\FollowUpNoteController;
 use App\Http\Controllers\Api\V1\Platform\GlobalUserController;
 use App\Http\Controllers\Api\V1\Platform\InternalNotificationController;
 use App\Http\Controllers\Api\V1\Platform\InventoryCountController;
@@ -20,7 +21,6 @@ use App\Http\Controllers\Api\V1\Platform\InventorySaleController;
 use App\Http\Controllers\Api\V1\Platform\InventorySupplierController;
 use App\Http\Controllers\Api\V1\Platform\InventoryTransferController;
 use App\Http\Controllers\Api\V1\Platform\PlatformAuditLogController;
-use App\Http\Controllers\Api\V1\Platform\SalesOrderController;
 use App\Http\Controllers\Api\V1\Platform\SubscriptionController;
 use App\Http\Controllers\Api\V1\Platform\TenantFiscalAssignmentController;
 use App\Http\Controllers\Api\V1\Platform\TenantInvitationController;
@@ -108,16 +108,13 @@ Route::prefix('v1')->group(function (): void {
             });
         Route::get('platform/tenants/{tenant}/commercial/dashboard', CommercialDashboardController::class)
             ->middleware('tenant.app:facturacion');
-        Route::prefix('platform/tenants/{tenant}/sales-orders')
-            ->middleware('tenant.app:facturacion')
-            ->group(function (): void {
-                Route::get('/', [SalesOrderController::class, 'index']);
-                Route::post('/', [SalesOrderController::class, 'store']);
-                Route::get('{salesOrder}', [SalesOrderController::class, 'show']);
-                Route::post('{salesOrder}/deliver', [SalesOrderController::class, 'deliver']);
-                Route::post('{salesOrder}/payments', [SalesOrderController::class, 'payment']);
-                Route::post('{salesOrder}/cancel', [SalesOrderController::class, 'cancel']);
-            });
+        Route::prefix('platform/tenants/{tenant}/follow-up-notes')->group(function (): void {
+            Route::get('/', [FollowUpNoteController::class, 'index']);
+            Route::post('/', [FollowUpNoteController::class, 'store']);
+            Route::put('{followUpNote}', [FollowUpNoteController::class, 'update']);
+            Route::post('{followUpNote}/resolve', [FollowUpNoteController::class, 'resolve']);
+            Route::post('{followUpNote}/discard', [FollowUpNoteController::class, 'discard']);
+        });
         Route::prefix('platform/tenants/{tenant}/cash')
             ->middleware('tenant.app:facturacion')
             ->group(function (): void {
