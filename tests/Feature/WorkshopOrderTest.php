@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\CashRegister;
 use App\Models\CashSession;
+use App\Models\InventoryPurchase;
 use App\Models\PlatformApp;
 use App\Models\Tenant;
 use App\Models\User;
@@ -336,6 +337,72 @@ class WorkshopOrderTest extends TestCase
             ->assertJsonPath('commercial.sales_month', 90.4);
         $this->getJson("/api/v1/platform/tenants/{$tenant->id}/cash/sales-report?payment_status=receivable")
             ->assertOk()->assertJsonPath('summary.receivable', 113)->assertJsonPath('data.0.outstanding_amount', 113);
+    }
+
+    public function test_dashboard_estimates_monthly_iva_using_only_deductible_credit_fiscal_purchases(): void
+    {
+        [$user, $tenant] = $this->member();
+        $base = "/api/v1/platform/tenants/{$tenant->id}/inventory/sales";
+        $this->actingAs($user)->postJson($base, [
+            'source_id' => 'FE-IVA-1', 'sale_date' => today()->toDateString(), 'fiscal_document_type' => '01',
+            'net_amount' => 100, 'tax_amount' => 13, 'total_amount' => 113,
+            'lines' => [['description' => 'Venta', 'quantity' => 1, 'net_total' => 100, 'tax_amount' => 13, 'total_amount' => 113]],
+        ])->assertCreated();
+
+        InventoryPurchase::query()->create([
+            'tenant_id' => $tenant->id,
+            'document_type' => 'dte_ccf',
+            'purchase_date' => today(),
+            'subtotal' => 50,
+            'tax_amount' => 6.50,
+            'total' => 56.50,
+            'fiscal_annex_eligible' => true,
+            'status' => 'registered',
+        ]);
+        InventoryPurchase::query()->create([
+            'tenant_id' => $tenant->id,
+            'document_type' => 'nota_envio',
+            'purchase_date' => today(),
+            'subtotal' => 20,
+            'tax_amount' => 2.60,
+            'total' => 22.60,
+            'fiscal_annex_eligible' => true,
+            'status' => 'registered',
+        ]);
+        InventoryPurchase::query()->create([
+            'tenant_id' => $tenant->id,
+            'document_type' => 'dte_ccf',
+            'purchase_date' => today(),
+            'subtotal' => 10,
+            'tax_amount' => 1.30,
+            'total' => 11.30,
+            'fiscal_annex_eligible' => false,
+            'status' => 'registered',
+        ]);
+
+        $this->getJson("/api/v1/platform/tenants/{$tenant->id}/commercial/dashboard")
+            ->assertOk()
+            ->assertJsonPath('commercial.sales_tax_month', 13)
+            ->assertJsonPath('commercial.purchase_tax_credit_month', 6.5)
+            ->assertJsonPath('commercial.estimated_tax_payable_month', 6.5)
+            ->assertJsonPath('commercial.estimated_tax_credit_balance_month', 0);
+
+        InventoryPurchase::query()->create([
+            'tenant_id' => $tenant->id,
+            'document_type' => 'ccf',
+            'purchase_date' => today(),
+            'subtotal' => 76.92,
+            'tax_amount' => 10,
+            'total' => 86.92,
+            'fiscal_annex_eligible' => true,
+            'status' => 'registered',
+        ]);
+
+        $this->getJson("/api/v1/platform/tenants/{$tenant->id}/commercial/dashboard")
+            ->assertOk()
+            ->assertJsonPath('commercial.purchase_tax_credit_month', 16.5)
+            ->assertJsonPath('commercial.estimated_tax_payable_month', 0)
+            ->assertJsonPath('commercial.estimated_tax_credit_balance_month', 3.5);
     }
 
     private function member(): array
