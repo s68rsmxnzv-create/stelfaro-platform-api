@@ -34,6 +34,25 @@ class CashAutomationService
     private function processSetting(CashRegisterSetting $setting, array &$stats): void
     {
         $now = CarbonImmutable::now($setting->timezone ?: 'America/El_Salvador');
+
+        if ($setting->auto_close_enabled && $setting->auto_close_time) {
+            CashSession::query()
+                ->where('cash_register_id', $setting->cash_register_id)
+                ->where('status', 'open')
+                ->orderBy('business_date')
+                ->each(function (CashSession $session) use ($setting, $now, &$stats): void {
+                    $cutoff = CarbonImmutable::parse(
+                        $session->business_date->format('Y-m-d').' '.$setting->auto_close_time,
+                        $setting->timezone ?: 'America/El_Salvador',
+                    )->addMinutes($setting->close_grace_minutes);
+
+                    if ($now->greaterThanOrEqualTo($cutoff)) {
+                        $this->autoCutoff($setting, $session, $now);
+                        $stats['cutoff']++;
+                    }
+                });
+        }
+
         if (! $this->isWorkingDay($setting, $now)) {
             $stats['skipped']++;
 
@@ -43,13 +62,6 @@ class CashAutomationService
         if ($setting->auto_open_enabled && ! $session && $setting->auto_open_time && $now->format('H:i:s') >= $setting->auto_open_time) {
             $session = $this->autoOpen($setting, $now);
             $stats['opened']++;
-        }
-        if ($setting->auto_close_enabled && $session?->status === 'open' && $setting->auto_close_time) {
-            $cutoff = CarbonImmutable::parse($now->toDateString().' '.$setting->auto_close_time, $setting->timezone)->addMinutes($setting->close_grace_minutes);
-            if ($now->greaterThanOrEqualTo($cutoff)) {
-                $this->autoCutoff($setting, $session, $now);
-                $stats['cutoff']++;
-            }
         }
     }
 
