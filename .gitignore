@@ -18,6 +18,8 @@
 /public/fonts-manifest.dev.json
 /public/hot
 /public/storage
+/public/downloads/*
+!/public/downloads/README.md
 /storage/*.key
 /storage/migration-backups
 /storage/pail
