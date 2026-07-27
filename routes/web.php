@@ -19,6 +19,7 @@ use App\Http\Controllers\PlatformRedirectController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicWorkshopDeviceController;
 use App\Http\Controllers\PublicWorkshopPhotoController;
+use App\Http\Controllers\ShortDteQrProxyController;
 use App\Http\Controllers\WompiPaymentConfirmationController;
 use App\Http\Controllers\WompiPaymentReturnController;
 use App\Http\Middleware\EnsurePasswordIsChanged;
@@ -28,6 +29,15 @@ Route::get('/payments/wompi/return', WompiPaymentReturnController::class)
     ->name('payments.wompi.return');
 Route::get('/payments/wompi/confirmation', WompiPaymentConfirmationController::class)
     ->name('payments.wompi.confirmation');
+
+Route::domain(config('platform.hosts.facturacion'))
+    ->get('/q/{destination}/{document}/{token}', ShortDteQrProxyController::class)
+    ->where([
+        'destination' => 'm|d',
+        'document' => '[0-9]+',
+        'token' => '[A-Za-z0-9_-]{12}',
+    ])
+    ->name('dte.qr.short');
 
 Route::domain(config('platform.hosts.taller'))
     ->group(function (): void {
