@@ -8,7 +8,6 @@ use App\Http\Controllers\Api\V1\Platform\TenantLookupController;
 use App\Http\Controllers\Api\V1\Platform\TenantMembershipController;
 use App\Http\Controllers\Api\V1\Platform\TenantUserController;
 use App\Http\Controllers\Api\V1\PlatformSessionController;
-use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\CoreBillingSessionController;
 use App\Http\Controllers\PlatformAdmin\CoreSessionController;
 use App\Http\Controllers\PlatformAdmin\NotificationProxyController;
@@ -69,7 +68,6 @@ Route::domain(config('platform.hosts.taller'))
         Route::redirect('/configuracion-fiscal', '/configuracion')->name('apps.taller.fiscal-settings');
         Route::get('/platform/core-billing-session', CoreBillingSessionController::class)
             ->name('apps.taller.core-billing-session');
-        Route::post('/logout', [AuthenticatedSessionController::class, 'destroy']);
     });
 
 Route::domain(config('platform.hosts.facturacion'))
@@ -92,7 +90,6 @@ Route::domain(config('platform.hosts.facturacion'))
         Route::redirect('/configuracion-fiscal', '/configuracion')->name('apps.facturacion.fiscal-settings');
         Route::get('/platform/core-billing-session', CoreBillingSessionController::class)
             ->name('apps.facturacion.core-billing-session');
-        Route::post('/logout', [AuthenticatedSessionController::class, 'destroy']);
     });
 
 Route::domain(config('platform.hosts.admin'))
@@ -125,7 +122,6 @@ Route::domain(config('platform.hosts.admin'))
         Route::delete('/platform/memberships/{membership}', [TenantMembershipController::class, 'destroy']);
         Route::any('/admin/notifications/{path?}', NotificationProxyController::class)
             ->where('path', '.*');
-        Route::post('/logout', [AuthenticatedSessionController::class, 'destroy']);
     });
 
 Route::domain(config('platform.hosts.platform'))
@@ -144,5 +140,8 @@ Route::domain(config('platform.hosts.platform'))
             Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
         });
 
-        require __DIR__.'/auth.php';
     });
+
+// La autenticación se sirve en cada subdominio para que una PWA instalada no
+// tenga que abandonar su propio origen al iniciar o recuperar la sesión.
+require __DIR__.'/auth.php';

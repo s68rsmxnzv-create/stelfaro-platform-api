@@ -1,4 +1,4 @@
-const CACHE_NAME = 'stelfaro-static-v2';
+const CACHE_NAME = 'stelfaro-static-v3';
 const CORE_ASSETS = [
     '/manifest.json',
     '/offline.html',

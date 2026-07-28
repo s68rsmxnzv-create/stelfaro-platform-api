@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Services\CoreBillingSessionBroker;
-use App\Services\PlatformAuditLogger;
 use App\Services\PlatformAdminAccess;
+use App\Services\PlatformAuditLogger;
 use App\Services\PlatformSessionResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -32,7 +32,7 @@ class AuthenticatedSessionController extends Controller
         $redirect = $request->query('redirect');
 
         if (is_string($redirect) && str_starts_with($redirect, '/')) {
-            $request->session()->put('url.intended', 'https://'.config('platform.hosts.platform').$redirect);
+            $request->session()->put('url.intended', $request->getSchemeAndHttpHost().$redirect);
         }
 
         return Inertia::render('Auth/Login', [
@@ -56,7 +56,7 @@ class AuthenticatedSessionController extends Controller
         ]);
 
         if ($user->must_change_password) {
-            $target = 'https://'.config('platform.hosts.platform').'/change-temporary-password';
+            $target = $request->getSchemeAndHttpHost().'/change-temporary-password';
 
             if ($request->header('X-Inertia')) {
                 return Inertia::location($target);
@@ -95,7 +95,7 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerateToken();
 
-        $target = 'https://'.config('platform.hosts.platform').'/login';
+        $target = $request->getSchemeAndHttpHost().'/login';
 
         if ($request->header('X-Inertia')) {
             return Inertia::location($target);

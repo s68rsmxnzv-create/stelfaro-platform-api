@@ -22,6 +22,22 @@ class AuthenticationTest extends TestCase
         $response->assertStatus(200);
     }
 
+    public function test_installed_app_can_render_login_on_its_own_origin(): void
+    {
+        $this->get('https://taller.stelfaro.com/login')->assertOk();
+        $this->get('https://facturacion.stelfaro.com/login')->assertOk();
+        $this->get('https://admin.stelfaro.com/login')->assertOk();
+    }
+
+    public function test_guest_is_redirected_to_login_on_the_same_app_origin(): void
+    {
+        $this->get('https://taller.stelfaro.com/ordenes')
+            ->assertRedirect('https://taller.stelfaro.com/login');
+
+        $this->get('https://facturacion.stelfaro.com/facturacion/fe')
+            ->assertRedirect('https://facturacion.stelfaro.com/login');
+    }
+
     public function test_platform_sessions_expire_after_45_idle_minutes(): void
     {
         $this->assertSame(45, config('session.lifetime'));
@@ -76,6 +92,17 @@ class AuthenticationTest extends TestCase
 
         $this->assertAuthenticated();
         $response->assertRedirect('https://platform.stelfaro.com');
+    }
+
+    public function test_logout_stays_on_the_installed_app_origin(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->post('https://taller.stelfaro.com/logout')
+            ->assertRedirect('https://taller.stelfaro.com/login');
+
+        $this->assertGuest();
     }
 
     public function test_inertia_login_navigates_to_resolved_platform_destination(): void

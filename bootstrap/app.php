@@ -31,7 +31,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->redirectGuestsTo(
-            fn () => 'https://'.config('platform.hosts.platform').'/login',
+            fn (Request $request) => $request->getSchemeAndHttpHost().'/login',
         );
 
         $middleware->web(append: [

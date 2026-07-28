@@ -37,7 +37,7 @@ class ExpireIdlePlatformSession
                 return response()->json(['message' => 'Sesión expirada por inactividad.'], 419);
             }
 
-            return redirect('https://'.config('platform.hosts.platform').'/login');
+            return redirect($request->getSchemeAndHttpHost().'/login');
         }
 
         $request->session()->put('platform_last_activity_at', $now);

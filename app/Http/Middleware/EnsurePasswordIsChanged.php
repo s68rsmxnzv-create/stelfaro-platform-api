@@ -17,7 +17,7 @@ class EnsurePasswordIsChanged
             return $next($request);
         }
 
-        $target = 'https://'.config('platform.hosts.platform').'/change-temporary-password';
+        $target = $request->getSchemeAndHttpHost().'/change-temporary-password';
 
         if ($request->expectsJson()) {
             return response()->json([
