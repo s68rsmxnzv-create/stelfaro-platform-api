@@ -19,13 +19,79 @@ function initializeTheme() {
 
 initializeTheme();
 
+let deferredInstallPrompt = null;
+
+function pwaDisplayMode() {
+    if (window.matchMedia('(display-mode: standalone)').matches) return 'standalone';
+    if (window.navigator.standalone === true) return 'standalone';
+    return 'browser';
+}
+
+function publishPwaState() {
+    window.dispatchEvent(new CustomEvent('stelfaro:pwa-state', {
+        detail: {
+            canInstall: Boolean(deferredInstallPrompt),
+            displayMode: pwaDisplayMode(),
+        },
+    }));
+}
+
+window.stelfaroPwa = {
+    state: () => ({
+        canInstall: Boolean(deferredInstallPrompt),
+        displayMode: pwaDisplayMode(),
+    }),
+    install: async () => {
+        if (!deferredInstallPrompt) return { outcome: 'unavailable' };
+        deferredInstallPrompt.prompt();
+        const choice = await deferredInstallPrompt.userChoice;
+        deferredInstallPrompt = null;
+        publishPwaState();
+        return choice;
+    },
+};
+
+window.addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault();
+    deferredInstallPrompt = event;
+    publishPwaState();
+});
+
+window.addEventListener('appinstalled', () => {
+    deferredInstallPrompt = null;
+    publishPwaState();
+});
+
+window.matchMedia('(display-mode: standalone)').addEventListener('change', publishPwaState);
+
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js').catch(() => {
+        navigator.serviceWorker.register('/service-worker.js?v=2', {
+            scope: '/',
+            updateViaCache: 'none',
+        }).then((registration) => {
+            registration.update();
+            if (registration.waiting) registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+            registration.addEventListener('updatefound', () => {
+                const worker = registration.installing;
+                worker?.addEventListener('statechange', () => {
+                    if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+                        worker.postMessage({ type: 'SKIP_WAITING' });
+                    }
+                });
+            });
+        }).catch(() => {
             // La aplicación sigue funcionando normalmente si el navegador no admite la instalación.
         });
     });
 }
+
+let reloadingForServiceWorker = false;
+navigator.serviceWorker?.addEventListener('controllerchange', () => {
+    if (reloadingForServiceWorker) return;
+    reloadingForServiceWorker = true;
+    window.location.reload();
+});
 
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,

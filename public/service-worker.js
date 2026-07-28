@@ -1,6 +1,7 @@
-const CACHE_NAME = 'stelfaro-static-v1';
+const CACHE_NAME = 'stelfaro-static-v2';
 const CORE_ASSETS = [
-    '/manifest.webmanifest',
+    '/manifest.json',
+    '/offline.html',
     '/pwa/stelfaro.svg',
     '/pwa/stelfaro-192.png',
     '/pwa/stelfaro-512.png',
@@ -26,6 +27,13 @@ self.addEventListener('fetch', (event) => {
     const url = new URL(request.url);
     if (url.origin !== self.location.origin) return;
 
+    if (request.mode === 'navigate') {
+        event.respondWith(
+            fetch(request).catch(() => caches.match('/offline.html')),
+        );
+        return;
+    }
+
     const isStaticAsset = url.pathname.startsWith('/build/')
         || url.pathname.startsWith('/pwa/');
 
@@ -43,4 +51,8 @@ self.addEventListener('fetch', (event) => {
             });
         }),
     );
+});
+
+self.addEventListener('message', (event) => {
+    if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
 });
