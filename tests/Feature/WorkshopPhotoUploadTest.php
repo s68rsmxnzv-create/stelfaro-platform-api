@@ -25,7 +25,7 @@ class WorkshopPhotoUploadTest extends TestCase
         $session = $this->actingAs($user)->postJson("/api/v1/platform/tenants/{$tenant->id}/workshop/orders/{$order->id}/photo-session")
             ->assertCreated()->json('data');
         $token = basename($session['url']);
-        $page = $this->get("https://taller.stelfaro.com/fotos/{$token}")
+        $page = $this->get("https://platform.stelfaro.com/taller/fotos/{$token}")
             ->assertOk()
             ->assertSee($order->device->brand);
         preg_match("/script-src[^;]*'nonce-([^']+)'/", (string) $page->headers->get('Content-Security-Policy'), $nonce);
@@ -51,7 +51,7 @@ class WorkshopPhotoUploadTest extends TestCase
         $this->get($gallery->json('data.0.url'))
             ->assertOk()
             ->assertHeader('content-type', 'image/jpeg');
-        $publicPage = $this->get("https://taller.stelfaro.com/fotos/{$token}")
+        $publicPage = $this->get("https://platform.stelfaro.com/taller/fotos/{$token}")
             ->assertOk()
             ->assertSee('Fotografías del equipo')
             ->assertSee('1 fotos guardadas.');

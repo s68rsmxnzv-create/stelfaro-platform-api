@@ -41,13 +41,13 @@ class InertiaPlatformPagesTest extends TestCase
 
         $this->actingAs($user)
             ->get('https://platform.stelfaro.com')
-            ->assertRedirect('https://taller.stelfaro.com');
+            ->assertRedirect('https://platform.stelfaro.com/taller/');
     }
 
     public function test_taller_page_renders(): void
     {
         $this->actingAs($this->userWithApp('taller'))
-            ->get('https://taller.stelfaro.com')
+            ->get('https://platform.stelfaro.com/taller')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Apps/Taller/BillingWorkspace')
@@ -115,7 +115,7 @@ class InertiaPlatformPagesTest extends TestCase
     public function test_facturacion_page_renders(): void
     {
         $this->actingAs($this->userWithApp('facturacion'))
-            ->get('https://facturacion.stelfaro.com')
+            ->get('https://platform.stelfaro.com/facturacion')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Apps/Taller/BillingWorkspace')
@@ -162,7 +162,7 @@ class InertiaPlatformPagesTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->get('https://taller.stelfaro.com/facturacion')
+            ->get('https://platform.stelfaro.com/taller/facturacion')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Apps/Taller/BillingWorkspace')
@@ -178,7 +178,7 @@ class InertiaPlatformPagesTest extends TestCase
         $user = $this->userWithApp('taller');
 
         $this->actingAs($user)
-            ->get('https://taller.stelfaro.com/comprobantes')
+            ->get('https://platform.stelfaro.com/taller/comprobantes')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Apps/Taller/BillingWorkspace')
@@ -186,7 +186,7 @@ class InertiaPlatformPagesTest extends TestCase
             );
 
         $this->actingAs($user)
-            ->get('https://taller.stelfaro.com/eventos-mh/contingencia')
+            ->get('https://platform.stelfaro.com/taller/eventos-mh/contingencia')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Apps/Taller/BillingWorkspace')
@@ -195,7 +195,7 @@ class InertiaPlatformPagesTest extends TestCase
             );
 
         $this->actingAs($user)
-            ->get('https://taller.stelfaro.com/catalogo')
+            ->get('https://platform.stelfaro.com/taller/catalogo')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Apps/Taller/BillingWorkspace')
@@ -203,11 +203,11 @@ class InertiaPlatformPagesTest extends TestCase
             );
 
         $this->actingAs($user)
-            ->get('https://taller.stelfaro.com/configuracion-fiscal')
-            ->assertRedirect('https://taller.stelfaro.com/configuracion');
+            ->get('https://platform.stelfaro.com/taller/configuracion-fiscal')
+            ->assertRedirect('https://platform.stelfaro.com/taller/configuracion');
 
         $this->actingAs($user)
-            ->get('https://taller.stelfaro.com/configuracion')
+            ->get('https://platform.stelfaro.com/taller/configuracion')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Apps/Taller/BillingWorkspace')
@@ -220,8 +220,8 @@ class InertiaPlatformPagesTest extends TestCase
         $user = $this->userWithApp('facturacion');
 
         $this->actingAs($user)
-            ->get('https://taller.stelfaro.com/ordenes')
-            ->assertRedirect('https://facturacion.stelfaro.com');
+            ->get('https://platform.stelfaro.com/taller/ordenes')
+            ->assertRedirect('https://platform.stelfaro.com/facturacion/');
     }
 
     private function userWithApp(string $appKey): User

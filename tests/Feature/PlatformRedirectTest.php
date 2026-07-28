@@ -38,7 +38,7 @@ class PlatformRedirectTest extends TestCase
 
         $this->actingAs($user)
             ->get('https://platform.stelfaro.com/dashboard')
-            ->assertRedirect('https://taller.stelfaro.com');
+            ->assertRedirect('https://platform.stelfaro.com/taller/');
     }
 
     public function test_dashboard_redirects_platform_owner_to_company_default_app_when_assigned(): void
@@ -69,7 +69,7 @@ class PlatformRedirectTest extends TestCase
 
         $this->actingAs($user)
             ->get('https://platform.stelfaro.com/dashboard')
-            ->assertRedirect('https://facturacion.stelfaro.com');
+            ->assertRedirect('https://platform.stelfaro.com/facturacion/');
     }
 
     public function test_dashboard_redirects_platform_owner_to_admin_when_no_company_app_exists(): void
@@ -80,7 +80,7 @@ class PlatformRedirectTest extends TestCase
 
         $this->actingAs($user)
             ->get('https://platform.stelfaro.com/dashboard')
-            ->assertRedirect('https://admin.stelfaro.com');
+            ->assertRedirect('https://platform.stelfaro.com/administracion/');
     }
 
     public function test_dashboard_forbids_user_when_user_has_no_apps(): void

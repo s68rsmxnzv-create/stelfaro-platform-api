@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\Platform\PortalUrl;
 use App\Models\WorkshopDeviceAccess;
 use App\Models\WorkshopOrder;
 use Illuminate\Support\Facades\DB;
@@ -43,6 +44,6 @@ class WorkshopDeviceAccessService
 
     private function url(string $token): string
     {
-        return 'https://'.config('platform.hosts.taller').'/equipo/'.$token;
+        return PortalUrl::app('taller', '/equipo/'.$token);
     }
 }

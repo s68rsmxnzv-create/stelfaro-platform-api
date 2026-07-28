@@ -46,7 +46,11 @@ const props = defineProps({
     },
     platformAdminUrl: {
         type: String,
-        default: 'https://admin.stelfaro.com',
+        default: '/administracion',
+    },
+    appBaseUrl: {
+        type: String,
+        required: true,
     },
     showOperationalFlow: {
         type: Boolean,
@@ -64,14 +68,13 @@ const error = ref(props.coreSessionError || '');
 const authToken = ref(props.coreSession?.token || null);
 const isTaller = computed(() => props.app.id === 'taller');
 const requiresCoreSession = computed(() => !['catalog', 'operational-placeholder', 'settings', 'audit'].includes(props.module));
-const appBaseUrl = computed(() => (isTaller.value ? 'https://taller.stelfaro.com' : 'https://facturacion.stelfaro.com'));
 const currentPath = computed(() => new URL(page.url, window.location.origin).pathname);
 const extraNavItems = computed(() => {
     if (!isTaller.value) return [];
 
     return [
-        { label: 'Recepción', href: 'https://taller.stelfaro.com/recepcion', active: currentPath.value.startsWith('/recepcion') },
-        { label: 'Órdenes', href: 'https://taller.stelfaro.com/ordenes', active: currentPath.value.startsWith('/ordenes') },
+        { label: 'Recepción', href: `${props.appBaseUrl}/recepcion`, active: currentPath.value.startsWith(`${props.appBaseUrl}/recepcion`) },
+        { label: 'Órdenes', href: `${props.appBaseUrl}/ordenes`, active: currentPath.value.startsWith(`${props.appBaseUrl}/ordenes`) },
     ];
 });
 const logout = () => {

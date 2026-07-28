@@ -6,6 +6,7 @@ use App\Models\PlatformApp;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Models\UserTenantMembership;
+use App\Support\Platform\PortalUrl;
 use Illuminate\Support\Collection;
 
 class PlatformSessionResolver
@@ -41,7 +42,7 @@ class PlatformSessionResolver
             ],
             'apps' => $apps->map(fn (PlatformApp $app): array => $this->appPayload($app))->values()->all(),
             'default_app' => $defaultApp ? $this->appPayload($defaultApp) : null,
-            'redirect_url' => $defaultApp ? $this->urlFor($defaultApp) : null,
+            'redirect_url' => $defaultApp ? $this->localPathFor($defaultApp) : null,
         ];
     }
 
@@ -126,19 +127,11 @@ class PlatformSessionResolver
 
     private function localPathFor(PlatformApp $app): string
     {
-        return match ($app->key) {
-            'taller' => 'https://'.config('platform.hosts.taller'),
-            'facturacion' => 'https://'.config('platform.hosts.facturacion'),
-            default => 'https://'.config('platform.hosts.platform'),
-        };
+        return PortalUrl::app($app->key, $app->default_path ?: '/');
     }
 
     private function urlFor(PlatformApp $app): ?string
     {
-        if (! $app->host) {
-            return null;
-        }
-
-        return 'https://'.trim($app->host, '/').'/'.ltrim($app->default_path ?: '/', '/');
+        return $this->localPathFor($app);
     }
 }

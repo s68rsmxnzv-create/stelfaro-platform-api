@@ -2,6 +2,7 @@
 
 namespace App\Services\Platform;
 
+use App\Support\Platform\PortalUrl;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Models\UserInvitation;
@@ -184,7 +185,7 @@ class UserInvitationService
 
     private function acceptUrl(string $token): string
     {
-        return 'https://'.config('platform.hosts.platform').'/invitations/'.$token;
+        return PortalUrl::path('/invitations/'.$token);
     }
 
     /**

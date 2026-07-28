@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1\Platform;
 
+use App\Support\Platform\PortalUrl;
 use App\Http\Controllers\Controller;
 use App\Models\InternalNotification;
 use App\Models\Tenant;
@@ -148,7 +149,7 @@ class TenantRequestController extends Controller
                     'category' => 'tenant_request',
                     'title' => 'Nueva solicitud '.self::reference($item),
                     'message' => ($item->tenant?->name ?? 'Una empresa').' solicita: '.$item->subject.'.',
-                    'action_url' => 'https://'.config('platform.hosts.admin').'/requests?request='.$item->id,
+                    'action_url' => PortalUrl::app('admin', '/requests?request='.$item->id),
                     'source_type' => TenantRequest::class,
                     'source_id' => $item->id,
                     'metadata' => ['request_id' => $item->public_id, 'request_reference' => self::reference($item), 'status' => $item->status],

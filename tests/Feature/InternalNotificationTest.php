@@ -101,7 +101,7 @@ class InternalNotificationTest extends TestCase
             ->getJson('/api/v1/platform/notifications?scope=admin')
             ->assertOk()
             ->assertJsonPath('unread_count', 1)
-            ->assertJsonPath('data.0.action_url', 'https://admin.stelfaro.com/requests?request=10');
+            ->assertJsonPath('data.0.action_url', 'https://platform.stelfaro.com/administracion/requests?request=10');
 
         $this->deleteJson("/api/v1/platform/notifications/{$notification->id}")
             ->assertOk();

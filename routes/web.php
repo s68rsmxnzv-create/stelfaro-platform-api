@@ -22,6 +22,8 @@ use App\Http\Controllers\ShortDteQrProxyController;
 use App\Http\Controllers\WompiPaymentConfirmationController;
 use App\Http\Controllers\WompiPaymentReturnController;
 use App\Http\Middleware\EnsurePasswordIsChanged;
+use App\Support\Platform\PortalUrl;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/payments/wompi/return', WompiPaymentReturnController::class)
@@ -40,17 +42,26 @@ Route::domain(config('platform.hosts.facturacion'))
 
 Route::domain(config('platform.hosts.taller'))
     ->group(function (): void {
+        Route::get('/equipo/{token}', [PublicWorkshopDeviceController::class, 'show'])->name('workshop.device.public.legacy');
+        Route::get('/fotos/{token}', [PublicWorkshopPhotoController::class, 'show'])->name('workshop.photos.public.legacy');
+        Route::get('/fotos/{token}/imagenes/{photo}', [PublicWorkshopPhotoController::class, 'photo'])->name('workshop.photos.image.legacy');
+    });
+
+Route::domain(config('platform.portal.host'))
+    ->prefix(trim(config('platform.paths.taller', '/taller'), '/'))
+    ->group(function (): void {
         Route::get('/equipo/{token}', [PublicWorkshopDeviceController::class, 'show'])->name('workshop.device.public');
         Route::get('/fotos/{token}', [PublicWorkshopPhotoController::class, 'show'])->name('workshop.photos.public');
         Route::get('/fotos/{token}/imagenes/{photo}', [PublicWorkshopPhotoController::class, 'photo'])->name('workshop.photos.image');
     });
 
-Route::domain(config('platform.hosts.taller'))
+Route::domain(config('platform.portal.host'))
+    ->prefix(trim(config('platform.paths.taller', '/taller'), '/'))
     ->middleware(['auth', 'verified', EnsurePasswordIsChanged::class, 'tenant.app:taller'])
     ->group(function (): void {
         Route::get('/', [PlatformPortalController::class, 'taller'])->name('apps.taller');
         Route::get('/recepcion', [PlatformPortalController::class, 'tallerReception'])->name('apps.taller.reception');
-        Route::redirect('/diagnostico', '/ordenes')->name('apps.taller.diagnosis');
+        Route::redirect('/diagnostico', '/taller/ordenes')->name('apps.taller.diagnosis');
         Route::get('/ordenes', [PlatformPortalController::class, 'tallerOrders'])->name('apps.taller.orders');
         Route::get('/clientes', [PlatformPortalController::class, 'tallerCustomers'])->name('apps.taller.customers');
         Route::get('/catalogo', [PlatformPortalController::class, 'tallerCatalog'])->name('apps.taller.catalog');
@@ -65,12 +76,13 @@ Route::domain(config('platform.hosts.taller'))
         Route::get('/respuestas-mh', [PlatformPortalController::class, 'tallerMhResponses'])->name('apps.taller.mh-responses');
         Route::get('/respuestas-eventos-mh', [PlatformPortalController::class, 'tallerMhEventResponses'])->name('apps.taller.mh-event-responses');
         Route::get('/configuracion', [PlatformPortalController::class, 'tallerFiscalSettings'])->name('apps.taller.settings');
-        Route::redirect('/configuracion-fiscal', '/configuracion')->name('apps.taller.fiscal-settings');
+        Route::redirect('/configuracion-fiscal', '/taller/configuracion')->name('apps.taller.fiscal-settings');
         Route::get('/platform/core-billing-session', CoreBillingSessionController::class)
             ->name('apps.taller.core-billing-session');
     });
 
-Route::domain(config('platform.hosts.facturacion'))
+Route::domain(config('platform.portal.host'))
+    ->prefix(trim(config('platform.paths.facturacion', '/facturacion'), '/'))
     ->middleware(['auth', 'verified', EnsurePasswordIsChanged::class, 'tenant.app:facturacion'])
     ->group(function (): void {
         Route::get('/', [PlatformPortalController::class, 'facturacion'])->name('apps.facturacion');
@@ -80,22 +92,46 @@ Route::domain(config('platform.hosts.facturacion'))
         Route::get('/caja', [PlatformPortalController::class, 'facturacionCash'])->name('apps.facturacion.cash');
         Route::get('/pendientes', [PlatformPortalController::class, 'facturacionFollowUps'])->name('apps.facturacion.follow-ups');
         Route::get('/anexos', [PlatformPortalController::class, 'facturacionAnnexes'])->name('apps.facturacion.annexes');
-        Route::get('/facturacion/{documentSlug?}', [PlatformPortalController::class, 'facturacionBilling'])->name('apps.facturacion.billing');
+        Route::get('/{documentSlug}', [PlatformPortalController::class, 'facturacionBilling'])
+            ->whereIn('documentSlug', ['fe', 'ccf', 'se', 'nc', 'nd'])
+            ->name('apps.facturacion.billing');
         Route::get('/comprobantes/{artifactSlug?}', [PlatformPortalController::class, 'facturacionArtifacts'])->name('apps.facturacion.artifacts');
         Route::get('/auditoria', [PlatformPortalController::class, 'facturacionAudit'])->name('apps.facturacion.audit');
         Route::get('/eventos-mh/{eventSlug?}', [PlatformPortalController::class, 'facturacionMhEvents'])->name('apps.facturacion.mh-events');
         Route::get('/respuestas-mh', [PlatformPortalController::class, 'facturacionMhResponses'])->name('apps.facturacion.mh-responses');
         Route::get('/respuestas-eventos-mh', [PlatformPortalController::class, 'facturacionMhEventResponses'])->name('apps.facturacion.mh-event-responses');
         Route::get('/configuracion', [PlatformPortalController::class, 'facturacionSettings'])->name('apps.facturacion.settings');
-        Route::redirect('/configuracion-fiscal', '/configuracion')->name('apps.facturacion.fiscal-settings');
+        Route::redirect('/configuracion-fiscal', '/facturacion/configuracion')->name('apps.facturacion.fiscal-settings');
         Route::get('/platform/core-billing-session', CoreBillingSessionController::class)
             ->name('apps.facturacion.core-billing-session');
     });
 
-Route::domain(config('platform.hosts.admin'))
-    ->prefix('platform-api/v1')
-    ->middleware(['auth', 'verified', EnsurePasswordIsChanged::class])
-    ->group(function (): void {
+foreach (['taller', 'facturacion'] as $legacyApp) {
+    if (config("platform.hosts.{$legacyApp}") === config('platform.portal.host')) {
+        continue;
+    }
+
+    Route::domain(config("platform.hosts.{$legacyApp}"))
+        ->get('/{path?}', function (Request $request, ?string $path = null) use ($legacyApp) {
+            if (in_array($path, ['login', 'forgot-password', 'change-temporary-password'], true)) {
+                return redirect()->away(PortalUrl::path('/'.$path));
+            }
+
+            if ($legacyApp === 'facturacion' && is_string($path) && str_starts_with($path, 'facturacion/')) {
+                $path = substr($path, strlen('facturacion/'));
+            }
+
+            $target = PortalUrl::app($legacyApp, $path ? '/'.$path : '/');
+            if ($request->getQueryString()) {
+                $target .= '?'.$request->getQueryString();
+            }
+
+            return redirect()->away($target);
+        })
+        ->where('path', '.*');
+}
+
+$adminApiRoutes = function (): void {
         Route::get('/me', PlatformSessionController::class);
         Route::get('/admin/platform/audit-logs', [PlatformAuditLogController::class, 'index']);
         Route::get('/admin/core/session', CoreSessionController::class);
@@ -122,9 +158,31 @@ Route::domain(config('platform.hosts.admin'))
         Route::delete('/platform/memberships/{membership}', [TenantMembershipController::class, 'destroy']);
         Route::any('/admin/notifications/{path?}', NotificationProxyController::class)
             ->where('path', '.*');
-    });
+};
 
-Route::domain(config('platform.hosts.platform'))
+Route::domain(config('platform.hosts.admin'))
+    ->prefix('platform-api/v1')
+    ->middleware(['auth', 'verified', EnsurePasswordIsChanged::class])
+    ->group($adminApiRoutes);
+
+Route::domain(config('platform.portal.host'))
+    ->prefix('platform-api/v1')
+    ->middleware(['auth', 'verified', EnsurePasswordIsChanged::class])
+    ->group($adminApiRoutes);
+
+Route::domain(config('platform.portal.host'))
+    ->prefix(trim(config('platform.paths.admin', '/administracion'), '/'))
+    ->middleware(['auth', 'verified', EnsurePasswordIsChanged::class])
+    ->get('/{path?}', function () {
+        $index = public_path('administracion/index.html');
+        abort_unless(is_file($index), 503, 'El panel administrativo no ha sido compilado.');
+
+        return response()->file($index, ['Cache-Control' => 'no-cache, no-store, must-revalidate']);
+    })
+    ->where('path', '.*')
+    ->name('platform.admin.spa');
+
+Route::domain(config('platform.portal.host'))
     ->group(function (): void {
         Route::get('/invitations/{token}', PlatformInvitationPageController::class)
             ->name('platform.invitations.accept');
@@ -142,6 +200,19 @@ Route::domain(config('platform.hosts.platform'))
 
     });
 
-// La autenticación se sirve en cada subdominio para que una PWA instalada no
-// tenga que abandonar su propio origen al iniciar o recuperar la sesión.
+if (config('platform.hosts.platform') !== config('platform.portal.host')) {
+    Route::domain(config('platform.hosts.platform'))
+        ->get('/{path?}', function (Request $request, ?string $path = null) {
+            $target = PortalUrl::path($path ? '/'.$path : '/');
+            if ($request->getQueryString()) {
+                $target .= '?'.$request->getQueryString();
+            }
+
+            return redirect()->away($target);
+        })
+        ->where('path', '.*');
+}
+
+// La autenticación permanece disponible también en los hosts heredados durante
+// la transición; sus vistas GET se redirigen al origen canónico.
 require __DIR__.'/auth.php';

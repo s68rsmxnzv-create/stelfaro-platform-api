@@ -18,7 +18,7 @@ class CoreSessionController extends Controller
         $adminAccess->authorize($request->user(), 'fiscal');
 
         return response()->json([
-            'base_url' => 'https://'.config('platform.hosts.platform').'/api/v1/admin/core',
+            'base_url' => '/api/v1/admin/core',
             'session' => $broker->openBackoffice(),
         ]);
     }

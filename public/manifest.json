@@ -44,7 +44,7 @@
     {
       "name": "Recibir equipo",
       "short_name": "Recibir",
-      "url": "/recepcion?source=pwa-shortcut",
+      "url": "/taller/recepcion?source=pwa-shortcut",
       "icons": [{ "src": "/pwa/stelfaro-192.png", "sizes": "192x192" }]
     }
   ]

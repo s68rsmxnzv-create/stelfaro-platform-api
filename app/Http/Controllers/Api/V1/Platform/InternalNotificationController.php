@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1\Platform;
 
+use App\Support\Platform\PortalUrl;
 use App\Http\Controllers\Controller;
 use App\Models\InternalNotification;
 use App\Models\User;
@@ -126,7 +127,7 @@ class InternalNotificationController extends Controller
     {
         $url = $notification->action_url;
         if ($notification->category === 'tenant_request' && is_string($url) && str_starts_with($url, '/requests')) {
-            return 'https://'.config('platform.hosts.admin').$url;
+            return PortalUrl::app('admin', $url);
         }
 
         return $url;

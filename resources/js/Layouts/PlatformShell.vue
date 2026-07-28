@@ -21,10 +21,10 @@ const page = usePage();
 const user = computed(() => page.props.auth?.user);
 
 const navItems = computed(() => [
-    { id: 'portal', label: 'Plataforma', href: 'https://platform.stelfaro.com' },
-    { id: 'taller', label: 'Taller', href: 'https://taller.stelfaro.com' },
+    { id: 'portal', label: 'Plataforma', href: '/' },
+    { id: 'taller', label: 'Taller', href: '/taller' },
     ...(props.showFacturacionApp
-        ? [{ id: 'facturacion', label: 'Facturación', href: 'https://taller.stelfaro.com/facturacion' }]
+        ? [{ id: 'facturacion', label: 'Facturación', href: '/facturacion' }]
         : []),
 ]);
 

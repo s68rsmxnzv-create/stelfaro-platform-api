@@ -6,6 +6,7 @@ use App\Models\PlatformApp;
 use App\Services\CoreBillingSessionBroker;
 use App\Services\PlatformAdminAccess;
 use App\Services\PlatformSessionResolver;
+use App\Support\Platform\PortalUrl;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -371,11 +372,7 @@ class PlatformPortalController extends Controller
                 'name' => $app->name,
                 'host' => $app->host,
                 'default_path' => $app->default_path,
-                'local_path' => match ($app->key) {
-                    'taller' => 'https://'.config('platform.hosts.taller'),
-                    'facturacion' => 'https://'.config('platform.hosts.facturacion'),
-                    default => 'https://'.config('platform.hosts.platform'),
-                },
+                'local_path' => PortalUrl::app($app->key, $app->default_path ?: '/'),
             ])
             ->values()
             ->all();
@@ -402,7 +399,8 @@ class PlatformPortalController extends Controller
             'coreSessionError' => $coreSessionError,
             'platformSession' => $this->sessionResolver->resolve(request()->user()),
             'canAccessPlatformAdmin' => $this->platformAdminAccess->allows(request()->user()),
-            'platformAdminUrl' => 'https://'.config('platform.hosts.admin'),
+            'platformAdminUrl' => PortalUrl::app('admin'),
+            'appBaseUrl' => '/'.trim(config('platform.paths.'.$props['app']['id'], '/'.$props['app']['id']), '/'),
         ]);
     }
 

@@ -3,6 +3,17 @@
 use App\Support\Platform\PlatformRoles;
 
 return [
+    'portal' => [
+        'host' => env('APP_PORTAL_HOST', 'platform.stelfaro.com'),
+        'scheme' => env('APP_PORTAL_SCHEME', 'https'),
+    ],
+
+    'paths' => [
+        'taller' => '/taller',
+        'facturacion' => '/facturacion',
+        'admin' => '/administracion',
+    ],
+
     'hosts' => [
         'platform' => env('PLATFORM_HOST', 'platform.stelfaro.com'),
         'taller' => env('TALLER_HOST', 'taller.stelfaro.com'),

@@ -8,6 +8,7 @@ use App\Services\CoreBillingSessionBroker;
 use App\Services\PlatformAdminAccess;
 use App\Services\PlatformAuditLogger;
 use App\Services\PlatformSessionResolver;
+use App\Support\Platform\PortalUrl;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -68,8 +69,8 @@ class AuthenticatedSessionController extends Controller
         $session = $this->sessionResolver->resolve($user);
         $target = $session['default_app']['local_path'] ?? (
             $this->platformAdminAccess->allows($user)
-                ? 'https://'.config('platform.hosts.admin')
-                : 'https://'.config('platform.hosts.platform')
+                ? PortalUrl::app('admin')
+                : PortalUrl::base()
         );
 
         if ($request->header('X-Inertia')) {

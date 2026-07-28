@@ -22,20 +22,20 @@ class AuthenticationTest extends TestCase
         $response->assertStatus(200);
     }
 
-    public function test_installed_app_can_render_login_on_its_own_origin(): void
+    public function test_legacy_app_origins_redirect_login_to_the_canonical_origin(): void
     {
-        $this->get('https://taller.stelfaro.com/login')->assertOk();
-        $this->get('https://facturacion.stelfaro.com/login')->assertOk();
+        $this->get('https://taller.stelfaro.com/login')->assertRedirect('https://platform.stelfaro.com/login');
+        $this->get('https://facturacion.stelfaro.com/login')->assertRedirect('https://platform.stelfaro.com/login');
         $this->get('https://admin.stelfaro.com/login')->assertOk();
     }
 
-    public function test_guest_is_redirected_to_login_on_the_same_app_origin(): void
+    public function test_guest_is_redirected_to_login_on_the_canonical_origin(): void
     {
-        $this->get('https://taller.stelfaro.com/ordenes')
-            ->assertRedirect('https://taller.stelfaro.com/login');
+        $this->get('https://platform.stelfaro.com/taller/ordenes')
+            ->assertRedirect('https://platform.stelfaro.com/login');
 
-        $this->get('https://facturacion.stelfaro.com/facturacion/fe')
-            ->assertRedirect('https://facturacion.stelfaro.com/login');
+        $this->get('https://platform.stelfaro.com/facturacion/fe')
+            ->assertRedirect('https://platform.stelfaro.com/login');
     }
 
     public function test_platform_sessions_expire_after_45_idle_minutes(): void
@@ -156,7 +156,7 @@ class AuthenticationTest extends TestCase
         $this->assertAuthenticated();
         $response
             ->assertStatus(409)
-            ->assertHeader(Header::LOCATION, 'https://taller.stelfaro.com');
+            ->assertHeader(Header::LOCATION, 'https://platform.stelfaro.com/taller/');
     }
 
     public function test_platform_owner_login_prefers_company_default_app_when_assigned(): void
@@ -195,7 +195,7 @@ class AuthenticationTest extends TestCase
         $this->assertAuthenticated();
         $response
             ->assertStatus(409)
-            ->assertHeader(Header::LOCATION, 'https://facturacion.stelfaro.com');
+            ->assertHeader(Header::LOCATION, 'https://platform.stelfaro.com/facturacion/');
     }
 
     public function test_platform_owner_login_uses_admin_when_no_company_app_exists(): void
@@ -214,7 +214,7 @@ class AuthenticationTest extends TestCase
         $this->assertAuthenticated();
         $response
             ->assertStatus(409)
-            ->assertHeader(Header::LOCATION, 'https://admin.stelfaro.com');
+            ->assertHeader(Header::LOCATION, 'https://platform.stelfaro.com/administracion/');
     }
 
     public function test_temporary_password_user_must_change_password_after_login(): void

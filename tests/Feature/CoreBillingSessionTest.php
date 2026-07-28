@@ -15,7 +15,7 @@ class CoreBillingSessionTest extends TestCase
 
     public function test_core_billing_session_requires_authentication(): void
     {
-        $this->get('https://taller.stelfaro.com/platform/core-billing-session')
+        $this->get('https://platform.stelfaro.com/taller/platform/core-billing-session')
             ->assertRedirect('https://platform.stelfaro.com/login');
     }
 
@@ -55,7 +55,7 @@ class CoreBillingSessionTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->getJson('https://taller.stelfaro.com/platform/core-billing-session')
+            ->getJson('https://platform.stelfaro.com/taller/platform/core-billing-session')
             ->assertOk()
             ->assertJsonPath('token', 'core-token');
 
@@ -101,7 +101,7 @@ class CoreBillingSessionTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->getJson('https://taller.stelfaro.com/platform/core-billing-session')
+            ->getJson('https://platform.stelfaro.com/taller/platform/core-billing-session')
             ->assertOk();
 
         Http::assertSent(fn ($request) => $request->url() === 'https://core.test/api/v1/internal/auth/billing-session'
@@ -146,7 +146,7 @@ class CoreBillingSessionTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->getJson('https://taller.stelfaro.com/platform/core-billing-session')
+            ->getJson('https://platform.stelfaro.com/taller/platform/core-billing-session')
             ->assertOk();
 
         Http::assertSent(fn ($request) => $request->url() === 'https://core.test/api/v1/internal/auth/billing-session'
@@ -179,7 +179,7 @@ class CoreBillingSessionTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->getJson('https://taller.stelfaro.com/platform/core-billing-session')
+            ->getJson('https://platform.stelfaro.com/taller/platform/core-billing-session')
             ->assertForbidden();
 
         Http::assertNothingSent();

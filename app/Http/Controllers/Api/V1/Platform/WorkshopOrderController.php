@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1\Platform;
 
+use App\Support\Platform\PortalUrl;
 use App\Http\Controllers\Controller;
 use App\Models\InventorySale;
 use App\Models\Tenant;
@@ -466,7 +467,7 @@ class WorkshopOrderController extends Controller
             'token_hash' => hash('sha256', $token),
             'expires_at' => now()->addMinutes(30),
         ]);
-        $url = 'https://'.config('platform.hosts.taller').'/fotos/'.$token;
+        $url = PortalUrl::app('taller', '/fotos/'.$token);
 
         return response()->json(['data' => ['url' => $url, 'expires_at' => $session->expires_at->toISOString()]], 201);
     }

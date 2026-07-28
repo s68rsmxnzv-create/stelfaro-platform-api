@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\PlatformAdminAccess;
 use App\Services\PlatformSessionResolver;
+use App\Support\Platform\PortalUrl;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -22,7 +23,7 @@ class PlatformRedirectController extends Controller
         if (! $defaultApp) {
             abort_unless($this->platformAdminAccess->allows($request->user()), 403, 'No tienes apps activas asignadas.');
 
-            return redirect('https://'.config('platform.hosts.admin'));
+            return redirect(PortalUrl::app('admin'));
         }
 
         return redirect($defaultApp['local_path']);

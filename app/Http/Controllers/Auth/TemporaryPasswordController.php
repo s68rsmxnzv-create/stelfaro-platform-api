@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Services\PlatformSessionResolver;
+use App\Support\Platform\PortalUrl;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
@@ -36,7 +37,7 @@ class TemporaryPasswordController extends Controller
         ])->save();
 
         $session = $this->sessionResolver->resolve($request->user());
-        $target = $session['default_app']['local_path'] ?? 'https://'.config('platform.hosts.platform');
+        $target = $session['default_app']['local_path'] ?? PortalUrl::base();
 
         if ($request->header('X-Inertia')) {
             return Inertia::location($target);

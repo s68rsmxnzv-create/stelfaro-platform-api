@@ -22,7 +22,7 @@ class WorkshopDeviceAccessTest extends TestCase
         $credentials = app(WorkshopDeviceAccessService::class)->ensure($order);
         $token = basename($credentials['url']);
 
-        $this->get("https://taller.stelfaro.com/equipo/{$token}")
+        $this->get("https://platform.stelfaro.com/taller/equipo/{$token}")
             ->assertOk()
             ->assertSee('T-000001')
             ->assertDontSee('2580');
