@@ -35,6 +35,8 @@ use App\Http\Controllers\Api\V1\Platform\WorkshopOrderController;
 use App\Http\Controllers\Api\V1\Platform\WorkshopTicketSettingsController;
 use App\Http\Controllers\Api\V1\PlatformSessionController;
 use App\Http\Controllers\Api\V1\WompiWebhookController;
+use App\Http\Controllers\Api\AndroidPrintAgentController;
+use App\Http\Controllers\Api\V1\Platform\AndroidPrintController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\PlatformAdmin\CoreProxyController;
 use App\Http\Controllers\PlatformAdmin\CoreSessionController;
@@ -44,6 +46,15 @@ use App\Http\Controllers\PublicWorkshopDeviceController;
 use App\Http\Controllers\PublicWorkshopPhotoController;
 use App\Http\Middleware\EnsurePasswordIsChanged;
 use Illuminate\Support\Facades\Route;
+
+// Contrato HTTPS consumido por el APK Android 1.0. Se mantiene fuera de /v1
+// porque el agente usa deliberadamente /api/faroprint como ruta estable.
+Route::prefix('faroprint')->middleware('throttle:120,1')->group(function (): void {
+    Route::get('health', [AndroidPrintAgentController::class, 'health']);
+    Route::post('pair', [AndroidPrintAgentController::class, 'pair'])->middleware('throttle:15,1');
+    Route::get('jobs', [AndroidPrintAgentController::class, 'jobs']);
+    Route::post('jobs/{job}/printed', [AndroidPrintAgentController::class, 'printed']);
+});
 
 Route::prefix('v1')->group(function (): void {
     Route::prefix('workshop/device-access/{token}')->middleware('throttle:30,1')->group(function (): void {
@@ -98,6 +109,10 @@ Route::prefix('v1')->group(function (): void {
         Route::post('platform/tenants/{tenant}/requests', [TenantRequestController::class, 'store']);
         Route::post('platform/tenants/{tenant}/requests/{tenantRequest}/credentials', [TenantRequestController::class, 'revealCredentials']);
         Route::get('platform/tenants/{tenant}/audit-logs', [PlatformAuditLogController::class, 'tenant']);
+        Route::get('platform/tenants/{tenant}/android-print/agents', [AndroidPrintController::class, 'index']);
+        Route::post('platform/tenants/{tenant}/android-print/pairing-codes', [AndroidPrintController::class, 'pairingCode']);
+        Route::delete('platform/tenants/{tenant}/android-print/agents/{agent}', [AndroidPrintController::class, 'revoke']);
+        Route::post('platform/tenants/{tenant}/android-print/jobs', [AndroidPrintController::class, 'enqueue']);
         Route::get('platform/tenants/{tenant}/catalog/categories', [CatalogCategoryController::class, 'index']);
         Route::post('platform/tenants/{tenant}/catalog/categories', [CatalogCategoryController::class, 'store']);
         Route::patch('platform/tenants/{tenant}/catalog/categories/{category}', [CatalogCategoryController::class, 'update']);
