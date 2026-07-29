@@ -1,8 +1,9 @@
-const CACHE_NAME = 'stelfaro-static-v4';
+const CACHE_NAME = 'stelfaro-static-v5';
 const CORE_ASSETS = [
     '/manifest.json',
     '/offline.html',
     '/pwa/stelfaro.svg',
+    '/pwa/stelfaro-wordmark.svg',
     '/pwa/stelfaro-192.png',
     '/pwa/stelfaro-512.png',
 ];

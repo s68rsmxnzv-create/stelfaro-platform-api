@@ -9,8 +9,8 @@
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
   "orientation": "any",
-  "background_color": "#07111f",
-  "theme_color": "#07111f",
+  "background_color": "#0a1b3d",
+  "theme_color": "#0a1b3d",
   "icons": [
     {
       "src": "/pwa/stelfaro-192.png",
