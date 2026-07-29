@@ -433,6 +433,21 @@ class PlatformUserManagementTest extends TestCase
         $this->assertNull($companyOwner->password_changed_at);
     }
 
+    public function test_admin_panel_route_can_reset_temporary_password(): void
+    {
+        $this->fakeFiscalRevocation();
+        $platformOwner = User::factory()->create(['platform_role' => 'platform_owner']);
+        [$companyOwner, $tenant] = $this->userWithTenantRole('owner');
+        $membership = $companyOwner->memberships()->where('tenant_id', $tenant->id)->firstOrFail();
+
+        $this->actingAs($platformOwner)
+            ->postJson("https://platform.stelfaro.com/platform-api/v1/platform/memberships/{$membership->id}/temporary-password")
+            ->assertOk()
+            ->assertJsonPath('user.email', $companyOwner->email)
+            ->assertJsonPath('user.must_change_password', true)
+            ->assertJsonStructure(['temporary_password']);
+    }
+
     public function test_company_admin_cannot_reset_company_owner_temporary_password(): void
     {
         [$owner, $tenant] = $this->userWithTenantRole('owner');

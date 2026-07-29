@@ -152,6 +152,7 @@ $adminApiRoutes = function (): void {
         Route::post('/platform/invitations/{invitation}/resend', [TenantInvitationController::class, 'resend']);
         Route::get('/platform/invitations/{invitation}/delivery', [TenantInvitationController::class, 'delivery']);
         Route::patch('/platform/memberships/{membership}/role', [TenantMembershipController::class, 'updateRole']);
+        Route::post('/platform/memberships/{membership}/temporary-password', [TenantMembershipController::class, 'resetTemporaryPassword']);
         Route::put('/platform/memberships/{membership}/fiscal-assignments', [TenantFiscalAssignmentController::class, 'store']);
         Route::patch('/platform/memberships/{membership}/suspend', [TenantMembershipController::class, 'suspend']);
         Route::patch('/platform/memberships/{membership}/reactivate', [TenantMembershipController::class, 'reactivate']);
