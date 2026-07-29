@@ -56,7 +56,7 @@ onMounted(() => {
 
 <template>
     <Head>
-        <title>Stelfaro — Tu negocio, más simple</title>
+        <title>Tu negocio, más simple</title>
         <meta
             head-key="description"
             name="description"

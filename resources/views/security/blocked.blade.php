@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Intento bloqueado | Stelfaro</title>
+    <title>Intento bloqueado · StelFaro</title>
     <style>
         :root { color-scheme: light dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
         body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: Canvas; color: CanvasText; padding: 24px; }

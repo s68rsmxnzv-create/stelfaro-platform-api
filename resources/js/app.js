@@ -5,7 +5,7 @@ import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createApp, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 
-const appName = import.meta.env.VITE_APP_NAME || 'Stelfaro';
+const appName = import.meta.env.VITE_APP_NAME || 'StelFaro';
 const themeStorageKey = 'stelfaro:theme';
 
 function initializeTheme() {
@@ -66,7 +66,7 @@ window.matchMedia('(display-mode: standalone)').addEventListener('change', publi
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js?v=8', {
+        navigator.serviceWorker.register('/service-worker.js?v=9', {
             scope: '/',
             updateViaCache: 'none',
         }).then((registration) => {
@@ -94,7 +94,7 @@ navigator.serviceWorker?.addEventListener('controllerchange', () => {
 });
 
 createInertiaApp({
-    title: (title) => `${title} - ${appName}`,
+    title: (title) => title ? `${title} · ${appName}` : appName,
     resolve: (name) =>
         resolvePageComponent(
             `./Pages/${name}.vue`,

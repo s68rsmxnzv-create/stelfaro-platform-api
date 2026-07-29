@@ -74,7 +74,7 @@ async function acceptInvitation() {
 
 <template>
     <PlatformShell active-app="portal">
-        <Head title="Aceptar invitacion" />
+        <Head title="Aceptar invitación" />
 
         <section class="mx-auto flex min-h-[calc(100vh-73px)] max-w-4xl items-center px-5 py-10">
             <div class="w-full rounded-md border border-slate-200 bg-white p-6 shadow-sm dark:border-line dark:bg-surface dark:text-text dark:shadow-black/20">

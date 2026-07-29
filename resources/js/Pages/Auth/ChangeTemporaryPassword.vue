@@ -21,11 +21,11 @@ const submit = () => {
 
 <template>
     <GuestLayout>
-        <Head title="Cambiar contrasena" />
+        <Head title="Cambiar contraseña" />
 
         <div class="mb-6">
             <p class="text-sm font-semibold uppercase tracking-wide text-blue-700">Primer inicio</p>
-            <h1 class="mt-2 text-2xl font-bold text-[#0d1629]">Crea tu contrasena personal</h1>
+            <h1 class="mt-2 text-2xl font-bold text-[#0d1629]">Crea tu contraseña personal</h1>
             <p class="mt-2 text-sm text-slate-600">
                 Tu usuario fue creado con una contrasena temporal. Cambiala antes de entrar a tus apps.
             </p>

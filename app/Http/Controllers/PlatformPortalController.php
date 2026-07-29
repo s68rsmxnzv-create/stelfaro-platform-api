@@ -58,7 +58,7 @@ class PlatformPortalController extends Controller
             'app' => [
                 'id' => 'taller',
                 'name' => 'Taller electrónico',
-                'description' => 'Facturación electrónica reutilizada desde el monorepo Stelfaro Platform.',
+                'description' => 'Facturación electrónica integrada a la operación de StelFaro.',
             ],
             'module' => 'billing',
             'documentSlug' => $documentSlug ?? 'fe',
