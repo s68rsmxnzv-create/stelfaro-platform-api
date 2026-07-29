@@ -5,6 +5,31 @@ import { onMounted, ref } from 'vue';
 const themeStorageKey = 'stelfaro:theme';
 const isDark = ref(false);
 
+const solutions = [
+    {
+        number: '01',
+        name: 'Facturación',
+        title: 'Emitir un DTE no debería detener tu día.',
+        description: 'Factura, cobra y revisa la respuesta de Hacienda desde un flujo que tu equipo puede entender.',
+        features: ['Factura y crédito fiscal', 'Notas y sujeto excluido', 'Clientes, catálogo y caja', 'Comprobantes organizados'],
+        accent: 'primary',
+    },
+    {
+        number: '02',
+        name: 'Taller',
+        title: 'Cada equipo conserva su historia completa.',
+        description: 'Desde que lo recibes hasta que lo entregas: fotografías, diagnóstico, aprobación, reparación y cobro.',
+        features: ['Recepción desde el móvil', 'Diagnóstico y presupuesto', 'Aprobación del cliente', 'Entrega y facturación'],
+        accent: 'success',
+    },
+];
+
+const principles = [
+    ['Pensado para trabajar', 'Las acciones frecuentes están primero; la información secundaria aparece cuando hace falta.'],
+    ['Móvil de verdad', 'No encogemos la pantalla de escritorio. Cada flujo se adapta a la forma en que se usa el teléfono.'],
+    ['Acompañamiento humano', 'Configuramos contigo y escuchamos cómo opera tu negocio antes de pedirte que cambies procesos.'],
+];
+
 function applyTheme(darkMode) {
     isDark.value = darkMode;
     document.documentElement.classList.toggle('dark', darkMode);
@@ -12,59 +37,23 @@ function applyTheme(darkMode) {
     window.localStorage.setItem(themeStorageKey, darkMode ? 'dark' : 'light');
 }
 
-function toggleTheme() {
-    applyTheme(!isDark.value);
-}
-
 onMounted(() => {
     isDark.value = document.documentElement.classList.contains('dark');
 });
-
-const benefits = [
-    {
-        title: 'Emite sin complicarte',
-        text: 'Factura electrónica, crédito fiscal, notas y sujeto excluido desde una experiencia clara y guiada.',
-        icon: 'document',
-    },
-    {
-        title: 'Trabaja desde cualquier lugar',
-        text: 'Diseñado para computadora, tablet y móvil. Instálalo y úsalo como una aplicación.',
-        icon: 'phone',
-    },
-    {
-        title: 'Tu operación conectada',
-        text: 'Clientes, catálogo, inventario, caja y documentos fiscales trabajan como un solo sistema.',
-        icon: 'flow',
-    },
-];
-
-const workshopFeatures = [
-    'Recepción rápida de equipos',
-    'Fotos, diagnóstico y aprobación',
-    'Seguimiento de órdenes',
-    'Cobro, entrega y facturación',
-];
-
-const billingFeatures = [
-    'Emisión de los principales DTE',
-    'Clientes y productos organizados',
-    'Inventario, caja y cuentas pendientes',
-    'Comprobantes y respuestas de Hacienda',
-];
 </script>
 
 <template>
     <Head>
-        <title>Stelfaro — Facturación y gestión para hacer crecer tu negocio</title>
+        <title>Stelfaro — Tu negocio, más simple</title>
         <meta
             head-key="description"
             name="description"
-            content="Facturación electrónica y gestión operativa para negocios en El Salvador. Trabaja desde computadora, tablet o móvil."
+            content="Facturación electrónica y gestión de talleres para negocios en El Salvador. Una aplicación clara, práctica y acompañada."
         />
     </Head>
 
-    <div class="min-h-screen overflow-hidden bg-[#e8edf4] text-text transition-colors dark:bg-app">
-        <header class="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[var(--sf-color-navbar)] text-white shadow-lg shadow-slate-950/10">
+    <div class="landing min-h-screen bg-app text-text">
+        <header class="public-header fixed inset-x-0 top-0 z-50 border-b border-white/10 text-white">
             <div class="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:h-20 lg:px-8">
                 <a href="/" class="flex items-center gap-3" aria-label="Stelfaro, inicio">
                     <img src="/pwa/stelfaro.svg" alt="" class="h-10 w-10 rounded-full sm:h-11 sm:w-11" />
@@ -76,19 +65,18 @@ const billingFeatures = [
                     </span>
                 </a>
 
-                <nav class="hidden items-center gap-7 text-sm font-medium text-slate-300 md:flex">
+                <nav class="hidden items-center gap-8 text-sm font-medium text-slate-300 md:flex">
                     <a href="#soluciones" class="transition hover:text-white">Soluciones</a>
-                    <a href="#beneficios" class="transition hover:text-white">Beneficios</a>
-                    <a href="#como-funciona" class="transition hover:text-white">Cómo funciona</a>
+                    <a href="#forma-de-trabajo" class="transition hover:text-white">Cómo trabajamos</a>
+                    <a href="#contacto" class="transition hover:text-white">Contacto</a>
                 </nav>
 
                 <div class="flex items-center gap-2">
                     <button
                         type="button"
-                        class="grid h-11 w-11 place-items-center rounded-xl border border-white/10 bg-white/10 text-white transition hover:bg-white/20"
+                        class="grid h-11 w-11 place-items-center rounded-lg border border-white/10 bg-white/5 text-white transition hover:bg-white/15"
                         :aria-label="isDark ? 'Activar modo claro' : 'Activar modo oscuro'"
-                        :title="isDark ? 'Modo claro' : 'Modo oscuro'"
-                        @click="toggleTheme"
+                        @click="applyTheme(!isDark)"
                     >
                         <svg v-if="isDark" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                             <circle cx="12" cy="12" r="4" />
@@ -98,10 +86,7 @@ const billingFeatures = [
                             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
                         </svg>
                     </button>
-                    <Link
-                        href="/login"
-                        class="inline-flex h-11 items-center justify-center rounded-xl border border-white/15 bg-white/10 px-3 text-sm font-bold text-white transition hover:bg-white hover:text-[var(--sf-color-navbar)] sm:px-5"
-                    >
+                    <Link href="/login" class="inline-flex h-11 items-center rounded-lg border border-white/15 bg-white/10 px-4 text-sm font-bold transition hover:bg-white hover:text-slate-950">
                         <span class="sm:hidden">Entrar</span>
                         <span class="hidden sm:inline">Iniciar sesión</span>
                     </Link>
@@ -110,211 +95,245 @@ const billingFeatures = [
         </header>
 
         <main>
-            <section class="relative isolate border-b border-line bg-gradient-to-br from-[#eef3f8] via-[#e3edf6] to-[#dce5ef] pb-20 pt-32 dark:from-app dark:via-app dark:to-surface sm:pb-28 sm:pt-40">
-                <div class="absolute inset-0 -z-20 bg-[radial-gradient(circle_at_75%_15%,rgba(14,165,233,0.16),transparent_30%),radial-gradient(circle_at_15%_70%,rgba(16,185,129,0.09),transparent_28%)] dark:bg-[radial-gradient(circle_at_75%_15%,rgba(14,165,233,0.22),transparent_30%),radial-gradient(circle_at_15%_70%,rgba(16,185,129,0.13),transparent_28%)]"></div>
-                <div class="absolute left-1/2 top-24 -z-10 h-[420px] w-[420px] -translate-x-1/2 rounded-full bg-sky-500/10 blur-3xl"></div>
-
-                <div class="mx-auto grid max-w-7xl items-center gap-14 px-5 lg:grid-cols-[1.05fr_0.95fr] lg:px-8">
-                    <div class="max-w-3xl">
-                        <div class="inline-flex items-center gap-2 rounded-full border border-sky-400/20 bg-sky-400/10 px-3 py-1.5 text-xs font-bold text-sky-200">
-                            <span class="h-2 w-2 rounded-full bg-emerald-400"></span>
-                            Creado para negocios de El Salvador
+            <section class="hero-grid relative overflow-hidden border-b border-line pt-16 sm:pt-20">
+                <div class="mx-auto grid min-h-[740px] max-w-7xl items-center gap-14 px-5 py-16 lg:grid-cols-[1.02fr_0.98fr] lg:px-8 lg:py-24">
+                    <div class="relative z-10">
+                        <div class="mb-8 flex items-center gap-3 text-xs font-black uppercase tracking-[0.2em] text-primary">
+                            <span class="h-px w-10 bg-primary"></span>
+                            Hecho para trabajar en El Salvador
                         </div>
 
-                        <h1 class="mt-6 text-4xl font-black leading-[1.05] tracking-[-0.04em] sm:text-6xl lg:text-7xl">
-                            Menos papeleo.
-                            <span class="block bg-gradient-to-r from-sky-600 via-cyan-600 to-emerald-600 bg-clip-text text-transparent dark:from-sky-300 dark:via-cyan-300 dark:to-emerald-300">
-                                Más negocio.
-                            </span>
+                        <h1 class="max-w-4xl text-[3.35rem] font-black leading-[0.98] tracking-[-0.055em] sm:text-7xl lg:text-[5.4rem]">
+                            Tu negocio merece
+                            <span class="text-primary">menos vueltas.</span>
                         </h1>
 
-                        <p class="mt-6 max-w-2xl text-lg leading-8 text-muted sm:text-xl">
-                            Facturación electrónica y operación diaria en una sola aplicación. Fácil para tu equipo, práctica desde el móvil y lista para acompañar tu crecimiento.
+                        <p class="mt-7 max-w-xl text-lg leading-8 text-muted sm:text-xl">
+                            Facturación electrónica y operación diaria en una aplicación que se siente clara desde el primer uso.
                         </p>
 
-                        <div class="mt-8 flex flex-col gap-3 sm:flex-row">
+                        <div class="mt-9 flex flex-col gap-3 sm:flex-row">
                             <a
                                 href="mailto:soporte@stelfaro.com?subject=Quiero conocer Stelfaro"
-                                class="inline-flex h-14 items-center justify-center rounded-2xl bg-primary px-7 text-base font-black text-primary-contrast shadow-xl shadow-sky-500/20 transition hover:-translate-y-0.5 hover:bg-primary-hover"
+                                class="inline-flex h-14 items-center justify-center rounded-lg bg-primary px-7 text-base font-black text-primary-contrast shadow-lg shadow-sky-900/10 transition hover:-translate-y-0.5 hover:bg-primary-hover"
                             >
-                                Quiero conocer Stelfaro
+                                Conversemos
+                                <span class="ml-3" aria-hidden="true">→</span>
                             </a>
-                            <a
-                                href="#soluciones"
-                                class="inline-flex h-14 items-center justify-center rounded-2xl border border-line bg-surface px-7 text-base font-bold text-text transition hover:bg-surface-muted"
-                            >
-                                Ver soluciones
+                            <a href="#soluciones" class="inline-flex h-14 items-center justify-center rounded-lg border border-line-strong bg-surface/60 px-7 text-base font-bold text-text backdrop-blur transition hover:bg-surface">
+                                Explorar soluciones
                             </a>
                         </div>
 
-                        <div class="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm text-muted">
-                            <span class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Sin instalaciones complicadas</span>
-                            <span class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Acompañamiento inicial</span>
-                            <span class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Acceso seguro por usuario</span>
-                        </div>
+                        <p class="mt-7 max-w-lg text-sm leading-6 text-soft">
+                            Te ayudamos a configurar la empresa, preparar la facturación y acompañar a tu equipo al comenzar.
+                        </p>
                     </div>
 
-                    <div class="relative mx-auto w-full max-w-xl">
-                        <div class="absolute -inset-6 rounded-[2.5rem] bg-gradient-to-br from-sky-500/20 to-emerald-500/10 blur-2xl"></div>
-                        <div class="relative overflow-hidden rounded-[2rem] border border-white/15 bg-[#0b1728] p-3 text-white shadow-2xl shadow-black/40">
-                            <div class="flex items-center gap-2 border-b border-white/10 px-3 pb-3">
-                                <span class="h-2.5 w-2.5 rounded-full bg-rose-400"></span>
-                                <span class="h-2.5 w-2.5 rounded-full bg-amber-300"></span>
-                                <span class="h-2.5 w-2.5 rounded-full bg-emerald-400"></span>
-                                <span class="ml-auto text-[10px] font-semibold uppercase tracking-widest text-slate-500">Resumen de hoy</span>
+                    <div class="relative mx-auto w-full max-w-[570px] lg:ml-auto">
+                        <div class="product-window relative overflow-hidden border border-line bg-surface/75 shadow-2xl shadow-slate-950/20 backdrop-blur-xl">
+                            <div class="flex h-14 items-center border-b border-line px-5">
+                                <span class="h-2.5 w-2.5 rounded-full bg-danger"></span>
+                                <span class="ml-2 h-2.5 w-2.5 rounded-full bg-warning"></span>
+                                <span class="ml-2 h-2.5 w-2.5 rounded-full bg-success"></span>
+                                <span class="ml-auto text-[10px] font-bold uppercase tracking-[0.18em] text-soft">Miércoles · 10:24 a. m.</span>
                             </div>
 
-                            <div class="space-y-3 p-2 pt-5 sm:p-5">
-                                <div class="flex items-end justify-between gap-4">
+                            <div class="p-5 sm:p-7">
+                                <div class="flex items-start justify-between gap-4">
                                     <div>
-                                        <p class="text-xs font-bold uppercase tracking-wider text-sky-300">Tu operación</p>
-                                        <p class="mt-1 text-2xl font-black">Todo bajo control</p>
+                                        <p class="text-xs font-black uppercase tracking-[0.16em] text-primary">Casa matriz</p>
+                                        <h2 class="mt-2 text-2xl font-black">Buenos días, Ana.</h2>
                                     </div>
-                                    <span class="rounded-xl bg-emerald-400/10 px-3 py-2 text-xs font-bold text-emerald-300">En línea</span>
+                                    <span class="inline-flex items-center gap-2 text-xs font-bold text-success">
+                                        <span class="h-2 w-2 rounded-full bg-success"></span> Operando
+                                    </span>
                                 </div>
 
-                                <div class="grid grid-cols-2 gap-3">
-                                    <div class="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                                        <span class="text-2xl">↗</span>
-                                        <strong class="mt-5 block text-2xl">$460.00</strong>
-                                        <span class="mt-1 block text-sm text-slate-400">Ventas de hoy</span>
+                                <div class="mt-7 grid grid-cols-2 border-y border-line">
+                                    <div class="border-r border-line py-5 pr-5">
+                                        <span class="text-sm text-muted">Ventas de hoy</span>
+                                        <strong class="mt-2 block text-3xl tracking-tight">$460.00</strong>
                                     </div>
-                                    <div class="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                                        <span class="text-2xl">✓</span>
-                                        <strong class="mt-5 block text-2xl">12</strong>
-                                        <span class="mt-1 block text-sm text-slate-400">Operaciones listas</span>
-                                    </div>
-                                </div>
-
-                                <div class="rounded-2xl bg-sky-500 p-5 shadow-lg shadow-sky-500/20">
-                                    <div class="flex items-center justify-between">
-                                        <div>
-                                            <p class="text-xs font-bold uppercase tracking-wider text-sky-100">Acción principal</p>
-                                            <strong class="mt-1 block text-xl">Emitir factura</strong>
-                                        </div>
-                                        <span class="grid h-11 w-11 place-items-center rounded-full bg-white/15 text-2xl">→</span>
+                                    <div class="py-5 pl-5">
+                                        <span class="text-sm text-muted">Órdenes activas</span>
+                                        <strong class="mt-2 block text-3xl tracking-tight">8</strong>
                                     </div>
                                 </div>
 
-                                <div class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                                    <div class="grid h-11 w-11 place-items-center rounded-xl bg-emerald-400/10 text-xl text-emerald-300">✓</div>
+                                <div class="mt-6">
+                                    <p class="mb-3 text-xs font-black uppercase tracking-[0.16em] text-soft">Continuar trabajando</p>
+                                    <button type="button" class="flex w-full items-center gap-4 rounded-lg bg-primary p-4 text-left text-primary-contrast">
+                                        <span class="grid h-11 w-11 place-items-center rounded-md bg-white/15 text-xl">+</span>
+                                        <span>
+                                            <strong class="block">Emitir factura</strong>
+                                            <span class="mt-0.5 block text-xs opacity-80">Factura, crédito fiscal o nota</span>
+                                        </span>
+                                        <span class="ml-auto text-xl">→</span>
+                                    </button>
+                                </div>
+
+                                <div class="mt-3 flex items-center gap-3 rounded-lg border border-line bg-surface-muted/70 p-4">
+                                    <span class="grid h-10 w-10 place-items-center rounded-md bg-success-soft font-black text-success">✓</span>
                                     <div class="min-w-0">
-                                        <strong class="block">Documento aceptado</strong>
-                                        <span class="block truncate text-sm text-slate-400">Procesado correctamente por Hacienda</span>
+                                        <strong class="block text-sm">DTE aceptado por Hacienda</strong>
+                                        <span class="block truncate text-xs text-muted">Factura DTE-01-M001P001-0000000000042</span>
                                     </div>
+                                    <span class="ml-auto text-xs text-soft">10:19</span>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </div>
-            </section>
 
-            <section id="beneficios" class="border-y border-line bg-surface py-20 sm:py-24">
-                <div class="mx-auto max-w-7xl px-5 lg:px-8">
-                    <div class="max-w-2xl">
-                        <p class="text-sm font-black uppercase tracking-[0.2em] text-sky-300">Una herramienta para trabajar</p>
-                        <h2 class="mt-3 text-3xl font-black tracking-tight sm:text-5xl">Lo importante, sin complicaciones.</h2>
-                    </div>
-
-                    <div class="mt-12 grid gap-4 md:grid-cols-3">
-                        <article
-                            v-for="benefit in benefits"
-                            :key="benefit.title"
-                            class="rounded-3xl border border-line bg-surface-raised p-6 shadow-surface transition hover:-translate-y-1 hover:border-primary/40"
-                        >
-                            <div class="grid h-12 w-12 place-items-center rounded-2xl bg-sky-400/10 text-xl font-black text-sky-300">
-                                <span v-if="benefit.icon === 'document'">✓</span>
-                                <span v-else-if="benefit.icon === 'phone'">▯</span>
-                                <span v-else>∞</span>
+                        <div class="absolute -bottom-8 -left-5 hidden w-56 border border-line bg-surface/85 p-4 shadow-xl backdrop-blur-xl sm:block">
+                            <p class="text-[10px] font-black uppercase tracking-[0.16em] text-soft">También en el móvil</p>
+                            <div class="mt-3 flex items-center gap-3">
+                                <span class="grid h-10 w-10 place-items-center rounded-md bg-primary-soft text-primary">▯</span>
+                                <span class="text-sm font-bold">Instálalo como app</span>
                             </div>
-                            <h3 class="mt-6 text-xl font-black">{{ benefit.title }}</h3>
-                            <p class="mt-3 leading-7 text-muted">{{ benefit.text }}</p>
-                        </article>
-                    </div>
-                </div>
-            </section>
-
-            <section id="soluciones" class="py-20 sm:py-28">
-                <div class="mx-auto max-w-7xl px-5 lg:px-8">
-                    <div class="mx-auto max-w-3xl text-center">
-                        <p class="text-sm font-black uppercase tracking-[0.2em] text-emerald-300">Elige cómo empezar</p>
-                        <h2 class="mt-3 text-3xl font-black tracking-tight sm:text-5xl">Una plataforma, soluciones para tu negocio.</h2>
-                        <p class="mt-5 text-lg leading-8 text-muted">Empieza con lo que necesitas hoy. Tu información y tu equipo permanecen en el mismo lugar cuando agregas nuevas funciones.</p>
-                    </div>
-
-                    <div class="mt-12 grid gap-5 lg:grid-cols-2">
-                        <article class="group relative overflow-hidden rounded-[2rem] border border-sky-400/25 bg-gradient-to-br from-sky-500/15 to-[#0b1728] p-7 text-white sm:p-9">
-                            <div class="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-sky-400/10 blur-2xl"></div>
-                            <span class="inline-flex rounded-full bg-sky-400/15 px-3 py-1 text-xs font-black uppercase tracking-wider text-sky-200">Facturación</span>
-                            <h3 class="mt-5 text-3xl font-black">Emite DTE con claridad</h3>
-                            <p class="mt-3 max-w-xl leading-7 text-slate-300">Para comercios y profesionales que quieren facturar, cobrar y mantener su operación organizada.</p>
-                            <ul class="mt-7 grid gap-3 sm:grid-cols-2">
-                                <li v-for="feature in billingFeatures" :key="feature" class="flex items-start gap-2 text-sm text-slate-300">
-                                    <span class="mt-0.5 text-emerald-400">✓</span>{{ feature }}
-                                </li>
-                            </ul>
-                        </article>
-
-                        <article class="group relative overflow-hidden rounded-[2rem] border border-emerald-400/20 bg-gradient-to-br from-emerald-500/10 to-[#0b1728] p-7 text-white sm:p-9">
-                            <div class="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-emerald-400/10 blur-2xl"></div>
-                            <span class="inline-flex rounded-full bg-emerald-400/15 px-3 py-1 text-xs font-black uppercase tracking-wider text-emerald-200">Taller</span>
-                            <h3 class="mt-5 text-3xl font-black">Cada equipo, bajo control</h3>
-                            <p class="mt-3 max-w-xl leading-7 text-slate-300">Recepción, diagnóstico, aprobación, reparación y entrega conectados con cobro y facturación.</p>
-                            <ul class="mt-7 grid gap-3 sm:grid-cols-2">
-                                <li v-for="feature in workshopFeatures" :key="feature" class="flex items-start gap-2 text-sm text-slate-300">
-                                    <span class="mt-0.5 text-emerald-400">✓</span>{{ feature }}
-                                </li>
-                            </ul>
-                        </article>
-                    </div>
-                </div>
-            </section>
-
-            <section id="como-funciona" class="border-y border-line bg-surface-muted py-20 sm:py-24">
-                <div class="mx-auto max-w-7xl px-5 lg:px-8">
-                    <div class="grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
-                        <div>
-                            <p class="text-sm font-black uppercase tracking-[0.2em] text-sky-300">Empieza acompañado</p>
-                            <h2 class="mt-3 text-3xl font-black tracking-tight sm:text-5xl">De tu negocio a Stelfaro, paso a paso.</h2>
-                            <p class="mt-5 text-lg leading-8 text-muted">Configuramos contigo lo necesario para que tu equipo empiece con seguridad y sin una curva de aprendizaje pesada.</p>
                         </div>
-
-                        <ol class="grid gap-4">
-                            <li v-for="(step, index) in ['Conocemos tu operación', 'Configuramos empresa y facturación', 'Acompañamos a tu equipo al comenzar']" :key="step" class="flex items-center gap-4 rounded-2xl border border-line bg-surface p-4 shadow-surface sm:p-5">
-                                <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-sky-400/10 text-sm font-black text-sky-300">0{{ index + 1 }}</span>
-                                <strong class="text-base sm:text-lg">{{ step }}</strong>
-                            </li>
-                        </ol>
                     </div>
                 </div>
             </section>
 
-            <section class="px-5 py-20 sm:py-28">
-                <div class="mx-auto max-w-5xl overflow-hidden rounded-[2rem] border border-sky-300/20 bg-gradient-to-br from-sky-500 to-cyan-500 p-8 text-center shadow-2xl shadow-sky-500/20 sm:p-14">
-                    <p class="text-sm font-black uppercase tracking-[0.2em] text-sky-950/70">Tu negocio puede sentirse más simple</p>
-                    <h2 class="mx-auto mt-4 max-w-3xl text-3xl font-black tracking-tight text-white sm:text-5xl">Conversemos sobre lo que necesitas.</h2>
-                    <p class="mx-auto mt-5 max-w-2xl text-lg leading-8 text-sky-50">Te mostramos Stelfaro y preparamos una ruta de implementación adecuada para tu operación.</p>
-                    <a
-                        href="mailto:soporte@stelfaro.com?subject=Quiero una demostración de Stelfaro"
-                        class="mt-8 inline-flex h-14 items-center justify-center rounded-2xl bg-[#07111f] px-8 text-base font-black text-white transition hover:-translate-y-0.5 hover:bg-[#0b1d33]"
-                    >
-                        Solicitar demostración
-                    </a>
+            <section class="border-b border-line bg-surface">
+                <div class="mx-auto grid max-w-7xl divide-y divide-line px-5 md:grid-cols-3 md:divide-x md:divide-y-0 lg:px-8">
+                    <div v-for="([title, text], index) in principles" :key="title" class="py-8 md:px-7 md:first:pl-0 md:last:pr-0">
+                        <span class="text-xs font-black text-primary">0{{ index + 1 }}</span>
+                        <h2 class="mt-3 text-lg font-black">{{ title }}</h2>
+                        <p class="mt-2 text-sm leading-6 text-muted">{{ text }}</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="soluciones" class="section-wash py-20 sm:py-28">
+                <div class="mx-auto max-w-7xl px-5 lg:px-8">
+                    <div class="grid gap-7 border-b border-line pb-10 lg:grid-cols-[0.7fr_1.3fr] lg:items-end">
+                        <p class="text-xs font-black uppercase tracking-[0.2em] text-primary">Dos formas de comenzar</p>
+                        <h2 class="max-w-3xl text-4xl font-black leading-tight tracking-[-0.035em] sm:text-5xl">
+                            Tecnología que se adapta a la operación, no al revés.
+                        </h2>
+                    </div>
+
+                    <div class="divide-y divide-line">
+                        <article v-for="solution in solutions" :key="solution.name" class="grid gap-7 py-12 lg:grid-cols-[0.35fr_0.9fr_1fr] lg:gap-12 lg:py-16">
+                            <div>
+                                <span class="text-sm font-black" :class="solution.accent === 'success' ? 'text-success' : 'text-primary'">{{ solution.number }}</span>
+                                <p class="mt-2 text-sm font-black uppercase tracking-[0.16em] text-soft">{{ solution.name }}</p>
+                            </div>
+                            <div>
+                                <h3 class="text-3xl font-black leading-tight tracking-tight">{{ solution.title }}</h3>
+                                <p class="mt-4 leading-7 text-muted">{{ solution.description }}</p>
+                            </div>
+                            <ul class="grid content-start gap-x-8 gap-y-4 sm:grid-cols-2">
+                                <li v-for="feature in solution.features" :key="feature" class="flex items-center gap-3 border-b border-line pb-4 text-sm font-semibold">
+                                    <span :class="solution.accent === 'success' ? 'text-success' : 'text-primary'">✓</span>
+                                    {{ feature }}
+                                </li>
+                            </ul>
+                        </article>
+                    </div>
+                </div>
+            </section>
+
+            <section id="forma-de-trabajo" class="border-y border-line bg-[var(--sf-color-navbar)] py-20 text-white sm:py-24">
+                <div class="mx-auto grid max-w-7xl gap-14 px-5 lg:grid-cols-[0.85fr_1.15fr] lg:px-8">
+                    <div>
+                        <p class="text-xs font-black uppercase tracking-[0.2em] text-sky-300">No te dejamos solo con el sistema</p>
+                        <h2 class="mt-5 text-4xl font-black leading-tight tracking-tight sm:text-5xl">Primero entendemos cómo trabajas.</h2>
+                        <p class="mt-5 max-w-xl leading-7 text-slate-300">
+                            Stelfaro se configura alrededor de tu empresa. Nuestro trabajo no termina cuando entregamos una contraseña.
+                        </p>
+                    </div>
+
+                    <ol class="border-t border-white/15">
+                        <li v-for="(step, index) in ['Conocemos tu operación y tus prioridades', 'Configuramos empresa, sucursales y facturación', 'Preparamos a tu equipo con casos reales', 'Te acompañamos durante la puesta en marcha']" :key="step" class="grid grid-cols-[3rem_1fr] gap-4 border-b border-white/15 py-5">
+                            <span class="font-mono text-sm text-sky-300">{{ String(index + 1).padStart(2, '0') }}</span>
+                            <strong class="text-lg">{{ step }}</strong>
+                        </li>
+                    </ol>
+                </div>
+            </section>
+
+            <section id="contacto" class="section-wash px-5 py-20 sm:py-28">
+                <div class="mx-auto grid max-w-7xl overflow-hidden border border-line bg-surface/70 shadow-surface backdrop-blur-xl lg:grid-cols-[1.2fr_0.8fr]">
+                    <div class="p-7 sm:p-12">
+                        <p class="text-xs font-black uppercase tracking-[0.2em] text-primary">Hablemos de tu negocio</p>
+                        <h2 class="mt-5 max-w-2xl text-4xl font-black leading-tight tracking-tight sm:text-5xl">Cuéntanos qué quieres simplificar.</h2>
+                        <p class="mt-5 max-w-2xl text-lg leading-8 text-muted">
+                            Te mostramos el producto con situaciones parecidas a las de tu operación, sin una presentación genérica.
+                        </p>
+                    </div>
+                    <div class="flex flex-col justify-center border-t border-line bg-surface-muted/60 p-7 lg:border-l lg:border-t-0 sm:p-10">
+                        <a href="mailto:soporte@stelfaro.com?subject=Quiero conocer Stelfaro" class="inline-flex h-14 items-center justify-center rounded-lg bg-primary px-7 font-black text-primary-contrast transition hover:bg-primary-hover">
+                            Solicitar una conversación
+                        </a>
+                        <a href="mailto:soporte@stelfaro.com" class="mt-5 text-center text-sm font-semibold text-muted hover:text-primary">soporte@stelfaro.com</a>
+                    </div>
                 </div>
             </section>
         </main>
 
-        <footer class="border-t border-line">
+        <footer class="border-t border-line bg-surface">
             <div class="mx-auto flex max-w-7xl flex-col gap-5 px-5 py-8 text-sm text-muted sm:flex-row sm:items-center sm:justify-between lg:px-8">
                 <div class="flex items-center gap-3">
                     <img src="/pwa/stelfaro.svg" alt="" class="h-9 w-9 rounded-full" />
-                    <span><strong class="text-text">Stelfaro</strong> · Tecnología para trabajar mejor.</span>
+                    <span><strong class="text-text">Stelfaro</strong> · Tecnología salvadoreña para trabajar mejor.</span>
                 </div>
-                <div class="flex flex-wrap gap-5">
-                    <a href="mailto:soporte@stelfaro.com" class="hover:text-primary">soporte@stelfaro.com</a>
+                <div class="flex gap-5">
+                    <a href="#soluciones" class="hover:text-primary">Soluciones</a>
                     <Link href="/login" class="hover:text-primary">Iniciar sesión</Link>
                 </div>
             </div>
         </footer>
     </div>
 </template>
+
+<style scoped>
+.public-header {
+    background: var(--sf-color-navbar);
+}
+
+@supports (background: color-mix(in srgb, black 90%, transparent)) {
+    .public-header {
+        background: color-mix(in srgb, var(--sf-color-navbar) 88%, transparent);
+        backdrop-filter: blur(18px) saturate(125%);
+    }
+}
+
+.hero-grid,
+.section-wash {
+    background-color: var(--sf-color-app);
+    background-image:
+        linear-gradient(to right, color-mix(in srgb, var(--sf-color-line) 55%, transparent) 1px, transparent 1px),
+        linear-gradient(to bottom, color-mix(in srgb, var(--sf-color-line) 45%, transparent) 1px, transparent 1px);
+    background-size: 64px 64px;
+}
+
+.hero-grid::after {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    content: '';
+    pointer-events: none;
+    background:
+        linear-gradient(90deg, var(--sf-color-app) 0%, transparent 35%, transparent 70%, var(--sf-color-app) 100%),
+        linear-gradient(0deg, var(--sf-color-app) 0%, transparent 25%);
+    opacity: 0.72;
+}
+
+.hero-grid > div {
+    position: relative;
+    z-index: 1;
+}
+
+.product-window {
+    border-radius: 1.25rem 1.25rem 1.25rem 0.25rem;
+}
+
+@media (max-width: 640px) {
+    .hero-grid,
+    .section-wash {
+        background-size: 40px 40px;
+    }
+}
+</style>
