@@ -98,10 +98,9 @@ onMounted(() => {
             <section class="hero-grid relative overflow-hidden border-b border-line pt-16 sm:pt-20">
                 <div class="mx-auto grid min-h-[740px] max-w-7xl items-center gap-14 px-5 py-16 lg:grid-cols-[1.02fr_0.98fr] lg:px-8 lg:py-24">
                     <div class="relative z-10">
-                        <div class="mb-8 flex items-center gap-3 text-xs font-black uppercase tracking-[0.2em] text-primary">
-                            <span class="h-px w-10 bg-primary"></span>
-                            Hecho para trabajar en El Salvador
-                        </div>
+                        <p class="mb-8 border-l-2 border-primary pl-4 text-sm font-semibold text-muted">
+                            Diseñado y acompañado desde El Salvador.
+                        </p>
 
                         <h1 class="max-w-4xl text-[3.35rem] font-black leading-[0.98] tracking-[-0.055em] sm:text-7xl lg:text-[5.4rem]">
                             Tu negocio merece
@@ -208,7 +207,7 @@ onMounted(() => {
             <section id="soluciones" class="section-wash py-20 sm:py-28">
                 <div class="mx-auto max-w-7xl px-5 lg:px-8">
                     <div class="grid gap-7 border-b border-line pb-10 lg:grid-cols-[0.7fr_1.3fr] lg:items-end">
-                        <p class="text-xs font-black uppercase tracking-[0.2em] text-primary">Dos formas de comenzar</p>
+                        <p class="text-sm font-semibold text-primary">Puedes comenzar con facturación o con la gestión de tu taller.</p>
                         <h2 class="max-w-3xl text-4xl font-black leading-tight tracking-[-0.035em] sm:text-5xl">
                             Tecnología que se adapta a la operación, no al revés.
                         </h2>
@@ -238,7 +237,7 @@ onMounted(() => {
             <section id="forma-de-trabajo" class="border-y border-line bg-[var(--sf-color-navbar)] py-20 text-white sm:py-24">
                 <div class="mx-auto grid max-w-7xl gap-14 px-5 lg:grid-cols-[0.85fr_1.15fr] lg:px-8">
                     <div>
-                        <p class="text-xs font-black uppercase tracking-[0.2em] text-sky-300">No te dejamos solo con el sistema</p>
+                        <p class="border-l-2 border-sky-300 pl-4 text-sm font-semibold text-slate-300">No te dejamos solo con el sistema.</p>
                         <h2 class="mt-5 text-4xl font-black leading-tight tracking-tight sm:text-5xl">Primero entendemos cómo trabajas.</h2>
                         <p class="mt-5 max-w-xl leading-7 text-slate-300">
                             Stelfaro se configura alrededor de tu empresa. Nuestro trabajo no termina cuando entregamos una contraseña.
@@ -257,7 +256,7 @@ onMounted(() => {
             <section id="contacto" class="section-wash px-5 py-20 sm:py-28">
                 <div class="mx-auto grid max-w-7xl overflow-hidden border border-line bg-surface/70 shadow-surface backdrop-blur-xl lg:grid-cols-[1.2fr_0.8fr]">
                     <div class="p-7 sm:p-12">
-                        <p class="text-xs font-black uppercase tracking-[0.2em] text-primary">Hablemos de tu negocio</p>
+                        <p class="text-sm font-semibold text-primary">Hablemos de tu negocio.</p>
                         <h2 class="mt-5 max-w-2xl text-4xl font-black leading-tight tracking-tight sm:text-5xl">Cuéntanos qué quieres simplificar.</h2>
                         <p class="mt-5 max-w-2xl text-lg leading-8 text-muted">
                             Te mostramos el producto con situaciones parecidas a las de tu operación, sin una presentación genérica.
