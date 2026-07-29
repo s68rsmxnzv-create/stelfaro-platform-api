@@ -6,6 +6,8 @@ const themeStorageKey = 'stelfaro:theme';
 const isDark = ref(false);
 const configuredDemoVideoId = String(import.meta.env.VITE_STELFARO_DEMO_VIDEO_ID || '').trim();
 const demoVideoId = /^[\w-]{11}$/.test(configuredDemoVideoId) ? configuredDemoVideoId : '';
+const whatsappNumber = String(import.meta.env.VITE_STELFARO_WHATSAPP_NUMBER || '50375640652').replace(/\D/g, '');
+const whatsappDemoUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent('Hola, quiero conocer StelFaro y solicitar una demostración.')}`;
 
 const platformModules = [
     {
@@ -101,9 +103,15 @@ onMounted(() => {
                         <span class="hidden sm:inline">Iniciar sesión</span>
                     </Link>
                     <a
-                        href="mailto:soporte@stelfaro.com?subject=Quiero conocer StelFaro"
-                        class="hidden h-11 items-center rounded-lg bg-primary px-5 text-sm font-black text-primary-contrast shadow-lg shadow-sky-950/20 transition hover:bg-primary-hover xl:inline-flex"
+                        :href="whatsappDemoUrl"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="hidden h-11 items-center gap-2 rounded-lg bg-[#20b864] px-5 text-sm font-black text-white shadow-lg shadow-sky-950/20 transition hover:bg-[#189e55] xl:inline-flex"
+                        aria-label="Solicitar demostración por WhatsApp"
                     >
+                        <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <path d="M12.04 2a9.84 9.84 0 0 0-8.53 14.75L2 22l5.38-1.41A9.99 9.99 0 0 0 12.04 22 9.93 9.93 0 0 0 22 12.08 9.96 9.96 0 0 0 12.04 2Zm5.8 14.05c-.25.7-1.47 1.34-2.04 1.42-.52.08-1.18.12-1.9-.12-.44-.14-1-.33-1.72-.64-3.02-1.3-4.99-4.34-5.14-4.54-.15-.2-1.23-1.63-1.23-3.11s.78-2.21 1.05-2.51c.28-.3.61-.38.81-.38h.59c.19 0 .45-.07.7.54.25.6.85 2.08.93 2.23.07.15.12.33.02.53-.1.2-.15.33-.3.51-.15.17-.32.38-.46.51-.15.15-.3.31-.13.61.18.3.78 1.28 1.67 2.08 1.15 1.02 2.12 1.34 2.42 1.49.3.15.48.12.66-.08.17-.2.75-.88.95-1.18.2-.3.4-.25.68-.15.27.1 1.75.83 2.05.98.3.15.5.22.57.35.08.12.08.72-.17 1.42Z" />
+                        </svg>
                         Solicitar demo
                     </a>
                 </div>
@@ -126,9 +134,15 @@ onMounted(() => {
 
                         <div class="mt-7 grid gap-3 sm:flex sm:flex-row">
                             <a
-                                href="mailto:soporte@stelfaro.com?subject=Quiero conocer Stelfaro"
-                                class="inline-flex h-12 items-center justify-center rounded-lg bg-primary px-6 text-sm font-bold text-primary-contrast transition hover:bg-primary-hover"
+                                :href="whatsappDemoUrl"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="inline-flex h-12 items-center justify-center gap-2.5 rounded-lg bg-[#20b864] px-6 text-sm font-bold text-white shadow-lg shadow-emerald-950/10 transition hover:bg-[#189e55]"
+                                aria-label="Solicitar demostración por WhatsApp"
                             >
+                                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                    <path d="M12.04 2a9.84 9.84 0 0 0-8.53 14.75L2 22l5.38-1.41A9.99 9.99 0 0 0 12.04 22 9.93 9.93 0 0 0 22 12.08 9.96 9.96 0 0 0 12.04 2Zm5.8 14.05c-.25.7-1.47 1.34-2.04 1.42-.52.08-1.18.12-1.9-.12-.44-.14-1-.33-1.72-.64-3.02-1.3-4.99-4.34-5.14-4.54-.15-.2-1.23-1.63-1.23-3.11s.78-2.21 1.05-2.51c.28-.3.61-.38.81-.38h.59c.19 0 .45-.07.7.54.25.6.85 2.08.93 2.23.07.15.12.33.02.53-.1.2-.15.33-.3.51-.15.17-.32.38-.46.51-.15.15-.3.31-.13.61.18.3.78 1.28 1.67 2.08 1.15 1.02 2.12 1.34 2.42 1.49.3.15.48.12.66-.08.17-.2.75-.88.95-1.18.2-.3.4-.25.68-.15.27.1 1.75.83 2.05.98.3.15.5.22.57.35.08.12.08.72-.17 1.42Z" />
+                                </svg>
                                 Solicitar demostración
                             </a>
                             <a href="#soluciones" class="inline-flex h-12 items-center justify-center rounded-lg border border-line bg-surface px-6 text-sm font-bold text-text transition hover:bg-surface-muted">
