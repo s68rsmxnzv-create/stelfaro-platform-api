@@ -7,22 +7,30 @@ const isDark = ref(false);
 const configuredDemoVideoId = String(import.meta.env.VITE_STELFARO_DEMO_VIDEO_ID || '').trim();
 const demoVideoId = /^[\w-]{11}$/.test(configuredDemoVideoId) ? configuredDemoVideoId : '';
 
-const solutions = [
+const platformModules = [
     {
         number: '01',
         name: 'Facturación',
-        title: 'Emitir un DTE no debería detener tu día.',
-        description: 'Factura, cobra y revisa la respuesta de Hacienda desde un flujo que tu equipo puede entender.',
-        features: ['Factura y crédito fiscal', 'Notas y sujeto excluido', 'Clientes, catálogo y caja', 'Comprobantes organizados'],
+        title: 'Vender, cobrar y emitir sin romper el ritmo.',
+        description: 'La operación comercial y el cumplimiento fiscal viven en el mismo flujo, desde la venta hasta la respuesta de Hacienda.',
+        features: ['Factura y crédito fiscal', 'Notas y sujeto excluido', 'Caja y formas de pago', 'Comprobantes organizados'],
         accent: 'primary',
     },
     {
         number: '02',
         name: 'Taller',
         title: 'Cada equipo conserva su historia completa.',
-        description: 'Desde que lo recibes hasta que lo entregas: fotografías, diagnóstico, aprobación, reparación y cobro.',
+        description: 'Recepción, fotografías, diagnóstico, aprobación, reparación y cobro conectados a la misma información del negocio.',
         features: ['Recepción desde el móvil', 'Diagnóstico y presupuesto', 'Aprobación del cliente', 'Entrega y facturación'],
         accent: 'success',
+    },
+    {
+        number: '03',
+        name: 'Nuevas operaciones',
+        title: 'La plataforma está preparada para crecer contigo.',
+        description: 'Nuevos módulos pueden incorporar procesos propios sin duplicar clientes, usuarios, sucursales ni información fiscal.',
+        features: ['Una identidad empresarial', 'Permisos compartidos', 'Datos conectados', 'Nuevos verticales'],
+        accent: 'primary',
     },
 ];
 
@@ -187,28 +195,53 @@ onMounted(() => {
                 </div>
             </section>
 
-            <section id="soluciones" class="bg-app py-16 sm:py-24">
+            <section id="soluciones" class="scroll-mt-16 bg-app py-16 sm:scroll-mt-20 sm:py-24 lg:scroll-mt-24">
                 <div class="mx-auto max-w-7xl px-5 lg:px-8">
-                    <div class="grid gap-7 border-b border-line pb-10 lg:grid-cols-[0.7fr_1.3fr] lg:items-end">
-                        <p class="text-sm font-semibold text-primary">Puedes comenzar con facturación o con la gestión de tu taller.</p>
+                    <div class="grid gap-7 lg:grid-cols-[0.7fr_1.3fr] lg:items-end">
+                        <p class="text-sm font-semibold text-primary">Una base común para toda la operación.</p>
                         <h2 class="max-w-3xl text-4xl font-black leading-tight tracking-[-0.035em] sm:text-5xl">
-                            Tecnología que se adapta a la operación, no al revés.
+                            La operación cambia. La columna vertebral permanece.
                         </h2>
                     </div>
 
-                    <div class="divide-y divide-line">
-                        <article v-for="solution in solutions" :key="solution.name" class="grid gap-7 py-12 lg:grid-cols-[0.35fr_0.9fr_1fr] lg:gap-12 lg:py-16">
+                    <div class="mt-10 overflow-hidden rounded-2xl bg-[#07162f] text-white shadow-xl shadow-slate-950/15">
+                        <div class="grid gap-7 p-6 sm:p-8 lg:grid-cols-[0.7fr_1.3fr] lg:items-center lg:p-10">
                             <div>
-                                <span class="text-sm font-black" :class="solution.accent === 'success' ? 'text-success' : 'text-primary'">{{ solution.number }}</span>
-                                <p class="mt-2 text-sm font-black uppercase tracking-[0.16em] text-soft">{{ solution.name }}</p>
+                                <p class="text-xs font-black uppercase tracking-[0.2em] text-sky-300">Base StelFaro</p>
+                                <h3 class="mt-3 text-2xl font-black leading-tight sm:text-3xl">Todo parte de la misma información.</h3>
+                                <p class="mt-3 max-w-lg text-sm leading-6 text-slate-300">
+                                    Cada módulo trabaja sobre una empresa, una identidad y un historial compartido.
+                                </p>
                             </div>
-                            <div>
-                                <h3 class="text-3xl font-black leading-tight tracking-tight">{{ solution.title }}</h3>
-                                <p class="mt-4 leading-7 text-muted">{{ solution.description }}</p>
+
+                            <ul class="grid gap-px overflow-hidden rounded-xl bg-white/10 sm:grid-cols-2 xl:grid-cols-3">
+                                <li
+                                    v-for="foundation in ['Empresa y sucursales', 'Usuarios y permisos', 'Clientes y catálogo', 'Facturación DTE', 'Datos y trazabilidad', 'Indicadores del negocio']"
+                                    :key="foundation"
+                                    class="flex min-h-16 items-center gap-3 bg-white/[0.055] px-4 py-3 text-sm font-bold"
+                                >
+                                    <span class="h-2 w-2 shrink-0 rounded-full bg-sky-400"></span>
+                                    {{ foundation }}
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="relative mt-6 grid gap-5 lg:grid-cols-3">
+                        <article
+                            v-for="module in platformModules"
+                            :key="module.name"
+                            class="flex min-w-0 flex-col rounded-2xl border border-line bg-surface p-6 shadow-sm sm:p-7"
+                        >
+                            <div class="flex items-center justify-between gap-4">
+                                <p class="text-xs font-black uppercase tracking-[0.16em] text-soft">{{ module.name }}</p>
+                                <span class="font-mono text-xs font-black" :class="module.accent === 'success' ? 'text-success' : 'text-primary'">{{ module.number }}</span>
                             </div>
-                            <ul class="grid content-start gap-x-8 gap-y-4 sm:grid-cols-2">
-                                <li v-for="feature in solution.features" :key="feature" class="flex items-center gap-3 border-b border-line pb-4 text-sm font-semibold">
-                                    <span :class="solution.accent === 'success' ? 'text-success' : 'text-primary'">✓</span>
+                            <h3 class="mt-6 text-2xl font-black leading-tight tracking-tight">{{ module.title }}</h3>
+                            <p class="mt-4 leading-7 text-muted">{{ module.description }}</p>
+                            <ul class="mt-7 grid gap-3 border-t border-line pt-6 text-sm font-semibold">
+                                <li v-for="feature in module.features" :key="feature" class="flex items-center gap-3">
+                                    <span :class="module.accent === 'success' ? 'text-success' : 'text-primary'">✓</span>
                                     {{ feature }}
                                 </li>
                             </ul>
