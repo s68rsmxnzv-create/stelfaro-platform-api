@@ -55,20 +55,20 @@ onMounted(() => {
     <div class="landing min-h-screen w-full max-w-full overflow-x-clip bg-app text-text">
         <header class="public-header fixed inset-x-0 top-0 z-50 border-b border-white/10 text-white">
             <div class="mx-auto flex h-[calc(4rem+env(safe-area-inset-top))] max-w-7xl items-center justify-between gap-3 pb-0 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[env(safe-area-inset-top)] sm:h-[calc(5rem+env(safe-area-inset-top))] sm:px-5 sm:pt-[env(safe-area-inset-top)] lg:px-8">
-                <a href="/" class="flex min-w-0 items-center gap-2.5" aria-label="Stelfaro, inicio">
+                <a href="/" class="group flex min-w-0 items-center gap-2.5" aria-label="StelFaro, inicio">
                     <img src="/pwa/stelfaro-mark-on-dark.svg" alt="" class="h-10 w-9 shrink-0 object-contain sm:h-12 sm:w-11" />
                     <span>
                         <strong class="block truncate text-base leading-none tracking-tight sm:text-lg">StelFaro</strong>
-                        <span class="mt-1 hidden text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-300 sm:block">
+                        <span class="mt-1 hidden text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-300 lg:block">
                             Tu negocio, más simple
                         </span>
                     </span>
                 </a>
 
-                <nav class="hidden items-center gap-8 text-sm font-medium text-slate-300 md:flex">
-                    <a href="#soluciones" class="transition hover:text-white">Soluciones</a>
-                    <a href="#forma-de-trabajo" class="transition hover:text-white">Cómo trabajamos</a>
-                    <a href="#contacto" class="transition hover:text-white">Contacto</a>
+                <nav class="hidden items-center gap-1 rounded-xl border border-white/10 bg-slate-950/15 p-1 text-sm font-semibold text-slate-300 shadow-inner md:flex" aria-label="Navegación principal">
+                    <a href="#soluciones" class="rounded-lg px-4 py-2.5 transition hover:bg-white/10 hover:text-white">Soluciones</a>
+                    <a href="#forma-de-trabajo" class="rounded-lg px-4 py-2.5 transition hover:bg-white/10 hover:text-white">Cómo trabajamos</a>
+                    <a href="#contacto" class="rounded-lg px-4 py-2.5 transition hover:bg-white/10 hover:text-white">Contacto</a>
                 </nav>
 
                 <div class="flex shrink-0 items-center gap-2">
@@ -86,12 +86,19 @@ onMounted(() => {
                             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
                         </svg>
                     </button>
-                    <Link href="/login" class="inline-flex h-10 items-center rounded-lg border border-white/15 bg-white/10 px-3 text-sm font-bold transition hover:bg-white hover:text-slate-950 sm:h-11 sm:px-4">
+                    <Link href="/login" class="inline-flex h-10 items-center rounded-lg border border-white/15 bg-white/10 px-3 text-sm font-bold transition hover:border-white/30 hover:bg-white/15 sm:h-11 sm:px-4">
                         <span class="sm:hidden">Entrar</span>
                         <span class="hidden sm:inline">Iniciar sesión</span>
                     </Link>
+                    <a
+                        href="mailto:soporte@stelfaro.com?subject=Quiero conocer StelFaro"
+                        class="hidden h-11 items-center rounded-lg bg-primary px-5 text-sm font-black text-primary-contrast shadow-lg shadow-sky-950/20 transition hover:bg-primary-hover xl:inline-flex"
+                    >
+                        Solicitar demo
+                    </a>
                 </div>
             </div>
+            <div class="header-accent absolute inset-x-0 bottom-[-1px] h-px" aria-hidden="true"></div>
         </header>
 
         <main class="min-w-0">
@@ -292,6 +299,11 @@ onMounted(() => {
 <style scoped>
 .public-header {
     background: var(--sf-color-navbar);
+}
+
+.header-accent {
+    background: linear-gradient(90deg, transparent 8%, #2563eb 38%, #38bdf8 50%, #2563eb 62%, transparent 92%);
+    opacity: 0.65;
 }
 
 @supports (background: color-mix(in srgb, black 90%, transparent)) {
