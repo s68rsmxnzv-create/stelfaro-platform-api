@@ -63,8 +63,8 @@ const billingFeatures = [
         />
     </Head>
 
-    <div class="min-h-screen overflow-hidden bg-slate-50 text-slate-950 transition-colors dark:bg-[#07111f] dark:text-white">
-        <header class="fixed inset-x-0 top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur-xl dark:border-white/10 dark:bg-[#07111f]/90">
+    <div class="min-h-screen overflow-hidden bg-app text-text transition-colors">
+        <header class="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[var(--sf-color-navbar)]/95 text-white backdrop-blur-xl">
             <div class="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:h-20 lg:px-8">
                 <a href="/" class="flex items-center gap-3" aria-label="Stelfaro, inicio">
                     <img src="/pwa/stelfaro.svg" alt="" class="h-10 w-10 rounded-full sm:h-11 sm:w-11" />
@@ -76,16 +76,16 @@ const billingFeatures = [
                     </span>
                 </a>
 
-                <nav class="hidden items-center gap-7 text-sm font-medium text-slate-600 dark:text-slate-300 md:flex">
-                    <a href="#soluciones" class="transition hover:text-sky-600 dark:hover:text-white">Soluciones</a>
-                    <a href="#beneficios" class="transition hover:text-sky-600 dark:hover:text-white">Beneficios</a>
-                    <a href="#como-funciona" class="transition hover:text-sky-600 dark:hover:text-white">Cómo funciona</a>
+                <nav class="hidden items-center gap-7 text-sm font-medium text-slate-300 md:flex">
+                    <a href="#soluciones" class="transition hover:text-white">Soluciones</a>
+                    <a href="#beneficios" class="transition hover:text-white">Beneficios</a>
+                    <a href="#como-funciona" class="transition hover:text-white">Cómo funciona</a>
                 </nav>
 
                 <div class="flex items-center gap-2">
                     <button
                         type="button"
-                        class="grid h-11 w-11 place-items-center rounded-xl border border-slate-200 bg-slate-100 text-slate-700 transition hover:bg-slate-200 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
+                        class="grid h-11 w-11 place-items-center rounded-xl border border-white/10 bg-white/10 text-white transition hover:bg-white/20"
                         :aria-label="isDark ? 'Activar modo claro' : 'Activar modo oscuro'"
                         :title="isDark ? 'Modo claro' : 'Modo oscuro'"
                         @click="toggleTheme"
@@ -100,7 +100,7 @@ const billingFeatures = [
                     </button>
                     <Link
                         href="/login"
-                        class="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold shadow-sm transition hover:border-sky-300 hover:text-sky-700 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:bg-white dark:hover:text-[#07111f] sm:px-5"
+                        class="inline-flex h-11 items-center justify-center rounded-xl border border-white/15 bg-white/10 px-3 text-sm font-bold text-white transition hover:bg-white hover:text-[var(--sf-color-navbar)] sm:px-5"
                     >
                         <span class="sm:hidden">Entrar</span>
                         <span class="hidden sm:inline">Iniciar sesión</span>
@@ -128,26 +128,26 @@ const billingFeatures = [
                             </span>
                         </h1>
 
-                        <p class="mt-6 max-w-2xl text-lg leading-8 text-slate-600 dark:text-slate-300 sm:text-xl">
+                        <p class="mt-6 max-w-2xl text-lg leading-8 text-muted sm:text-xl">
                             Facturación electrónica y operación diaria en una sola aplicación. Fácil para tu equipo, práctica desde el móvil y lista para acompañar tu crecimiento.
                         </p>
 
                         <div class="mt-8 flex flex-col gap-3 sm:flex-row">
                             <a
                                 href="mailto:soporte@stelfaro.com?subject=Quiero conocer Stelfaro"
-                                class="inline-flex h-14 items-center justify-center rounded-2xl bg-sky-500 px-7 text-base font-black text-white shadow-xl shadow-sky-500/20 transition hover:-translate-y-0.5 hover:bg-sky-400"
+                                class="inline-flex h-14 items-center justify-center rounded-2xl bg-primary px-7 text-base font-black text-primary-contrast shadow-xl shadow-sky-500/20 transition hover:-translate-y-0.5 hover:bg-primary-hover"
                             >
                                 Quiero conocer Stelfaro
                             </a>
                             <a
                                 href="#soluciones"
-                                class="inline-flex h-14 items-center justify-center rounded-2xl border border-slate-300 bg-white px-7 text-base font-bold text-slate-800 transition hover:bg-slate-100 dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
+                                class="inline-flex h-14 items-center justify-center rounded-2xl border border-line bg-surface px-7 text-base font-bold text-text transition hover:bg-surface-muted"
                             >
                                 Ver soluciones
                             </a>
                         </div>
 
-                        <div class="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm text-slate-600 dark:text-slate-400">
+                        <div class="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm text-muted">
                             <span class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Sin instalaciones complicadas</span>
                             <span class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Acompañamiento inicial</span>
                             <span class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Acceso seguro por usuario</span>
@@ -209,7 +209,7 @@ const billingFeatures = [
                 </div>
             </section>
 
-            <section id="beneficios" class="border-y border-slate-200 bg-white py-20 dark:border-white/10 dark:bg-white/[0.025] sm:py-24">
+            <section id="beneficios" class="border-y border-line bg-surface py-20 sm:py-24">
                 <div class="mx-auto max-w-7xl px-5 lg:px-8">
                     <div class="max-w-2xl">
                         <p class="text-sm font-black uppercase tracking-[0.2em] text-sky-300">Una herramienta para trabajar</p>
@@ -220,7 +220,7 @@ const billingFeatures = [
                         <article
                             v-for="benefit in benefits"
                             :key="benefit.title"
-                            class="rounded-3xl border border-slate-200 bg-slate-50 p-6 shadow-sm transition hover:-translate-y-1 hover:border-sky-400/30 dark:border-white/10 dark:bg-[#0b1728] dark:shadow-none"
+                            class="rounded-3xl border border-line bg-surface-raised p-6 shadow-surface transition hover:-translate-y-1 hover:border-primary/40"
                         >
                             <div class="grid h-12 w-12 place-items-center rounded-2xl bg-sky-400/10 text-xl font-black text-sky-300">
                                 <span v-if="benefit.icon === 'document'">✓</span>
@@ -228,7 +228,7 @@ const billingFeatures = [
                                 <span v-else>∞</span>
                             </div>
                             <h3 class="mt-6 text-xl font-black">{{ benefit.title }}</h3>
-                            <p class="mt-3 leading-7 text-slate-600 dark:text-slate-400">{{ benefit.text }}</p>
+                            <p class="mt-3 leading-7 text-muted">{{ benefit.text }}</p>
                         </article>
                     </div>
                 </div>
@@ -239,7 +239,7 @@ const billingFeatures = [
                     <div class="mx-auto max-w-3xl text-center">
                         <p class="text-sm font-black uppercase tracking-[0.2em] text-emerald-300">Elige cómo empezar</p>
                         <h2 class="mt-3 text-3xl font-black tracking-tight sm:text-5xl">Una plataforma, soluciones para tu negocio.</h2>
-                        <p class="mt-5 text-lg leading-8 text-slate-600 dark:text-slate-400">Empieza con lo que necesitas hoy. Tu información y tu equipo permanecen en el mismo lugar cuando agregas nuevas funciones.</p>
+                        <p class="mt-5 text-lg leading-8 text-muted">Empieza con lo que necesitas hoy. Tu información y tu equipo permanecen en el mismo lugar cuando agregas nuevas funciones.</p>
                     </div>
 
                     <div class="mt-12 grid gap-5 lg:grid-cols-2">
@@ -270,17 +270,17 @@ const billingFeatures = [
                 </div>
             </section>
 
-            <section id="como-funciona" class="border-y border-slate-200 bg-slate-100 py-20 dark:border-white/10 dark:bg-[#0a1524] sm:py-24">
+            <section id="como-funciona" class="border-y border-line bg-surface-muted py-20 sm:py-24">
                 <div class="mx-auto max-w-7xl px-5 lg:px-8">
                     <div class="grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
                         <div>
                             <p class="text-sm font-black uppercase tracking-[0.2em] text-sky-300">Empieza acompañado</p>
                             <h2 class="mt-3 text-3xl font-black tracking-tight sm:text-5xl">De tu negocio a Stelfaro, paso a paso.</h2>
-                            <p class="mt-5 text-lg leading-8 text-slate-600 dark:text-slate-400">Configuramos contigo lo necesario para que tu equipo empiece con seguridad y sin una curva de aprendizaje pesada.</p>
+                            <p class="mt-5 text-lg leading-8 text-muted">Configuramos contigo lo necesario para que tu equipo empiece con seguridad y sin una curva de aprendizaje pesada.</p>
                         </div>
 
                         <ol class="grid gap-4">
-                            <li v-for="(step, index) in ['Conocemos tu operación', 'Configuramos empresa y facturación', 'Acompañamos a tu equipo al comenzar']" :key="step" class="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.03] dark:shadow-none sm:p-5">
+                            <li v-for="(step, index) in ['Conocemos tu operación', 'Configuramos empresa y facturación', 'Acompañamos a tu equipo al comenzar']" :key="step" class="flex items-center gap-4 rounded-2xl border border-line bg-surface p-4 shadow-surface sm:p-5">
                                 <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-sky-400/10 text-sm font-black text-sky-300">0{{ index + 1 }}</span>
                                 <strong class="text-base sm:text-lg">{{ step }}</strong>
                             </li>
@@ -304,15 +304,15 @@ const billingFeatures = [
             </section>
         </main>
 
-        <footer class="border-t border-slate-200 dark:border-white/10">
-            <div class="mx-auto flex max-w-7xl flex-col gap-5 px-5 py-8 text-sm text-slate-600 dark:text-slate-400 sm:flex-row sm:items-center sm:justify-between lg:px-8">
+        <footer class="border-t border-line">
+            <div class="mx-auto flex max-w-7xl flex-col gap-5 px-5 py-8 text-sm text-muted sm:flex-row sm:items-center sm:justify-between lg:px-8">
                 <div class="flex items-center gap-3">
                     <img src="/pwa/stelfaro.svg" alt="" class="h-9 w-9 rounded-full" />
-                    <span><strong class="text-slate-950 dark:text-white">Stelfaro</strong> · Tecnología para trabajar mejor.</span>
+                    <span><strong class="text-text">Stelfaro</strong> · Tecnología para trabajar mejor.</span>
                 </div>
                 <div class="flex flex-wrap gap-5">
-                    <a href="mailto:soporte@stelfaro.com" class="hover:text-sky-600 dark:hover:text-white">soporte@stelfaro.com</a>
-                    <Link href="/login" class="hover:text-sky-600 dark:hover:text-white">Iniciar sesión</Link>
+                    <a href="mailto:soporte@stelfaro.com" class="hover:text-primary">soporte@stelfaro.com</a>
+                    <Link href="/login" class="hover:text-primary">Iniciar sesión</Link>
                 </div>
             </div>
         </footer>

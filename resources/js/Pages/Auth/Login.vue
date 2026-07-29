@@ -1,20 +1,12 @@
 <script setup>
-import Checkbox from '@/Components/Checkbox.vue';
 import GuestLayout from '@/Layouts/GuestLayout.vue';
 import InputError from '@/Components/InputError.vue';
-import InputLabel from '@/Components/InputLabel.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import TextInput from '@/Components/TextInput.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { UiPasswordInput } from '@stelfaro/ui';
+import { UiButton, UiEmailInput, UiPasswordInput } from '@stelfaro/ui';
 
 defineProps({
-    canResetPassword: {
-        type: Boolean,
-    },
-    status: {
-        type: String,
-    },
+    canResetPassword: Boolean,
+    status: String,
 });
 
 const form = useForm({
@@ -32,38 +24,35 @@ const submit = () => {
 
 <template>
     <GuestLayout>
-        <Head title="Ingresar" />
+        <Head title="Iniciar sesión" />
 
-        <div v-if="status" class="mb-4 text-sm font-medium text-green-600">
+        <div v-if="status" class="mb-5 rounded-xl bg-success-soft px-4 py-3 text-sm font-medium text-success">
             {{ status }}
         </div>
 
-        <div class="mb-6">
-            <p class="text-sm font-semibold uppercase tracking-wide text-blue-700">Stelfaro Platform</p>
-            <h1 class="mt-2 text-2xl font-bold text-[#0d1629]">Ingresar a tu cuenta</h1>
-            <p class="mt-2 text-sm text-slate-600">
-                Accede a tus apps habilitadas. Stelfaro te llevará automáticamente al espacio correcto.
+        <div class="mb-7">
+            <span class="text-xs font-black uppercase tracking-[0.18em] text-primary">Bienvenido de nuevo</span>
+            <h1 class="mt-2 text-3xl font-black tracking-tight text-text">Inicia sesión</h1>
+            <p class="mt-2 text-sm leading-6 text-muted">
+                Ingresa con la cuenta asignada a tu empresa.
             </p>
         </div>
 
-        <form @submit.prevent="submit">
+        <form class="space-y-5" @submit.prevent="submit">
             <div>
-                <InputLabel for="email" value="Correo electrónico" />
-
-                <TextInput
+                <UiEmailInput
                     id="email"
-                    type="email"
-                    class="mt-1 block w-full"
                     v-model="form.email"
+                    label="Correo electrónico"
+                    placeholder="nombre@empresa.com"
                     required
                     autofocus
                     autocomplete="username"
                 />
-
                 <InputError class="mt-2" :message="form.errors.email" />
             </div>
 
-            <div class="mt-4">
+            <div>
                 <UiPasswordInput
                     id="password"
                     v-model="form.password"
@@ -71,34 +60,44 @@ const submit = () => {
                     required
                     autocomplete="current-password"
                 />
-
                 <InputError class="mt-2" :message="form.errors.password" />
             </div>
 
-            <div class="mt-4 block">
-                <label class="flex items-center">
-                    <Checkbox name="remember" v-model:checked="form.remember" />
-                    <span class="ms-2 text-sm text-gray-600">Recordar sesión</span>
+            <div class="flex items-center justify-between gap-4">
+                <label class="flex cursor-pointer items-center gap-2 text-sm text-muted">
+                    <input
+                        v-model="form.remember"
+                        type="checkbox"
+                        class="h-5 w-5 rounded border-line-strong bg-surface-raised text-sky-600 focus:ring-sky-200 dark:focus:ring-primary-soft"
+                    />
+                    Recordar sesión
                 </label>
-            </div>
 
-            <div class="mt-4 flex items-center justify-end">
                 <Link
                     v-if="canResetPassword"
                     :href="route('password.request')"
-                    class="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                    class="text-right text-sm font-semibold text-primary transition hover:text-primary-hover"
                 >
                     ¿Olvidaste tu contraseña?
                 </Link>
-
-                <PrimaryButton
-                    class="ms-4"
-                    :class="{ 'opacity-25': form.processing }"
-                    :disabled="form.processing"
-                >
-                    Ingresar
-                </PrimaryButton>
             </div>
+
+            <UiButton
+                type="submit"
+                class="w-full"
+                :disabled="form.processing"
+            >
+                <svg v-if="form.processing" class="mr-2 h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <circle class="opacity-25" cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3" />
+                    <path class="opacity-75" fill="currentColor" d="M12 3a9 9 0 0 1 9 9h-3a6 6 0 0 0-6-6V3Z" />
+                </svg>
+                {{ form.processing ? 'Ingresando…' : 'Ingresar a Stelfaro' }}
+            </UiButton>
         </form>
+
+        <p class="mt-7 border-t border-line pt-5 text-center text-xs leading-5 text-soft">
+            ¿Necesitas ayuda para ingresar?
+            <a href="mailto:soporte@stelfaro.com" class="font-semibold text-primary hover:text-primary-hover">Contacta a soporte</a>
+        </p>
     </GuestLayout>
 </template>
