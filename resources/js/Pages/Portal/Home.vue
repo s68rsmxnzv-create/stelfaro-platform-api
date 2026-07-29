@@ -1,5 +1,24 @@
 <script setup>
 import { Head, Link } from '@inertiajs/vue3';
+import { onMounted, ref } from 'vue';
+
+const themeStorageKey = 'stelfaro:theme';
+const isDark = ref(false);
+
+function applyTheme(darkMode) {
+    isDark.value = darkMode;
+    document.documentElement.classList.toggle('dark', darkMode);
+    document.documentElement.dataset.theme = darkMode ? 'dark' : 'light';
+    window.localStorage.setItem(themeStorageKey, darkMode ? 'dark' : 'light');
+}
+
+function toggleTheme() {
+    applyTheme(!isDark.value);
+}
+
+onMounted(() => {
+    isDark.value = document.documentElement.classList.contains('dark');
+});
 
 const benefits = [
     {
@@ -44,8 +63,8 @@ const billingFeatures = [
         />
     </Head>
 
-    <div class="min-h-screen overflow-hidden bg-[#07111f] text-white">
-        <header class="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[#07111f]/90 backdrop-blur-xl">
+    <div class="min-h-screen overflow-hidden bg-slate-50 text-slate-950 transition-colors dark:bg-[#07111f] dark:text-white">
+        <header class="fixed inset-x-0 top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur-xl dark:border-white/10 dark:bg-[#07111f]/90">
             <div class="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:h-20 lg:px-8">
                 <a href="/" class="flex items-center gap-3" aria-label="Stelfaro, inicio">
                     <img src="/pwa/stelfaro.svg" alt="" class="h-10 w-10 rounded-full sm:h-11 sm:w-11" />
@@ -57,18 +76,36 @@ const billingFeatures = [
                     </span>
                 </a>
 
-                <nav class="hidden items-center gap-7 text-sm font-medium text-slate-300 md:flex">
-                    <a href="#soluciones" class="transition hover:text-white">Soluciones</a>
-                    <a href="#beneficios" class="transition hover:text-white">Beneficios</a>
-                    <a href="#como-funciona" class="transition hover:text-white">Cómo funciona</a>
+                <nav class="hidden items-center gap-7 text-sm font-medium text-slate-600 dark:text-slate-300 md:flex">
+                    <a href="#soluciones" class="transition hover:text-sky-600 dark:hover:text-white">Soluciones</a>
+                    <a href="#beneficios" class="transition hover:text-sky-600 dark:hover:text-white">Beneficios</a>
+                    <a href="#como-funciona" class="transition hover:text-sky-600 dark:hover:text-white">Cómo funciona</a>
                 </nav>
 
-                <Link
-                    href="/login"
-                    class="inline-flex h-11 items-center justify-center rounded-xl border border-white/15 bg-white/10 px-4 text-sm font-bold transition hover:bg-white hover:text-[#07111f] sm:px-5"
-                >
-                    Iniciar sesión
-                </Link>
+                <div class="flex items-center gap-2">
+                    <button
+                        type="button"
+                        class="grid h-11 w-11 place-items-center rounded-xl border border-slate-200 bg-slate-100 text-slate-700 transition hover:bg-slate-200 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
+                        :aria-label="isDark ? 'Activar modo claro' : 'Activar modo oscuro'"
+                        :title="isDark ? 'Modo claro' : 'Modo oscuro'"
+                        @click="toggleTheme"
+                    >
+                        <svg v-if="isDark" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <circle cx="12" cy="12" r="4" />
+                            <path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41" />
+                        </svg>
+                        <svg v-else class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
+                        </svg>
+                    </button>
+                    <Link
+                        href="/login"
+                        class="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold shadow-sm transition hover:border-sky-300 hover:text-sky-700 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:bg-white dark:hover:text-[#07111f] sm:px-5"
+                    >
+                        <span class="sm:hidden">Entrar</span>
+                        <span class="hidden sm:inline">Iniciar sesión</span>
+                    </Link>
+                </div>
             </div>
         </header>
 
@@ -86,12 +123,12 @@ const billingFeatures = [
 
                         <h1 class="mt-6 text-4xl font-black leading-[1.05] tracking-[-0.04em] sm:text-6xl lg:text-7xl">
                             Menos papeleo.
-                            <span class="block bg-gradient-to-r from-sky-300 via-cyan-300 to-emerald-300 bg-clip-text text-transparent">
+                            <span class="block bg-gradient-to-r from-sky-600 via-cyan-600 to-emerald-600 bg-clip-text text-transparent dark:from-sky-300 dark:via-cyan-300 dark:to-emerald-300">
                                 Más negocio.
                             </span>
                         </h1>
 
-                        <p class="mt-6 max-w-2xl text-lg leading-8 text-slate-300 sm:text-xl">
+                        <p class="mt-6 max-w-2xl text-lg leading-8 text-slate-600 dark:text-slate-300 sm:text-xl">
                             Facturación electrónica y operación diaria en una sola aplicación. Fácil para tu equipo, práctica desde el móvil y lista para acompañar tu crecimiento.
                         </p>
 
@@ -104,13 +141,13 @@ const billingFeatures = [
                             </a>
                             <a
                                 href="#soluciones"
-                                class="inline-flex h-14 items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-7 text-base font-bold text-white transition hover:bg-white/10"
+                                class="inline-flex h-14 items-center justify-center rounded-2xl border border-slate-300 bg-white px-7 text-base font-bold text-slate-800 transition hover:bg-slate-100 dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
                             >
                                 Ver soluciones
                             </a>
                         </div>
 
-                        <div class="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm text-slate-400">
+                        <div class="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm text-slate-600 dark:text-slate-400">
                             <span class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Sin instalaciones complicadas</span>
                             <span class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Acompañamiento inicial</span>
                             <span class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Acceso seguro por usuario</span>
@@ -119,7 +156,7 @@ const billingFeatures = [
 
                     <div class="relative mx-auto w-full max-w-xl">
                         <div class="absolute -inset-6 rounded-[2.5rem] bg-gradient-to-br from-sky-500/20 to-emerald-500/10 blur-2xl"></div>
-                        <div class="relative overflow-hidden rounded-[2rem] border border-white/15 bg-[#0b1728] p-3 shadow-2xl shadow-black/40">
+                        <div class="relative overflow-hidden rounded-[2rem] border border-white/15 bg-[#0b1728] p-3 text-white shadow-2xl shadow-black/40">
                             <div class="flex items-center gap-2 border-b border-white/10 px-3 pb-3">
                                 <span class="h-2.5 w-2.5 rounded-full bg-rose-400"></span>
                                 <span class="h-2.5 w-2.5 rounded-full bg-amber-300"></span>
@@ -172,7 +209,7 @@ const billingFeatures = [
                 </div>
             </section>
 
-            <section id="beneficios" class="border-y border-white/10 bg-white/[0.025] py-20 sm:py-24">
+            <section id="beneficios" class="border-y border-slate-200 bg-white py-20 dark:border-white/10 dark:bg-white/[0.025] sm:py-24">
                 <div class="mx-auto max-w-7xl px-5 lg:px-8">
                     <div class="max-w-2xl">
                         <p class="text-sm font-black uppercase tracking-[0.2em] text-sky-300">Una herramienta para trabajar</p>
@@ -183,7 +220,7 @@ const billingFeatures = [
                         <article
                             v-for="benefit in benefits"
                             :key="benefit.title"
-                            class="rounded-3xl border border-white/10 bg-[#0b1728] p-6 transition hover:-translate-y-1 hover:border-sky-400/30"
+                            class="rounded-3xl border border-slate-200 bg-slate-50 p-6 shadow-sm transition hover:-translate-y-1 hover:border-sky-400/30 dark:border-white/10 dark:bg-[#0b1728] dark:shadow-none"
                         >
                             <div class="grid h-12 w-12 place-items-center rounded-2xl bg-sky-400/10 text-xl font-black text-sky-300">
                                 <span v-if="benefit.icon === 'document'">✓</span>
@@ -191,7 +228,7 @@ const billingFeatures = [
                                 <span v-else>∞</span>
                             </div>
                             <h3 class="mt-6 text-xl font-black">{{ benefit.title }}</h3>
-                            <p class="mt-3 leading-7 text-slate-400">{{ benefit.text }}</p>
+                            <p class="mt-3 leading-7 text-slate-600 dark:text-slate-400">{{ benefit.text }}</p>
                         </article>
                     </div>
                 </div>
@@ -202,11 +239,11 @@ const billingFeatures = [
                     <div class="mx-auto max-w-3xl text-center">
                         <p class="text-sm font-black uppercase tracking-[0.2em] text-emerald-300">Elige cómo empezar</p>
                         <h2 class="mt-3 text-3xl font-black tracking-tight sm:text-5xl">Una plataforma, soluciones para tu negocio.</h2>
-                        <p class="mt-5 text-lg leading-8 text-slate-400">Empieza con lo que necesitas hoy. Tu información y tu equipo permanecen en el mismo lugar cuando agregas nuevas funciones.</p>
+                        <p class="mt-5 text-lg leading-8 text-slate-600 dark:text-slate-400">Empieza con lo que necesitas hoy. Tu información y tu equipo permanecen en el mismo lugar cuando agregas nuevas funciones.</p>
                     </div>
 
                     <div class="mt-12 grid gap-5 lg:grid-cols-2">
-                        <article class="group relative overflow-hidden rounded-[2rem] border border-sky-400/25 bg-gradient-to-br from-sky-500/15 to-[#0b1728] p-7 sm:p-9">
+                        <article class="group relative overflow-hidden rounded-[2rem] border border-sky-400/25 bg-gradient-to-br from-sky-500/15 to-[#0b1728] p-7 text-white sm:p-9">
                             <div class="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-sky-400/10 blur-2xl"></div>
                             <span class="inline-flex rounded-full bg-sky-400/15 px-3 py-1 text-xs font-black uppercase tracking-wider text-sky-200">Facturación</span>
                             <h3 class="mt-5 text-3xl font-black">Emite DTE con claridad</h3>
@@ -218,7 +255,7 @@ const billingFeatures = [
                             </ul>
                         </article>
 
-                        <article class="group relative overflow-hidden rounded-[2rem] border border-emerald-400/20 bg-gradient-to-br from-emerald-500/10 to-[#0b1728] p-7 sm:p-9">
+                        <article class="group relative overflow-hidden rounded-[2rem] border border-emerald-400/20 bg-gradient-to-br from-emerald-500/10 to-[#0b1728] p-7 text-white sm:p-9">
                             <div class="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-emerald-400/10 blur-2xl"></div>
                             <span class="inline-flex rounded-full bg-emerald-400/15 px-3 py-1 text-xs font-black uppercase tracking-wider text-emerald-200">Taller</span>
                             <h3 class="mt-5 text-3xl font-black">Cada equipo, bajo control</h3>
@@ -233,17 +270,17 @@ const billingFeatures = [
                 </div>
             </section>
 
-            <section id="como-funciona" class="border-y border-white/10 bg-[#0a1524] py-20 sm:py-24">
+            <section id="como-funciona" class="border-y border-slate-200 bg-slate-100 py-20 dark:border-white/10 dark:bg-[#0a1524] sm:py-24">
                 <div class="mx-auto max-w-7xl px-5 lg:px-8">
                     <div class="grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
                         <div>
                             <p class="text-sm font-black uppercase tracking-[0.2em] text-sky-300">Empieza acompañado</p>
                             <h2 class="mt-3 text-3xl font-black tracking-tight sm:text-5xl">De tu negocio a Stelfaro, paso a paso.</h2>
-                            <p class="mt-5 text-lg leading-8 text-slate-400">Configuramos contigo lo necesario para que tu equipo empiece con seguridad y sin una curva de aprendizaje pesada.</p>
+                            <p class="mt-5 text-lg leading-8 text-slate-600 dark:text-slate-400">Configuramos contigo lo necesario para que tu equipo empiece con seguridad y sin una curva de aprendizaje pesada.</p>
                         </div>
 
                         <ol class="grid gap-4">
-                            <li v-for="(step, index) in ['Conocemos tu operación', 'Configuramos empresa y facturación', 'Acompañamos a tu equipo al comenzar']" :key="step" class="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
+                            <li v-for="(step, index) in ['Conocemos tu operación', 'Configuramos empresa y facturación', 'Acompañamos a tu equipo al comenzar']" :key="step" class="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.03] dark:shadow-none sm:p-5">
                                 <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-sky-400/10 text-sm font-black text-sky-300">0{{ index + 1 }}</span>
                                 <strong class="text-base sm:text-lg">{{ step }}</strong>
                             </li>
@@ -267,15 +304,15 @@ const billingFeatures = [
             </section>
         </main>
 
-        <footer class="border-t border-white/10">
-            <div class="mx-auto flex max-w-7xl flex-col gap-5 px-5 py-8 text-sm text-slate-400 sm:flex-row sm:items-center sm:justify-between lg:px-8">
+        <footer class="border-t border-slate-200 dark:border-white/10">
+            <div class="mx-auto flex max-w-7xl flex-col gap-5 px-5 py-8 text-sm text-slate-600 dark:text-slate-400 sm:flex-row sm:items-center sm:justify-between lg:px-8">
                 <div class="flex items-center gap-3">
                     <img src="/pwa/stelfaro.svg" alt="" class="h-9 w-9 rounded-full" />
-                    <span><strong class="text-white">Stelfaro</strong> · Tecnología para trabajar mejor.</span>
+                    <span><strong class="text-slate-950 dark:text-white">Stelfaro</strong> · Tecnología para trabajar mejor.</span>
                 </div>
                 <div class="flex flex-wrap gap-5">
-                    <a href="mailto:soporte@stelfaro.com" class="hover:text-white">soporte@stelfaro.com</a>
-                    <Link href="/login" class="hover:text-white">Iniciar sesión</Link>
+                    <a href="mailto:soporte@stelfaro.com" class="hover:text-sky-600 dark:hover:text-white">soporte@stelfaro.com</a>
+                    <Link href="/login" class="hover:text-sky-600 dark:hover:text-white">Iniciar sesión</Link>
                 </div>
             </div>
         </footer>
