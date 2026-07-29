@@ -140,65 +140,46 @@ onMounted(() => {
                         </ul>
                     </div>
 
-                    <div class="relative mx-auto w-full min-w-0 max-w-[570px] lg:ml-auto">
-                        <div class="relative overflow-hidden rounded-xl border border-line bg-surface shadow-xl shadow-slate-950/10">
-                            <div class="flex h-14 items-center border-b border-line px-4 sm:px-5">
-                                <div class="flex items-center gap-2">
-                                    <span class="grid h-8 w-8 shrink-0 place-items-center" aria-hidden="true">
-                                        <img src="/pwa/stelfaro-mark-on-light.svg" alt="" class="h-7 w-6 object-contain dark:hidden" />
-                                        <img src="/pwa/stelfaro-mark-on-dark.svg" alt="" class="hidden h-7 w-6 object-contain dark:block" />
-                                    </span>
-                                    <div>
-                                        <strong class="block text-sm text-text">Resumen de hoy</strong>
-                                        <span class="block text-[11px] text-muted">Casa matriz</span>
-                                    </div>
+                    <div id="conoce-la-app" class="relative mx-auto w-full min-w-0 max-w-[610px] scroll-mt-28 lg:ml-auto">
+                        <div class="demo-frame relative overflow-hidden rounded-2xl border border-white/10 bg-[#07162f] shadow-2xl shadow-slate-950/20">
+                            <div class="flex h-12 items-center border-b border-white/10 px-4 sm:px-5">
+                                <div class="flex gap-1.5" aria-hidden="true">
+                                    <span class="h-2.5 w-2.5 rounded-full bg-[#ff6b6b]"></span>
+                                    <span class="h-2.5 w-2.5 rounded-full bg-[#ffd166]"></span>
+                                    <span class="h-2.5 w-2.5 rounded-full bg-[#4ade80]"></span>
                                 </div>
-                                <span class="ml-auto inline-flex items-center gap-1.5 text-xs font-semibold text-success">
-                                    <span class="h-2 w-2 rounded-full bg-success"></span> Operando
-                                </span>
+                                <span class="ml-auto text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Conoce StelFaro</span>
                             </div>
 
-                            <div class="p-4 sm:p-7">
-                                <div class="flex items-start justify-between gap-4">
-                                    <div class="min-w-0">
-                                        <p class="text-sm text-muted">Actividad actual</p>
-                                        <h2 class="mt-1 truncate text-xl font-bold sm:text-2xl">Todo bajo control</h2>
-                                    </div>
-                                </div>
-
-                                <div class="mt-5 grid min-w-0 grid-cols-2 border-y border-line sm:mt-7">
-                                    <div class="min-w-0 border-r border-line py-4 pr-3 sm:py-5 sm:pr-5">
-                                        <span class="block truncate text-xs text-muted sm:text-sm">Ventas de hoy</span>
-                                        <strong class="mt-1.5 block text-2xl tracking-tight sm:mt-2 sm:text-3xl">$460.00</strong>
-                                    </div>
-                                    <div class="min-w-0 py-4 pl-3 sm:py-5 sm:pl-5">
-                                        <span class="block truncate text-xs text-muted sm:text-sm">Órdenes activas</span>
-                                        <strong class="mt-1.5 block text-2xl tracking-tight sm:mt-2 sm:text-3xl">8</strong>
-                                    </div>
-                                </div>
-
-                                <div class="mt-4 sm:mt-6">
-                                    <p class="mb-3 hidden text-xs font-semibold text-muted sm:block">Acción principal</p>
-                                    <button type="button" class="flex w-full min-w-0 items-center gap-3 rounded-lg bg-primary p-3.5 text-left text-primary-contrast sm:gap-4 sm:p-4">
-                                        <span class="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-white/15 text-xl sm:h-11 sm:w-11">+</span>
-                                        <span>
-                                            <strong class="block">Emitir factura</strong>
-                                            <span class="mt-0.5 hidden text-xs opacity-80 min-[360px]:block">Factura, crédito fiscal o nota</span>
+                            <div class="aspect-video">
+                                <iframe
+                                    v-if="demoVideoId"
+                                    class="h-full w-full"
+                                    :src="`https://www.youtube-nocookie.com/embed/${demoVideoId}?rel=0`"
+                                    title="Cómo funciona StelFaro"
+                                    loading="lazy"
+                                    allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                    allowfullscreen
+                                ></iframe>
+                                <div v-else class="demo-placeholder relative flex h-full items-center justify-center overflow-hidden p-7 text-center text-white">
+                                    <div class="demo-grid absolute inset-0 opacity-30" aria-hidden="true"></div>
+                                    <div class="relative max-w-md">
+                                        <span class="mx-auto grid h-16 w-16 place-items-center rounded-full border border-white/20 bg-white/10 shadow-xl backdrop-blur-sm" aria-hidden="true">
+                                            <svg class="ml-1 h-7 w-7" viewBox="0 0 24 24" fill="currentColor">
+                                                <path d="M8 5v14l11-7Z" />
+                                            </svg>
                                         </span>
-                                        <span class="ml-auto text-xl">→</span>
-                                    </button>
-                                </div>
-
-                                <div class="mt-3 hidden items-center gap-3 rounded-lg border border-line bg-surface-muted/70 p-4 min-[360px]:flex">
-                                    <span class="grid h-10 w-10 place-items-center rounded-md bg-success-soft font-black text-success">✓</span>
-                                    <div class="min-w-0">
-                                        <strong class="block text-sm">DTE aceptado por Hacienda</strong>
-                                        <span class="block truncate text-xs text-muted">Factura DTE-01-M001P001-0000000000042</span>
+                                        <strong class="mt-5 block text-xl sm:text-2xl">Mira StelFaro en acción</strong>
+                                        <span class="mt-2 block text-sm leading-6 text-slate-300">
+                                            Un recorrido breve por facturación, taller y la experiencia desde el móvil.
+                                        </span>
                                     </div>
-                                    <span class="ml-auto text-xs text-soft">10:19</span>
                                 </div>
                             </div>
                         </div>
+                        <p class="mt-3 text-center text-xs leading-5 text-muted">
+                            Sin reproducción automática. Tú decides cuándo comenzar.
+                        </p>
                     </div>
                 </div>
             </section>
@@ -209,71 +190,6 @@ onMounted(() => {
                         <span class="text-xs font-black text-primary">0{{ index + 1 }}</span>
                         <h2 class="mt-3 text-lg font-black">{{ title }}</h2>
                         <p class="mt-2 text-sm leading-6 text-muted">{{ text }}</p>
-                    </div>
-                </div>
-            </section>
-
-            <section id="conoce-la-app" class="overflow-hidden border-b border-line bg-app py-16 sm:py-24">
-                <div class="mx-auto grid max-w-7xl items-center gap-10 px-5 lg:grid-cols-[0.72fr_1.28fr] lg:gap-16 lg:px-8">
-                    <div>
-                        <p class="text-sm font-bold text-primary">Conoce la experiencia</p>
-                        <h2 class="mt-4 text-4xl font-black leading-[1.08] tracking-[-0.035em] sm:text-5xl">
-                            Mira cómo se siente trabajar con StelFaro.
-                        </h2>
-                        <p class="mt-5 max-w-xl text-lg leading-8 text-muted">
-                            Un recorrido breve, con situaciones reales: emitir, recibir un equipo y continuar el trabajo desde el móvil sin perder el contexto.
-                        </p>
-                        <div class="mt-7 grid gap-4 text-sm sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
-                            <div class="border-l-2 border-primary pl-4">
-                                <strong class="block text-text">Sin rodeos</strong>
-                                <span class="mt-1 block text-muted">Un recorrido breve y directo.</span>
-                            </div>
-                            <div class="border-l-2 border-primary pl-4">
-                                <strong class="block text-text">Casos reales</strong>
-                                <span class="mt-1 block text-muted">Facturación y taller en acción.</span>
-                            </div>
-                            <div class="border-l-2 border-primary pl-4">
-                                <strong class="block text-text">A tu ritmo</strong>
-                                <span class="mt-1 block text-muted">Sin reproducción automática.</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="demo-frame relative overflow-hidden rounded-2xl border border-white/10 bg-[#07162f] shadow-2xl shadow-slate-950/20">
-                        <div class="flex h-12 items-center border-b border-white/10 px-4 sm:px-5">
-                            <div class="flex gap-1.5" aria-hidden="true">
-                                <span class="h-2.5 w-2.5 rounded-full bg-[#ff6b6b]"></span>
-                                <span class="h-2.5 w-2.5 rounded-full bg-[#ffd166]"></span>
-                                <span class="h-2.5 w-2.5 rounded-full bg-[#4ade80]"></span>
-                            </div>
-                            <span class="ml-auto text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Recorrido de producto</span>
-                        </div>
-
-                        <div class="aspect-video">
-                            <iframe
-                                v-if="demoVideoId"
-                                class="h-full w-full"
-                                :src="`https://www.youtube-nocookie.com/embed/${demoVideoId}?rel=0`"
-                                title="Cómo funciona StelFaro"
-                                loading="lazy"
-                                allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; web-share"
-                                allowfullscreen
-                            ></iframe>
-                            <div v-else class="demo-placeholder relative flex h-full items-center justify-center overflow-hidden p-7 text-center text-white">
-                                <div class="demo-grid absolute inset-0 opacity-30" aria-hidden="true"></div>
-                                <div class="relative max-w-md">
-                                    <span class="mx-auto grid h-16 w-16 place-items-center rounded-full border border-white/20 bg-white/10 shadow-xl backdrop-blur-sm" aria-hidden="true">
-                                        <svg class="ml-1 h-7 w-7" viewBox="0 0 24 24" fill="currentColor">
-                                            <path d="M8 5v14l11-7Z" />
-                                        </svg>
-                                    </span>
-                                    <strong class="mt-5 block text-xl">Tu recorrido por StelFaro</strong>
-                                    <span class="mt-2 block text-sm leading-6 text-slate-300">
-                                        Este espacio está preparado para publicar el video oficial sin alterar nuevamente el diseño.
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </section>
