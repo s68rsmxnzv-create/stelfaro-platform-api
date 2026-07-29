@@ -177,9 +177,6 @@ onMounted(() => {
                                 </div>
                             </div>
                         </div>
-                        <p class="mt-3 text-center text-xs leading-5 text-muted">
-                            Sin reproducción automática. Tú decides cuándo comenzar.
-                        </p>
                     </div>
                 </div>
             </section>
