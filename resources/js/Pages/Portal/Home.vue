@@ -95,58 +95,62 @@ onMounted(() => {
         </header>
 
         <main class="min-w-0">
-            <section class="hero-grid relative overflow-hidden border-b border-line pt-[calc(4rem+env(safe-area-inset-top))] sm:pt-[calc(5rem+env(safe-area-inset-top))]">
-                <div class="mx-auto grid min-w-0 max-w-7xl items-center gap-10 px-4 py-10 sm:min-h-[740px] sm:gap-14 sm:px-5 sm:py-16 lg:grid-cols-[1.02fr_0.98fr] lg:px-8 lg:py-24">
+            <section class="relative overflow-hidden border-b border-line bg-app pt-[calc(4rem+env(safe-area-inset-top))] sm:pt-[calc(5rem+env(safe-area-inset-top))]">
+                <div class="mx-auto grid min-w-0 max-w-7xl items-center gap-10 px-4 py-10 sm:gap-12 sm:px-5 sm:py-16 lg:min-h-[650px] lg:grid-cols-[0.9fr_1.1fr] lg:px-8 lg:py-20">
                     <div class="relative z-10 min-w-0">
-                        <p class="mb-6 border-l-2 border-primary pl-3 text-sm font-semibold leading-5 text-muted sm:mb-8 sm:pl-4">
-                            Diseñado y acompañado desde El Salvador.
+                        <p class="mb-5 text-sm font-semibold text-primary">
+                            Facturación y operación para negocios salvadoreños
                         </p>
 
-                        <h1 class="max-w-4xl text-[2.65rem] font-black leading-[1.02] tracking-[-0.045em] min-[390px]:text-[2.9rem] sm:text-7xl sm:leading-[0.98] sm:tracking-[-0.055em] lg:text-[5.4rem]">
-                            Tu negocio merece
-                            <span class="block text-primary">menos vueltas.</span>
+                        <h1 class="max-w-2xl text-[2.5rem] font-black leading-[1.05] tracking-[-0.04em] min-[390px]:text-[2.75rem] sm:text-6xl">
+                            Una forma más simple de llevar tu negocio.
                         </h1>
 
-                        <p class="mt-6 max-w-xl text-base leading-7 text-muted sm:mt-7 sm:text-xl sm:leading-8">
-                            Facturación electrónica y operación diaria en una aplicación que se siente clara desde el primer uso.
+                        <p class="mt-5 max-w-xl text-base leading-7 text-muted sm:text-lg sm:leading-8">
+                            Emite DTE, organiza clientes y controla la operación diaria desde una aplicación clara en computadora, tablet y móvil.
                         </p>
 
-                        <div class="mt-7 grid gap-3 sm:mt-9 sm:flex sm:flex-row">
+                        <div class="mt-7 grid gap-3 sm:flex sm:flex-row">
                             <a
                                 href="mailto:soporte@stelfaro.com?subject=Quiero conocer Stelfaro"
-                                class="inline-flex h-14 items-center justify-center rounded-lg bg-primary px-7 text-base font-black text-primary-contrast shadow-lg shadow-sky-900/10 transition hover:-translate-y-0.5 hover:bg-primary-hover"
+                                class="inline-flex h-12 items-center justify-center rounded-lg bg-primary px-6 text-sm font-bold text-primary-contrast transition hover:bg-primary-hover"
                             >
-                                Conversemos
-                                <span class="ml-3" aria-hidden="true">→</span>
+                                Solicitar demostración
                             </a>
-                            <a href="#soluciones" class="inline-flex h-14 items-center justify-center rounded-lg border border-line-strong bg-surface/60 px-7 text-base font-bold text-text backdrop-blur transition hover:bg-surface">
-                                Explorar soluciones
+                            <a href="#soluciones" class="inline-flex h-12 items-center justify-center rounded-lg border border-line bg-surface px-6 text-sm font-bold text-text transition hover:bg-surface-muted">
+                                Ver soluciones
                             </a>
                         </div>
 
-                        <p class="mt-6 max-w-lg text-sm leading-6 text-soft sm:mt-7">
-                            Te ayudamos a configurar la empresa, preparar la facturación y acompañar a tu equipo al comenzar.
-                        </p>
+                        <ul class="mt-7 grid gap-2 text-sm text-muted sm:grid-cols-2">
+                            <li class="flex items-center gap-2"><span class="text-success">✓</span> Configuración acompañada</li>
+                            <li class="flex items-center gap-2"><span class="text-success">✓</span> Instalable como aplicación</li>
+                            <li class="flex items-center gap-2"><span class="text-success">✓</span> Acceso seguro por usuario</li>
+                            <li class="flex items-center gap-2"><span class="text-success">✓</span> Diseñado para El Salvador</li>
+                        </ul>
                     </div>
 
                     <div class="relative mx-auto w-full min-w-0 max-w-[570px] lg:ml-auto">
-                        <div class="product-window relative overflow-hidden border border-line bg-surface/75 shadow-2xl shadow-slate-950/20 backdrop-blur-xl">
-                            <div class="hidden h-14 items-center border-b border-line px-5 sm:flex">
-                                <span class="h-2.5 w-2.5 rounded-full bg-danger"></span>
-                                <span class="ml-2 h-2.5 w-2.5 rounded-full bg-warning"></span>
-                                <span class="ml-2 h-2.5 w-2.5 rounded-full bg-success"></span>
-                                <span class="ml-auto text-[10px] font-bold uppercase tracking-[0.18em] text-soft">Miércoles · 10:24 a. m.</span>
+                        <div class="relative overflow-hidden rounded-xl border border-line bg-surface shadow-xl shadow-slate-950/10">
+                            <div class="flex h-14 items-center border-b border-line px-4 sm:px-5">
+                                <div class="flex items-center gap-2">
+                                    <img src="/pwa/stelfaro.svg" alt="" class="h-8 w-8 rounded-full" />
+                                    <div>
+                                        <strong class="block text-sm text-text">Resumen de hoy</strong>
+                                        <span class="block text-[11px] text-muted">Casa matriz</span>
+                                    </div>
+                                </div>
+                                <span class="ml-auto inline-flex items-center gap-1.5 text-xs font-semibold text-success">
+                                    <span class="h-2 w-2 rounded-full bg-success"></span> Operando
+                                </span>
                             </div>
 
                             <div class="p-4 sm:p-7">
                                 <div class="flex items-start justify-between gap-4">
                                     <div class="min-w-0">
-                                        <p class="text-xs font-black uppercase tracking-[0.16em] text-primary">Casa matriz</p>
-                                        <h2 class="mt-1.5 truncate text-xl font-black sm:mt-2 sm:text-2xl">Buenos días, Ana.</h2>
+                                        <p class="text-sm text-muted">Actividad actual</p>
+                                        <h2 class="mt-1 truncate text-xl font-bold sm:text-2xl">Todo bajo control</h2>
                                     </div>
-                                    <span class="inline-flex shrink-0 items-center gap-1.5 text-[11px] font-bold text-success sm:gap-2 sm:text-xs">
-                                        <span class="h-2 w-2 rounded-full bg-success"></span> Operando
-                                    </span>
                                 </div>
 
                                 <div class="mt-5 grid min-w-0 grid-cols-2 border-y border-line sm:mt-7">
@@ -161,7 +165,7 @@ onMounted(() => {
                                 </div>
 
                                 <div class="mt-4 sm:mt-6">
-                                    <p class="mb-3 hidden text-xs font-black uppercase tracking-[0.16em] text-soft sm:block">Continuar trabajando</p>
+                                    <p class="mb-3 hidden text-xs font-semibold text-muted sm:block">Acción principal</p>
                                     <button type="button" class="flex w-full min-w-0 items-center gap-3 rounded-lg bg-primary p-3.5 text-left text-primary-contrast sm:gap-4 sm:p-4">
                                         <span class="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-white/15 text-xl sm:h-11 sm:w-11">+</span>
                                         <span>
@@ -182,14 +186,6 @@ onMounted(() => {
                                 </div>
                             </div>
                         </div>
-
-                        <div class="absolute -bottom-8 -left-5 hidden w-56 border border-line bg-surface/85 p-4 shadow-xl backdrop-blur-xl sm:block">
-                            <p class="text-[10px] font-black uppercase tracking-[0.16em] text-soft">También en el móvil</p>
-                            <div class="mt-3 flex items-center gap-3">
-                                <span class="grid h-10 w-10 place-items-center rounded-md bg-primary-soft text-primary">▯</span>
-                                <span class="text-sm font-bold">Instálalo como app</span>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </section>
@@ -204,7 +200,7 @@ onMounted(() => {
                 </div>
             </section>
 
-            <section id="soluciones" class="section-wash py-20 sm:py-28">
+            <section id="soluciones" class="bg-app py-16 sm:py-24">
                 <div class="mx-auto max-w-7xl px-5 lg:px-8">
                     <div class="grid gap-7 border-b border-line pb-10 lg:grid-cols-[0.7fr_1.3fr] lg:items-end">
                         <p class="text-sm font-semibold text-primary">Puedes comenzar con facturación o con la gestión de tu taller.</p>
@@ -253,7 +249,7 @@ onMounted(() => {
                 </div>
             </section>
 
-            <section id="contacto" class="section-wash px-5 py-20 sm:py-28">
+            <section id="contacto" class="bg-app px-5 py-16 sm:py-24">
                 <div class="mx-auto grid max-w-7xl overflow-hidden border border-line bg-surface/70 shadow-surface backdrop-blur-xl lg:grid-cols-[1.2fr_0.8fr]">
                     <div class="p-7 sm:p-12">
                         <p class="text-sm font-semibold text-primary">Hablemos de tu negocio.</p>
@@ -299,46 +295,10 @@ onMounted(() => {
     }
 }
 
-.hero-grid,
-.section-wash {
-    background-color: var(--sf-color-app);
-    background-image:
-        linear-gradient(to right, color-mix(in srgb, var(--sf-color-line) 55%, transparent) 1px, transparent 1px),
-        linear-gradient(to bottom, color-mix(in srgb, var(--sf-color-line) 45%, transparent) 1px, transparent 1px);
-    background-size: 64px 64px;
-}
-
-.hero-grid::after {
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    content: '';
-    pointer-events: none;
-    background:
-        linear-gradient(90deg, var(--sf-color-app) 0%, transparent 35%, transparent 70%, var(--sf-color-app) 100%),
-        linear-gradient(0deg, var(--sf-color-app) 0%, transparent 25%);
-    opacity: 0.72;
-}
-
-.hero-grid > div {
-    position: relative;
-    z-index: 1;
-}
-
 .landing main,
 .landing footer {
     padding-right: env(safe-area-inset-right);
     padding-left: env(safe-area-inset-left);
 }
 
-.product-window {
-    border-radius: 1.25rem 1.25rem 1.25rem 0.25rem;
-}
-
-@media (max-width: 640px) {
-    .hero-grid,
-    .section-wash {
-        background-size: 40px 40px;
-    }
-}
 </style>
