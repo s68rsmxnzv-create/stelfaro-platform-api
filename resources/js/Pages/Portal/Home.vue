@@ -108,10 +108,6 @@ onMounted(() => {
                 <div class="hero-glow pointer-events-none absolute inset-0" aria-hidden="true"></div>
                 <div class="mx-auto grid min-w-0 max-w-7xl items-center gap-10 px-4 py-12 sm:gap-12 sm:px-5 sm:py-16 lg:min-h-[680px] lg:grid-cols-[0.92fr_1.08fr] lg:px-8 lg:py-20">
                     <div class="relative z-10 min-w-0">
-                        <p class="mb-5 text-sm font-semibold text-primary">
-                            Facturación y operación para negocios salvadoreños
-                        </p>
-
                         <h1 class="max-w-2xl text-[2.5rem] font-black leading-[1.05] tracking-[-0.04em] min-[390px]:text-[2.75rem] sm:text-6xl">
                             Una forma más simple de llevar tu negocio.
                         </h1>
