@@ -70,6 +70,17 @@ class SecurityHeadersTest extends TestCase
         $this->assertStringNotContainsString('upgrade-insecure-requests', $contentSecurityPolicy);
     }
 
+    public function test_csp_allows_privacy_enhanced_youtube_demonstrations(): void
+    {
+        $response = $this->get('/')->assertOk();
+        $contentSecurityPolicy = (string) $response->headers->get('Content-Security-Policy');
+
+        $this->assertStringContainsString(
+            'frame-src https://pagos.wompi.sv https://www.youtube-nocookie.com',
+            $contentSecurityPolicy,
+        );
+    }
+
     public function test_suspicious_script_payload_is_blocked_with_clear_message(): void
     {
         $tenant = Tenant::query()->create([

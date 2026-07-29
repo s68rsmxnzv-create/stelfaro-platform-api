@@ -4,6 +4,8 @@ import { onMounted, ref } from 'vue';
 
 const themeStorageKey = 'stelfaro:theme';
 const isDark = ref(false);
+const configuredDemoVideoId = String(import.meta.env.VITE_STELFARO_DEMO_VIDEO_ID || '').trim();
+const demoVideoId = /^[\w-]{11}$/.test(configuredDemoVideoId) ? configuredDemoVideoId : '';
 
 const solutions = [
     {
@@ -54,12 +56,12 @@ onMounted(() => {
 
     <div class="landing min-h-screen w-full max-w-full overflow-x-clip bg-app text-text">
         <header class="public-header fixed inset-x-0 top-0 z-50 border-b border-white/10 text-white">
-            <div class="mx-auto flex h-[calc(4rem+env(safe-area-inset-top))] max-w-7xl items-center justify-between gap-3 pb-0 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[env(safe-area-inset-top)] sm:h-[calc(5rem+env(safe-area-inset-top))] sm:px-5 sm:pt-[env(safe-area-inset-top)] lg:px-8">
+            <div class="mx-auto flex h-[calc(4rem+env(safe-area-inset-top))] max-w-7xl items-center justify-between gap-3 pb-0 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[env(safe-area-inset-top)] sm:h-[calc(5rem+env(safe-area-inset-top))] sm:px-5 sm:pt-[env(safe-area-inset-top)] lg:h-[calc(6rem+env(safe-area-inset-top))] lg:px-8">
                 <a href="/" class="group flex min-w-0 items-center gap-2.5" aria-label="StelFaro, inicio">
-                    <img src="/pwa/stelfaro-mark-on-dark.svg" alt="" class="h-10 w-9 shrink-0 object-contain sm:h-12 sm:w-11" />
+                    <img src="/pwa/stelfaro-mark-on-dark.svg" alt="" class="h-10 w-9 shrink-0 object-contain sm:h-12 sm:w-11 lg:h-16 lg:w-14" />
                     <span>
-                        <strong class="block truncate text-base leading-none tracking-tight sm:text-lg">StelFaro</strong>
-                        <span class="mt-1 hidden text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-300 lg:block">
+                        <strong class="block truncate text-base leading-none tracking-tight sm:text-lg lg:text-xl">StelFaro</strong>
+                        <span class="mt-1.5 hidden text-[10px] font-semibold uppercase tracking-[0.2em] text-sky-300 lg:block">
                             Tu negocio, más simple
                         </span>
                     </span>
@@ -68,7 +70,7 @@ onMounted(() => {
                 <nav class="hidden items-center gap-1 rounded-xl border border-white/10 bg-slate-950/15 p-1 text-sm font-semibold text-slate-300 shadow-inner md:flex" aria-label="Navegación principal">
                     <a href="#soluciones" class="rounded-lg px-4 py-2.5 transition hover:bg-white/10 hover:text-white">Soluciones</a>
                     <a href="#forma-de-trabajo" class="rounded-lg px-4 py-2.5 transition hover:bg-white/10 hover:text-white">Cómo trabajamos</a>
-                    <a href="#contacto" class="rounded-lg px-4 py-2.5 transition hover:bg-white/10 hover:text-white">Contacto</a>
+                    <a href="#conoce-la-app" class="rounded-lg px-4 py-2.5 transition hover:bg-white/10 hover:text-white">Conoce la app</a>
                 </nav>
 
                 <div class="flex shrink-0 items-center gap-2">
@@ -102,8 +104,9 @@ onMounted(() => {
         </header>
 
         <main class="min-w-0">
-            <section class="relative overflow-hidden border-b border-line bg-app pt-[calc(4rem+env(safe-area-inset-top))] sm:pt-[calc(5rem+env(safe-area-inset-top))]">
-                <div class="mx-auto grid min-w-0 max-w-7xl items-center gap-10 px-4 py-10 sm:gap-12 sm:px-5 sm:py-16 lg:min-h-[650px] lg:grid-cols-[0.9fr_1.1fr] lg:px-8 lg:py-20">
+            <section class="hero-home relative overflow-hidden border-b border-line bg-app pt-[calc(4rem+env(safe-area-inset-top))] sm:pt-[calc(5rem+env(safe-area-inset-top))] lg:pt-[calc(6rem+env(safe-area-inset-top))]">
+                <div class="hero-glow pointer-events-none absolute inset-0" aria-hidden="true"></div>
+                <div class="mx-auto grid min-w-0 max-w-7xl items-center gap-10 px-4 py-12 sm:gap-12 sm:px-5 sm:py-16 lg:min-h-[680px] lg:grid-cols-[0.92fr_1.08fr] lg:px-8 lg:py-20">
                     <div class="relative z-10 min-w-0">
                         <p class="mb-5 text-sm font-semibold text-primary">
                             Facturación y operación para negocios salvadoreños
@@ -210,6 +213,71 @@ onMounted(() => {
                 </div>
             </section>
 
+            <section id="conoce-la-app" class="overflow-hidden border-b border-line bg-app py-16 sm:py-24">
+                <div class="mx-auto grid max-w-7xl items-center gap-10 px-5 lg:grid-cols-[0.72fr_1.28fr] lg:gap-16 lg:px-8">
+                    <div>
+                        <p class="text-sm font-bold text-primary">Conoce la experiencia</p>
+                        <h2 class="mt-4 text-4xl font-black leading-[1.08] tracking-[-0.035em] sm:text-5xl">
+                            Mira cómo se siente trabajar con StelFaro.
+                        </h2>
+                        <p class="mt-5 max-w-xl text-lg leading-8 text-muted">
+                            Un recorrido breve, con situaciones reales: emitir, recibir un equipo y continuar el trabajo desde el móvil sin perder el contexto.
+                        </p>
+                        <div class="mt-7 grid gap-4 text-sm sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+                            <div class="border-l-2 border-primary pl-4">
+                                <strong class="block text-text">Sin rodeos</strong>
+                                <span class="mt-1 block text-muted">Un recorrido breve y directo.</span>
+                            </div>
+                            <div class="border-l-2 border-primary pl-4">
+                                <strong class="block text-text">Casos reales</strong>
+                                <span class="mt-1 block text-muted">Facturación y taller en acción.</span>
+                            </div>
+                            <div class="border-l-2 border-primary pl-4">
+                                <strong class="block text-text">A tu ritmo</strong>
+                                <span class="mt-1 block text-muted">Sin reproducción automática.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="demo-frame relative overflow-hidden rounded-2xl border border-white/10 bg-[#07162f] shadow-2xl shadow-slate-950/20">
+                        <div class="flex h-12 items-center border-b border-white/10 px-4 sm:px-5">
+                            <div class="flex gap-1.5" aria-hidden="true">
+                                <span class="h-2.5 w-2.5 rounded-full bg-[#ff6b6b]"></span>
+                                <span class="h-2.5 w-2.5 rounded-full bg-[#ffd166]"></span>
+                                <span class="h-2.5 w-2.5 rounded-full bg-[#4ade80]"></span>
+                            </div>
+                            <span class="ml-auto text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Recorrido de producto</span>
+                        </div>
+
+                        <div class="aspect-video">
+                            <iframe
+                                v-if="demoVideoId"
+                                class="h-full w-full"
+                                :src="`https://www.youtube-nocookie.com/embed/${demoVideoId}?rel=0`"
+                                title="Cómo funciona StelFaro"
+                                loading="lazy"
+                                allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                allowfullscreen
+                            ></iframe>
+                            <div v-else class="demo-placeholder relative flex h-full items-center justify-center overflow-hidden p-7 text-center text-white">
+                                <div class="demo-grid absolute inset-0 opacity-30" aria-hidden="true"></div>
+                                <div class="relative max-w-md">
+                                    <span class="mx-auto grid h-16 w-16 place-items-center rounded-full border border-white/20 bg-white/10 shadow-xl backdrop-blur-sm" aria-hidden="true">
+                                        <svg class="ml-1 h-7 w-7" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M8 5v14l11-7Z" />
+                                        </svg>
+                                    </span>
+                                    <strong class="mt-5 block text-xl">Tu recorrido por StelFaro</strong>
+                                    <span class="mt-2 block text-sm leading-6 text-slate-300">
+                                        Este espacio está preparado para publicar el video oficial sin alterar nuevamente el diseño.
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <section id="soluciones" class="bg-app py-16 sm:py-24">
                 <div class="mx-auto max-w-7xl px-5 lg:px-8">
                     <div class="grid gap-7 border-b border-line pb-10 lg:grid-cols-[0.7fr_1.3fr] lg:items-end">
@@ -298,7 +366,9 @@ onMounted(() => {
 
 <style scoped>
 .public-header {
-    background: var(--sf-color-navbar);
+    background:
+        radial-gradient(circle at 18% 0%, rgb(37 99 235 / 24%), transparent 30%),
+        linear-gradient(105deg, #07162f 0%, #0a1b3d 55%, #0d2854 100%);
 }
 
 .header-accent {
@@ -308,9 +378,35 @@ onMounted(() => {
 
 @supports (background: color-mix(in srgb, black 90%, transparent)) {
     .public-header {
-        background: color-mix(in srgb, var(--sf-color-navbar) 88%, transparent);
+        background:
+            radial-gradient(circle at 18% 0%, rgb(37 99 235 / 22%), transparent 30%),
+            color-mix(in srgb, #071a38 93%, transparent);
         backdrop-filter: blur(18px) saturate(125%);
     }
+}
+
+.hero-home {
+    isolation: isolate;
+}
+
+.hero-glow {
+    z-index: -1;
+    background:
+        radial-gradient(circle at 78% 28%, rgb(14 165 233 / 13%), transparent 28rem),
+        radial-gradient(circle at 12% 78%, rgb(37 99 235 / 8%), transparent 24rem);
+}
+
+.demo-placeholder {
+    background:
+        radial-gradient(circle at 70% 20%, rgb(37 99 235 / 36%), transparent 34%),
+        linear-gradient(135deg, #081a38, #0a1b3d 55%, #103872);
+}
+
+.demo-grid {
+    background-image:
+        linear-gradient(rgb(255 255 255 / 8%) 1px, transparent 1px),
+        linear-gradient(90deg, rgb(255 255 255 / 8%) 1px, transparent 1px);
+    background-size: 40px 40px;
 }
 
 .landing main,
