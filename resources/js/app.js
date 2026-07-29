@@ -66,7 +66,7 @@ window.matchMedia('(display-mode: standalone)').addEventListener('change', publi
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js?v=7', {
+        navigator.serviceWorker.register('/service-worker.js?v=8', {
             scope: '/',
             updateViaCache: 'none',
         }).then((registration) => {
