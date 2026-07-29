@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<html lang="es-SV">
     <head>
         <meta charset="utf-8">
+        <meta http-equiv="content-language" content="es-SV">
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
         <meta name="theme-color" content="#0a1b3d">
         <meta name="mobile-web-app-capable" content="yes">
