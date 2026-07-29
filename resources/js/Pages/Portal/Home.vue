@@ -63,8 +63,8 @@ const billingFeatures = [
         />
     </Head>
 
-    <div class="min-h-screen overflow-hidden bg-app text-text transition-colors">
-        <header class="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[var(--sf-color-navbar)]/95 text-white backdrop-blur-xl">
+    <div class="min-h-screen overflow-hidden bg-[#e8edf4] text-text transition-colors dark:bg-app">
+        <header class="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[var(--sf-color-navbar)] text-white shadow-lg shadow-slate-950/10">
             <div class="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:h-20 lg:px-8">
                 <a href="/" class="flex items-center gap-3" aria-label="Stelfaro, inicio">
                     <img src="/pwa/stelfaro.svg" alt="" class="h-10 w-10 rounded-full sm:h-11 sm:w-11" />
@@ -110,8 +110,8 @@ const billingFeatures = [
         </header>
 
         <main>
-            <section class="relative isolate pb-20 pt-32 sm:pb-28 sm:pt-40">
-                <div class="absolute inset-0 -z-20 bg-[radial-gradient(circle_at_75%_15%,rgba(14,165,233,0.22),transparent_30%),radial-gradient(circle_at_15%_70%,rgba(16,185,129,0.13),transparent_28%)]"></div>
+            <section class="relative isolate border-b border-line bg-gradient-to-br from-[#eef3f8] via-[#e3edf6] to-[#dce5ef] pb-20 pt-32 dark:from-app dark:via-app dark:to-surface sm:pb-28 sm:pt-40">
+                <div class="absolute inset-0 -z-20 bg-[radial-gradient(circle_at_75%_15%,rgba(14,165,233,0.16),transparent_30%),radial-gradient(circle_at_15%_70%,rgba(16,185,129,0.09),transparent_28%)] dark:bg-[radial-gradient(circle_at_75%_15%,rgba(14,165,233,0.22),transparent_30%),radial-gradient(circle_at_15%_70%,rgba(16,185,129,0.13),transparent_28%)]"></div>
                 <div class="absolute left-1/2 top-24 -z-10 h-[420px] w-[420px] -translate-x-1/2 rounded-full bg-sky-500/10 blur-3xl"></div>
 
                 <div class="mx-auto grid max-w-7xl items-center gap-14 px-5 lg:grid-cols-[1.05fr_0.95fr] lg:px-8">
