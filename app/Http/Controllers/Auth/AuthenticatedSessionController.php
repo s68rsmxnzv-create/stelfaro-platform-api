@@ -96,7 +96,7 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerateToken();
 
-        $target = $request->getSchemeAndHttpHost().'/login';
+        $target = $request->getSchemeAndHttpHost().'/';
 
         if ($request->header('X-Inertia')) {
             return Inertia::location($target);

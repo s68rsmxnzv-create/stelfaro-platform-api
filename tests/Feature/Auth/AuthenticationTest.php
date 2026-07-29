@@ -94,13 +94,13 @@ class AuthenticationTest extends TestCase
         $response->assertRedirect('https://platform.stelfaro.com');
     }
 
-    public function test_logout_stays_on_the_installed_app_origin(): void
+    public function test_logout_returns_to_the_current_origin_homepage(): void
     {
         $user = User::factory()->create();
 
         $this->actingAs($user)
             ->post('https://taller.stelfaro.com/logout')
-            ->assertRedirect('https://taller.stelfaro.com/login');
+            ->assertRedirect('https://taller.stelfaro.com/');
 
         $this->assertGuest();
     }
@@ -301,7 +301,7 @@ class AuthenticationTest extends TestCase
         $response = $this->actingAs($user)->post('https://platform.stelfaro.com/logout');
 
         $this->assertGuest();
-        $response->assertRedirect('https://platform.stelfaro.com/login');
+        $response->assertRedirect('https://platform.stelfaro.com/');
 
         Http::assertSent(fn ($request) => $request->url() === 'https://core.test/api/v1/internal/auth/billing-session/revoke'
             && $request->hasHeader('Authorization', 'Bearer internal-secret')
@@ -326,7 +326,7 @@ class AuthenticationTest extends TestCase
         $response = $this->actingAs($user)->post('https://platform.stelfaro.com/api/v1/logout');
 
         $this->assertGuest();
-        $response->assertRedirect('https://platform.stelfaro.com/login');
+        $response->assertRedirect('https://platform.stelfaro.com/');
 
         Http::assertSent(fn ($request) => $request->url() === 'https://core.test/api/v1/internal/auth/billing-session/revoke'
             && $request->hasHeader('Authorization', 'Bearer internal-secret')
