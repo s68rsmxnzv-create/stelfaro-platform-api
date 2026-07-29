@@ -7,6 +7,7 @@ use App\Services\CoreBillingSessionBroker;
 use App\Services\PlatformAdminAccess;
 use App\Services\PlatformSessionResolver;
 use App\Support\Platform\PortalUrl;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -19,13 +20,23 @@ class PlatformPortalController extends Controller
         private readonly PlatformAdminAccess $platformAdminAccess,
     ) {}
 
-    public function home(Request $request): Response
+    public function home(Request $request): Response|RedirectResponse
     {
+        if ($request->user()) {
+            $session = $this->sessionResolver->resolve($request->user());
+            $defaultApp = $session['default_app'] ?? null;
+
+            if ($defaultApp) {
+                return redirect($defaultApp['local_path']);
+            }
+
+            abort_unless($this->platformAdminAccess->allows($request->user()), 403, 'No tienes apps activas asignadas.');
+
+            return redirect(PortalUrl::app('admin'));
+        }
+
         return Inertia::render('Portal/Home', [
-            'session' => $request->user()
-                ? $this->sessionResolver->resolve($request->user())
-                : null,
-            'availableApps' => $this->availableApps(),
+            'canLogin' => true,
         ]);
     }
 

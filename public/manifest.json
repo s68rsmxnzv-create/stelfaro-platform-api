@@ -5,7 +5,7 @@
   "description": "Facturación electrónica y gestión operativa Stelfaro.",
   "lang": "es-SV",
   "dir": "ltr",
-  "start_url": "/?source=pwa",
+  "start_url": "/dashboard?source=pwa",
   "scope": "/",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
@@ -32,7 +32,7 @@
     {
       "name": "Inicio",
       "short_name": "Inicio",
-      "url": "/?source=pwa-shortcut",
+      "url": "/dashboard?source=pwa-shortcut",
       "icons": [{ "src": "/pwa/stelfaro-192.png", "sizes": "192x192" }]
     },
     {

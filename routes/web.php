@@ -184,11 +184,14 @@ Route::domain(config('platform.portal.host'))
 
 Route::domain(config('platform.portal.host'))
     ->group(function (): void {
+        Route::get('/', [PlatformPortalController::class, 'home'])
+            ->middleware(EnsurePasswordIsChanged::class)
+            ->name('portal.home');
+
         Route::get('/invitations/{token}', PlatformInvitationPageController::class)
             ->name('platform.invitations.accept');
 
         Route::middleware(['auth', 'verified', EnsurePasswordIsChanged::class])->group(function (): void {
-            Route::get('/', PlatformRedirectController::class)->name('portal.home');
             Route::get('/dashboard', PlatformRedirectController::class)->name('dashboard');
         });
 
