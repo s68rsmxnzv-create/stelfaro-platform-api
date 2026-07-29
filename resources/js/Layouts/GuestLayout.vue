@@ -60,14 +60,11 @@ onMounted(() => {
 
             <div class="mx-auto grid min-h-[calc(100vh-4rem)] max-w-7xl items-center gap-12 px-5 py-10 sm:min-h-[calc(100vh-5rem)] sm:py-16 lg:grid-cols-[0.9fr_1.1fr] lg:px-8">
                 <section class="hidden max-w-xl lg:block">
-                    <span class="inline-flex rounded-full bg-primary-soft px-3 py-1.5 text-xs font-black uppercase tracking-wider text-primary">
-                        Acceso seguro
-                    </span>
-                    <h1 class="mt-6 text-5xl font-black leading-[1.05] tracking-[-0.04em]">
+                    <h1 class="text-5xl font-black leading-[1.05] tracking-[-0.04em]">
                         Tu operación te espera.
                     </h1>
                     <p class="mt-6 text-lg leading-8 text-muted">
-                        Una cuenta para acceder a facturación, taller y las herramientas de tu negocio desde cualquier dispositivo.
+                        Una sola cuenta para acceder a la operación completa de tu negocio, estés donde estés.
                     </p>
 
                     <div class="mt-10 grid gap-4">

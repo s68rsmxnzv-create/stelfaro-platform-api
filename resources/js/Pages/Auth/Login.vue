@@ -31,10 +31,9 @@ const submit = () => {
         </div>
 
         <div class="mb-7">
-            <span class="text-xs font-black uppercase tracking-[0.18em] text-primary">Bienvenido de nuevo</span>
-            <h1 class="mt-2 text-3xl font-black tracking-tight text-text">Inicia sesión</h1>
+            <h1 class="text-3xl font-black tracking-tight text-text">Inicia sesión</h1>
             <p class="mt-2 text-sm leading-6 text-muted">
-                Ingresa con la cuenta asignada a tu empresa.
+                Accede a la operación de tu negocio con tu cuenta StelFaro.
             </p>
         </div>
 
@@ -91,7 +90,7 @@ const submit = () => {
                     <circle class="opacity-25" cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3" />
                     <path class="opacity-75" fill="currentColor" d="M12 3a9 9 0 0 1 9 9h-3a6 6 0 0 0-6-6V3Z" />
                 </svg>
-                {{ form.processing ? 'Ingresando…' : 'Ingresar a Stelfaro' }}
+                {{ form.processing ? 'Ingresando…' : 'Ingresar a StelFaro' }}
             </UiButton>
         </form>
 
