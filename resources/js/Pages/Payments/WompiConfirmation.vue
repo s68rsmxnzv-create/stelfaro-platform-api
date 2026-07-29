@@ -76,7 +76,7 @@ function formatDate(value) {
 </script>
 
 <template>
-    <div class="sf-app-background min-h-screen px-5 py-10 text-slate-950 dark:text-text">
+    <div class="sf-app-background sf-safe-screen px-5 py-10 text-slate-950 dark:text-text">
         <main class="mx-auto w-full max-w-3xl rounded-lg border border-slate-200 bg-white p-8 shadow-xl shadow-slate-950/10 dark:border-line dark:bg-surface-raised dark:shadow-black/30">
             <div class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
                 <div>

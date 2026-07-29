@@ -35,7 +35,7 @@ onMounted(() => {
 </script>
 
 <template>
-    <div class="sf-app-background grid min-h-screen place-items-center px-5 py-12 text-slate-950 dark:text-text">
+    <div class="sf-app-background sf-safe-screen grid place-items-center px-5 py-12 text-slate-950 dark:text-text">
         <main class="w-full max-w-xl rounded-lg border border-slate-200 bg-white p-8 shadow-xl shadow-slate-950/10 dark:border-line dark:bg-surface-raised dark:shadow-black/30">
             <div class="flex items-start gap-4">
                 <span

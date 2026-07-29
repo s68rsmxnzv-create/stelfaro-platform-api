@@ -18,9 +18,9 @@ onMounted(() => {
 </script>
 
 <template>
-    <div class="min-h-screen bg-app text-text">
+    <div class="sf-safe-screen bg-app text-text">
         <header class="border-b border-white/10 bg-[var(--sf-color-navbar)] text-white">
-            <div class="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:h-20 lg:px-8">
+            <div class="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 lg:px-8">
                 <Link href="/" class="flex items-center gap-3" aria-label="Volver al inicio de Stelfaro">
                     <img src="/pwa/stelfaro.svg" alt="" class="h-10 w-10 rounded-full sm:h-11 sm:w-11" />
                     <span>

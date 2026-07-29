@@ -54,7 +54,7 @@ onMounted(() => {
 
     <div class="landing min-h-screen w-full max-w-full overflow-x-clip bg-app text-text">
         <header class="public-header fixed inset-x-0 top-0 z-50 border-b border-white/10 text-white">
-            <div class="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:h-20 sm:px-5 lg:px-8">
+            <div class="mx-auto flex h-[calc(4rem+env(safe-area-inset-top))] max-w-7xl items-center justify-between gap-3 pb-0 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[env(safe-area-inset-top)] sm:h-[calc(5rem+env(safe-area-inset-top))] sm:px-5 sm:pt-[env(safe-area-inset-top)] lg:px-8">
                 <a href="/" class="flex min-w-0 items-center gap-2.5" aria-label="Stelfaro, inicio">
                     <img src="/pwa/stelfaro.svg" alt="" class="h-9 w-9 shrink-0 rounded-full sm:h-11 sm:w-11" />
                     <span>
@@ -95,7 +95,7 @@ onMounted(() => {
         </header>
 
         <main class="min-w-0">
-            <section class="hero-grid relative overflow-hidden border-b border-line pt-16 sm:pt-20">
+            <section class="hero-grid relative overflow-hidden border-b border-line pt-[calc(4rem+env(safe-area-inset-top))] sm:pt-[calc(5rem+env(safe-area-inset-top))]">
                 <div class="mx-auto grid min-w-0 max-w-7xl items-center gap-10 px-4 py-10 sm:min-h-[740px] sm:gap-14 sm:px-5 sm:py-16 lg:grid-cols-[1.02fr_0.98fr] lg:px-8 lg:py-24">
                     <div class="relative z-10 min-w-0">
                         <p class="mb-6 border-l-2 border-primary pl-3 text-sm font-semibold leading-5 text-muted sm:mb-8 sm:pl-4">
@@ -323,6 +323,12 @@ onMounted(() => {
 .hero-grid > div {
     position: relative;
     z-index: 1;
+}
+
+.landing main,
+.landing footer {
+    padding-right: env(safe-area-inset-right);
+    padding-left: env(safe-area-inset-left);
 }
 
 .product-window {

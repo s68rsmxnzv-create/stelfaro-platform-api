@@ -34,7 +34,7 @@ const logout = () => {
 </script>
 
 <template>
-    <div class="min-h-screen bg-app text-[#0d1629] dark:text-text">
+    <div class="sf-safe-screen bg-app text-[#0d1629] dark:text-text">
         <header class="sf-app-navbar relative z-50 border-b border-slate-200 text-white dark:border-line">
             <div class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
                 <Link href="/" class="flex items-center gap-3">

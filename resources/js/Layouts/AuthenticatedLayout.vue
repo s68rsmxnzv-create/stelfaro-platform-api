@@ -12,7 +12,7 @@ const showingNavigationDropdown = ref(false);
 
 <template>
     <div>
-        <div class="min-h-screen bg-app">
+        <div class="sf-safe-screen bg-app">
             <nav
                 class="border-b border-gray-100 bg-white"
             >
