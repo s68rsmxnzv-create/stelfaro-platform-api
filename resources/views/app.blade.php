@@ -12,7 +12,7 @@
         <title inertia>{{ config('app.name', 'Stelfaro') }}</title>
 
         <link rel="manifest" href="/manifest.json" crossorigin="use-credentials">
-        <link rel="icon" href="/pwa/stelfaro.svg" type="image/svg+xml">
+        <link rel="icon" href="/pwa/stelfaro-mark.svg" type="image/svg+xml">
         <link rel="apple-touch-icon" href="/pwa/stelfaro-192.png">
 
         <script nonce="{{ Vite::cspNonce() }}">

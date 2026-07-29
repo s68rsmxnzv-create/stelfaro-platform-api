@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Stelfaro">
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="#fff"/>
+  <g>
+    <path d="M92 166 256 72l164 94-45 26-119-68-74 42 45 26 74-42 45 26-119 68Z" fill="#2563eb"/>
+    <path d="m92 166 45-26 164 94-45 26Z" fill="#0ea5e9"/>
+    <path d="m92 196 45-26 90 52-45 26Z" fill="#2563eb"/>
+    <path d="m92 196 90 52v174l-58-34V282l-32-18Z" fill="#d8dde5"/>
+    <path d="m182 248 45 26v174l-45-26Z" fill="#aeb6c2"/>
+    <path d="m227 274 193-111v68l-131 76v45l101-58v67l-163 94Z" fill="#0a1b3d"/>
+    <path d="m289 307 58-34v67l-58 34Z" fill="#123366"/>
+  </g>
+</svg>

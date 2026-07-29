@@ -1,11 +1,11 @@
-const CACHE_NAME = 'stelfaro-static-v5';
+const CACHE_NAME = 'stelfaro-static-v6';
 const CORE_ASSETS = [
     '/manifest.json',
     '/offline.html',
-    '/pwa/stelfaro.svg',
+    '/pwa/stelfaro-mark.svg',
     '/pwa/stelfaro-wordmark.svg',
-    '/pwa/stelfaro-192.png',
-    '/pwa/stelfaro-512.png',
+    '/pwa/stelfaro-mark-192.png',
+    '/pwa/stelfaro-mark-512.png',
 ];
 
 self.addEventListener('install', (event) => {
