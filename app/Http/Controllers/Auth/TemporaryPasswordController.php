@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Services\Cash\CashOnboardingNotification;
 use App\Services\PlatformSessionResolver;
 use App\Support\Platform\PortalUrl;
 use Illuminate\Http\Request;
@@ -16,6 +17,7 @@ class TemporaryPasswordController extends Controller
 {
     public function __construct(
         private readonly PlatformSessionResolver $sessionResolver,
+        private readonly CashOnboardingNotification $cashOnboarding,
     ) {}
 
     public function edit(): Response
@@ -37,6 +39,7 @@ class TemporaryPasswordController extends Controller
         ])->save();
 
         $session = $this->sessionResolver->resolve($request->user());
+        $this->cashOnboarding->ensure($request->user(), $session);
         $target = $session['default_app']['local_path'] ?? PortalUrl::base();
 
         if ($request->header('X-Inertia')) {

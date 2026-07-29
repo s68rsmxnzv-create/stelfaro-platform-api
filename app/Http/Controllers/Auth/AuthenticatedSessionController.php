@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Services\Cash\CashOnboardingNotification;
 use App\Services\CoreBillingSessionBroker;
 use App\Services\PlatformAdminAccess;
 use App\Services\PlatformAuditLogger;
@@ -23,6 +24,7 @@ class AuthenticatedSessionController extends Controller
         private readonly PlatformAdminAccess $platformAdminAccess,
         private readonly CoreBillingSessionBroker $coreBillingSessions,
         private readonly PlatformAuditLogger $audit,
+        private readonly CashOnboardingNotification $cashOnboarding,
     ) {}
 
     /**
@@ -67,6 +69,7 @@ class AuthenticatedSessionController extends Controller
         }
 
         $session = $this->sessionResolver->resolve($user);
+        $this->cashOnboarding->ensure($user, $session);
         $target = $session['default_app']['local_path'] ?? (
             $this->platformAdminAccess->allows($user)
                 ? PortalUrl::app('admin')

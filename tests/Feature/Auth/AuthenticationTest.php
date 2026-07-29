@@ -157,6 +157,13 @@ class AuthenticationTest extends TestCase
         $response
             ->assertStatus(409)
             ->assertHeader(Header::LOCATION, 'https://platform.stelfaro.com/taller/');
+        $this->assertDatabaseHas('internal_notifications', [
+            'user_id' => $user->id,
+            'tenant_id' => $tenant->id,
+            'category' => 'cash',
+            'title' => 'Prepara tu caja',
+            'action_url' => 'https://platform.stelfaro.com/taller/caja',
+        ]);
     }
 
     public function test_platform_owner_login_prefers_company_default_app_when_assigned(): void
