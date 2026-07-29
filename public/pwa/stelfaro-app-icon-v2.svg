@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+<title id="title">Ícono de aplicación StelFaro</title>
+<desc id="desc">Monograma STF sobre un cuadro blanco de esquinas redondeadas.</desc>
+<defs>
+  <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+    <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#0A1B3D" flood-opacity="0.18"/>
+  </filter>
+</defs>
+<rect x="36" y="28" width="440" height="440" rx="96" fill="#FFFFFF" filter="url(#shadow)"/>
+<svg x="116" y="86" width="280" height="318" viewBox="0 0 300 340"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 340" role="img" aria-labelledby="title desc">
+<title id="title">Monograma STF de StelFaro</title>
+<desc id="desc">S azul eléctrico en la cara superior, T gris en la cara frontal y F azul marino en la cara lateral.</desc>
+<g shape-rendering="geometricPrecision">
+  <polygon points="150.00,22.80 267.60,90.00 239.60,106.00 158.40,59.60 138.80,70.80 220.00,117.20 150.00,157.20 32.40,90.00 60.40,74.00 141.60,120.40 161.20,109.20 80.00,62.80" fill="#2563EB"/>
+  <polygon points="21.20,110.00 138.80,177.20 138.80,211.20 94.00,185.60 94.00,294.40 66.00,278.40 66.00,169.60 21.20,144.00" fill="#E6E9ED"/>
+  <polygon points="161.20,177.20 193.40,158.80 193.40,301.60 161.20,320.00" fill="#0A1B3D"/>
+  <polygon points="161.20,177.20 278.80,110.00 278.80,144.00 161.20,211.20" fill="#0A1B3D"/>
+  <polygon points="161.20,235.00 250.80,183.80 250.80,212.70 161.20,263.90" fill="#0A1B3D"/>
+</g>
+</svg></svg>
+</svg>

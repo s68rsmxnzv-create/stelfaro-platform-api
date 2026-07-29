@@ -56,9 +56,9 @@ onMounted(() => {
         <header class="public-header fixed inset-x-0 top-0 z-50 border-b border-white/10 text-white">
             <div class="mx-auto flex h-[calc(4rem+env(safe-area-inset-top))] max-w-7xl items-center justify-between gap-3 pb-0 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[env(safe-area-inset-top)] sm:h-[calc(5rem+env(safe-area-inset-top))] sm:px-5 sm:pt-[env(safe-area-inset-top)] lg:px-8">
                 <a href="/" class="flex min-w-0 items-center gap-2.5" aria-label="Stelfaro, inicio">
-                    <img src="/pwa/stelfaro-mark.svg" alt="" class="h-9 w-9 shrink-0 rounded-lg sm:h-11 sm:w-11 sm:rounded-xl" />
+                    <img src="/pwa/stelfaro-app-icon-v2.svg" alt="" class="h-9 w-9 shrink-0 rounded-lg sm:h-11 sm:w-11 sm:rounded-xl" />
                     <span>
-                        <strong class="block truncate text-base leading-none tracking-tight sm:text-lg">Stelfaro</strong>
+                        <strong class="block truncate text-base leading-none tracking-tight sm:text-lg">StelFaro</strong>
                         <span class="mt-1 hidden text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-300 sm:block">
                             Tu negocio, más simple
                         </span>
@@ -134,7 +134,7 @@ onMounted(() => {
                         <div class="relative overflow-hidden rounded-xl border border-line bg-surface shadow-xl shadow-slate-950/10">
                             <div class="flex h-14 items-center border-b border-line px-4 sm:px-5">
                                 <div class="flex items-center gap-2">
-                                    <img src="/pwa/stelfaro-mark.svg" alt="" class="h-8 w-8 rounded-lg" />
+                                    <img src="/pwa/stelfaro-app-icon-v2.svg" alt="" class="h-8 w-8 rounded-lg" />
                                     <div>
                                         <strong class="block text-sm text-text">Resumen de hoy</strong>
                                         <span class="block text-[11px] text-muted">Casa matriz</span>
@@ -271,8 +271,8 @@ onMounted(() => {
         <footer class="border-t border-line bg-surface">
             <div class="mx-auto flex max-w-7xl flex-col gap-5 px-5 py-8 text-sm text-muted sm:flex-row sm:items-center sm:justify-between lg:px-8">
                 <div class="flex items-center gap-3">
-                    <img src="/pwa/stelfaro-mark.svg" alt="" class="h-9 w-9 rounded-lg" />
-                    <span><strong class="text-text">Stelfaro</strong> · Tecnología salvadoreña para trabajar mejor.</span>
+                    <img src="/pwa/stelfaro-app-icon-v2.svg" alt="" class="h-9 w-9 rounded-lg" />
+                    <span><strong class="text-text">StelFaro</strong> · Tecnología salvadoreña para trabajar mejor.</span>
                 </div>
                 <div class="flex gap-5">
                     <a href="#soluciones" class="hover:text-primary">Soluciones</a>
