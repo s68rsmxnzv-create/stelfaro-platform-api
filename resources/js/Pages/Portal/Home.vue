@@ -52,13 +52,13 @@ onMounted(() => {
         />
     </Head>
 
-    <div class="landing min-h-screen bg-app text-text">
+    <div class="landing min-h-screen w-full max-w-full overflow-x-clip bg-app text-text">
         <header class="public-header fixed inset-x-0 top-0 z-50 border-b border-white/10 text-white">
-            <div class="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:h-20 lg:px-8">
-                <a href="/" class="flex items-center gap-3" aria-label="Stelfaro, inicio">
-                    <img src="/pwa/stelfaro.svg" alt="" class="h-10 w-10 rounded-full sm:h-11 sm:w-11" />
+            <div class="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:h-20 sm:px-5 lg:px-8">
+                <a href="/" class="flex min-w-0 items-center gap-2.5" aria-label="Stelfaro, inicio">
+                    <img src="/pwa/stelfaro.svg" alt="" class="h-9 w-9 shrink-0 rounded-full sm:h-11 sm:w-11" />
                     <span>
-                        <strong class="block text-lg leading-none tracking-tight">Stelfaro</strong>
+                        <strong class="block truncate text-base leading-none tracking-tight sm:text-lg">Stelfaro</strong>
                         <span class="mt-1 hidden text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-300 sm:block">
                             Tu negocio, más simple
                         </span>
@@ -71,10 +71,10 @@ onMounted(() => {
                     <a href="#contacto" class="transition hover:text-white">Contacto</a>
                 </nav>
 
-                <div class="flex items-center gap-2">
+                <div class="flex shrink-0 items-center gap-2">
                     <button
                         type="button"
-                        class="grid h-11 w-11 place-items-center rounded-lg border border-white/10 bg-white/5 text-white transition hover:bg-white/15"
+                        class="grid h-10 w-10 place-items-center rounded-lg border border-white/10 bg-white/5 text-white transition hover:bg-white/15 sm:h-11 sm:w-11"
                         :aria-label="isDark ? 'Activar modo claro' : 'Activar modo oscuro'"
                         @click="applyTheme(!isDark)"
                     >
@@ -86,7 +86,7 @@ onMounted(() => {
                             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
                         </svg>
                     </button>
-                    <Link href="/login" class="inline-flex h-11 items-center rounded-lg border border-white/15 bg-white/10 px-4 text-sm font-bold transition hover:bg-white hover:text-slate-950">
+                    <Link href="/login" class="inline-flex h-10 items-center rounded-lg border border-white/15 bg-white/10 px-3 text-sm font-bold transition hover:bg-white hover:text-slate-950 sm:h-11 sm:px-4">
                         <span class="sm:hidden">Entrar</span>
                         <span class="hidden sm:inline">Iniciar sesión</span>
                     </Link>
@@ -94,24 +94,24 @@ onMounted(() => {
             </div>
         </header>
 
-        <main>
+        <main class="min-w-0">
             <section class="hero-grid relative overflow-hidden border-b border-line pt-16 sm:pt-20">
-                <div class="mx-auto grid min-h-[740px] max-w-7xl items-center gap-14 px-5 py-16 lg:grid-cols-[1.02fr_0.98fr] lg:px-8 lg:py-24">
-                    <div class="relative z-10">
-                        <p class="mb-8 border-l-2 border-primary pl-4 text-sm font-semibold text-muted">
+                <div class="mx-auto grid min-w-0 max-w-7xl items-center gap-10 px-4 py-10 sm:min-h-[740px] sm:gap-14 sm:px-5 sm:py-16 lg:grid-cols-[1.02fr_0.98fr] lg:px-8 lg:py-24">
+                    <div class="relative z-10 min-w-0">
+                        <p class="mb-6 border-l-2 border-primary pl-3 text-sm font-semibold leading-5 text-muted sm:mb-8 sm:pl-4">
                             Diseñado y acompañado desde El Salvador.
                         </p>
 
-                        <h1 class="max-w-4xl text-[3.35rem] font-black leading-[0.98] tracking-[-0.055em] sm:text-7xl lg:text-[5.4rem]">
+                        <h1 class="max-w-4xl text-[2.65rem] font-black leading-[1.02] tracking-[-0.045em] min-[390px]:text-[2.9rem] sm:text-7xl sm:leading-[0.98] sm:tracking-[-0.055em] lg:text-[5.4rem]">
                             Tu negocio merece
-                            <span class="text-primary">menos vueltas.</span>
+                            <span class="block text-primary">menos vueltas.</span>
                         </h1>
 
-                        <p class="mt-7 max-w-xl text-lg leading-8 text-muted sm:text-xl">
+                        <p class="mt-6 max-w-xl text-base leading-7 text-muted sm:mt-7 sm:text-xl sm:leading-8">
                             Facturación electrónica y operación diaria en una aplicación que se siente clara desde el primer uso.
                         </p>
 
-                        <div class="mt-9 flex flex-col gap-3 sm:flex-row">
+                        <div class="mt-7 grid gap-3 sm:mt-9 sm:flex sm:flex-row">
                             <a
                                 href="mailto:soporte@stelfaro.com?subject=Quiero conocer Stelfaro"
                                 class="inline-flex h-14 items-center justify-center rounded-lg bg-primary px-7 text-base font-black text-primary-contrast shadow-lg shadow-sky-900/10 transition hover:-translate-y-0.5 hover:bg-primary-hover"
@@ -124,55 +124,55 @@ onMounted(() => {
                             </a>
                         </div>
 
-                        <p class="mt-7 max-w-lg text-sm leading-6 text-soft">
+                        <p class="mt-6 max-w-lg text-sm leading-6 text-soft sm:mt-7">
                             Te ayudamos a configurar la empresa, preparar la facturación y acompañar a tu equipo al comenzar.
                         </p>
                     </div>
 
-                    <div class="relative mx-auto w-full max-w-[570px] lg:ml-auto">
+                    <div class="relative mx-auto w-full min-w-0 max-w-[570px] lg:ml-auto">
                         <div class="product-window relative overflow-hidden border border-line bg-surface/75 shadow-2xl shadow-slate-950/20 backdrop-blur-xl">
-                            <div class="flex h-14 items-center border-b border-line px-5">
+                            <div class="hidden h-14 items-center border-b border-line px-5 sm:flex">
                                 <span class="h-2.5 w-2.5 rounded-full bg-danger"></span>
                                 <span class="ml-2 h-2.5 w-2.5 rounded-full bg-warning"></span>
                                 <span class="ml-2 h-2.5 w-2.5 rounded-full bg-success"></span>
                                 <span class="ml-auto text-[10px] font-bold uppercase tracking-[0.18em] text-soft">Miércoles · 10:24 a. m.</span>
                             </div>
 
-                            <div class="p-5 sm:p-7">
+                            <div class="p-4 sm:p-7">
                                 <div class="flex items-start justify-between gap-4">
-                                    <div>
+                                    <div class="min-w-0">
                                         <p class="text-xs font-black uppercase tracking-[0.16em] text-primary">Casa matriz</p>
-                                        <h2 class="mt-2 text-2xl font-black">Buenos días, Ana.</h2>
+                                        <h2 class="mt-1.5 truncate text-xl font-black sm:mt-2 sm:text-2xl">Buenos días, Ana.</h2>
                                     </div>
-                                    <span class="inline-flex items-center gap-2 text-xs font-bold text-success">
+                                    <span class="inline-flex shrink-0 items-center gap-1.5 text-[11px] font-bold text-success sm:gap-2 sm:text-xs">
                                         <span class="h-2 w-2 rounded-full bg-success"></span> Operando
                                     </span>
                                 </div>
 
-                                <div class="mt-7 grid grid-cols-2 border-y border-line">
-                                    <div class="border-r border-line py-5 pr-5">
-                                        <span class="text-sm text-muted">Ventas de hoy</span>
-                                        <strong class="mt-2 block text-3xl tracking-tight">$460.00</strong>
+                                <div class="mt-5 grid min-w-0 grid-cols-2 border-y border-line sm:mt-7">
+                                    <div class="min-w-0 border-r border-line py-4 pr-3 sm:py-5 sm:pr-5">
+                                        <span class="block truncate text-xs text-muted sm:text-sm">Ventas de hoy</span>
+                                        <strong class="mt-1.5 block text-2xl tracking-tight sm:mt-2 sm:text-3xl">$460.00</strong>
                                     </div>
-                                    <div class="py-5 pl-5">
-                                        <span class="text-sm text-muted">Órdenes activas</span>
-                                        <strong class="mt-2 block text-3xl tracking-tight">8</strong>
+                                    <div class="min-w-0 py-4 pl-3 sm:py-5 sm:pl-5">
+                                        <span class="block truncate text-xs text-muted sm:text-sm">Órdenes activas</span>
+                                        <strong class="mt-1.5 block text-2xl tracking-tight sm:mt-2 sm:text-3xl">8</strong>
                                     </div>
                                 </div>
 
-                                <div class="mt-6">
-                                    <p class="mb-3 text-xs font-black uppercase tracking-[0.16em] text-soft">Continuar trabajando</p>
-                                    <button type="button" class="flex w-full items-center gap-4 rounded-lg bg-primary p-4 text-left text-primary-contrast">
-                                        <span class="grid h-11 w-11 place-items-center rounded-md bg-white/15 text-xl">+</span>
+                                <div class="mt-4 sm:mt-6">
+                                    <p class="mb-3 hidden text-xs font-black uppercase tracking-[0.16em] text-soft sm:block">Continuar trabajando</p>
+                                    <button type="button" class="flex w-full min-w-0 items-center gap-3 rounded-lg bg-primary p-3.5 text-left text-primary-contrast sm:gap-4 sm:p-4">
+                                        <span class="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-white/15 text-xl sm:h-11 sm:w-11">+</span>
                                         <span>
                                             <strong class="block">Emitir factura</strong>
-                                            <span class="mt-0.5 block text-xs opacity-80">Factura, crédito fiscal o nota</span>
+                                            <span class="mt-0.5 hidden text-xs opacity-80 min-[360px]:block">Factura, crédito fiscal o nota</span>
                                         </span>
                                         <span class="ml-auto text-xl">→</span>
                                     </button>
                                 </div>
 
-                                <div class="mt-3 flex items-center gap-3 rounded-lg border border-line bg-surface-muted/70 p-4">
+                                <div class="mt-3 hidden items-center gap-3 rounded-lg border border-line bg-surface-muted/70 p-4 min-[360px]:flex">
                                     <span class="grid h-10 w-10 place-items-center rounded-md bg-success-soft font-black text-success">✓</span>
                                     <div class="min-w-0">
                                         <strong class="block text-sm">DTE aceptado por Hacienda</strong>
