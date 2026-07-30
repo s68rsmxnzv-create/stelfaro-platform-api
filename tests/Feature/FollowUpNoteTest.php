@@ -7,7 +7,6 @@ use App\Models\PlatformApp;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class FollowUpNoteTest extends TestCase
@@ -35,7 +34,7 @@ class FollowUpNoteTest extends TestCase
         $this->assertDatabaseCount('cash_movements', 0);
         $this->assertDatabaseCount('inventory_movements', 0);
         $this->assertDatabaseCount('inventory_sales', 0);
-        $this->assertFalse(Schema::hasTable('sales_orders'));
+        $this->assertDatabaseCount('sales_orders', 0);
     }
 
     public function test_due_note_creates_notification_and_resolution_preserves_history(): void

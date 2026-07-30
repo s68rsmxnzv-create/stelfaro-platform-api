@@ -31,6 +31,7 @@ class WorkshopOrderTest extends TestCase
 
         $response->assertCreated()->assertJsonPath('data.ticket', 'T-000001')->assertJsonPath('data.paid_total', 20);
         $response->assertJsonPath('data.balance', 80);
+        $this->assertDatabaseHas('receivable_accounts', ['tenant_id' => $tenant->id, 'source_type' => 'workshop_order', 'source_id' => $response->json('data.id'), 'status' => 'partial', 'balance' => 80]);
         $this->assertDatabaseHas('workshop_customers', ['tenant_id' => $tenant->id, 'core_customer_id' => 44]);
         $this->assertDatabaseHas('workshop_order_payments', ['tenant_id' => $tenant->id, 'amount' => 20]);
         $this->assertDatabaseMissing('workshop_devices', ['access_secret' => '1-2-5-8']);

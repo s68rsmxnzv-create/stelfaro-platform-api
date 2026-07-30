@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers\Api\V1\Platform;
 
-use App\Support\Platform\PortalUrl;
 use App\Http\Controllers\Controller;
 use App\Models\InventorySale;
+use App\Models\ReceivableAccount;
 use App\Models\Tenant;
 use App\Models\WorkshopCustomer;
 use App\Models\WorkshopDevice;
@@ -17,6 +17,7 @@ use App\Services\Inventory\CommercialSummaryService;
 use App\Services\Inventory\InventoryService;
 use App\Services\PlatformAccessPolicy;
 use App\Services\WorkshopDeviceAccessService;
+use App\Support\Platform\PortalUrl;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -34,12 +35,10 @@ class WorkshopOrderController extends Controller
 
         $activeStatuses = ['received', 'diagnosing', 'awaiting_approval', 'approved', 'repairing', 'ready'];
         $orders = $tenant->workshopOrders();
-        $receivables = (clone $orders)
-            ->whereNotNull('closed_at')
-            ->where('financial_status', 'pending')
-            ->with('payments')
-            ->get()
-            ->sum(fn (WorkshopOrder $order): float => max(0, round((float) $order->final_total - $this->netPaid($order), 2)));
+        $receivables = ReceivableAccount::query()
+            ->where('tenant_id', $tenant->id)
+            ->whereIn('status', ['open', 'partial'])
+            ->sum('balance');
         $dteReceivables = InventorySale::query()
             ->where('tenant_id', $tenant->id)
             ->where('source_type', 'dte')

@@ -124,6 +124,27 @@ class InertiaPlatformPagesTest extends TestCase
             );
     }
 
+    public function test_commercial_orders_are_available_in_billing_and_workshop_apps(): void
+    {
+        $this->actingAs($this->userWithApp('facturacion'))
+            ->get('https://platform.stelfaro.com/facturacion/ordenes-trabajo')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Apps/Taller/BillingWorkspace')
+                ->where('app.id', 'facturacion')
+                ->where('module', 'commercial-orders')
+            );
+
+        $this->actingAs($this->userWithApp('taller'))
+            ->get('https://platform.stelfaro.com/taller/ordenes-trabajo')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Apps/Taller/BillingWorkspace')
+                ->where('app.id', 'taller')
+                ->where('module', 'commercial-orders')
+            );
+    }
+
     public function test_taller_billing_page_renders_workspace(): void
     {
         config([

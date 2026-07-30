@@ -91,6 +91,21 @@ class Tenant extends Model
         return $this->hasMany(CashExpense::class);
     }
 
+    public function salesOrders(): HasMany
+    {
+        return $this->hasMany(SalesOrder::class);
+    }
+
+    public function quotations(): HasMany
+    {
+        return $this->hasMany(Quotation::class);
+    }
+
+    public function receivableAccounts(): HasMany
+    {
+        return $this->hasMany(ReceivableAccount::class);
+    }
+
     public function inventoryReservations(): HasMany
     {
         return $this->hasMany(InventoryReservation::class);

@@ -7,6 +7,7 @@ use App\Models\CashRegister;
 use App\Models\CashSession;
 use App\Models\FiscalSyncOperation;
 use App\Models\InventorySale;
+use App\Models\SalesOrderPayment;
 use App\Models\Tenant;
 use App\Models\WorkshopOrderPayment;
 use Illuminate\Validation\ValidationException;
@@ -58,6 +59,39 @@ class CashService
         );
     }
 
+    public function recordSalesOrderPayment(Tenant $tenant, SalesOrderPayment $payment): CashMovement
+    {
+        $order = $payment->order;
+        [$register, $session] = $this->paymentRegisterAndSession($tenant, $payment->received_by, $order?->core_sucursal_id);
+        if ($payment->method === 'cash' && ! $session) {
+            throw ValidationException::withMessages([
+                'method' => $payment->kind === 'refund'
+                    ? 'Abre una caja antes de devolver efectivo.'
+                    : 'Abre una caja antes de recibir efectivo.',
+            ]);
+        }
+
+        return CashMovement::query()->firstOrCreate(
+            ['tenant_id' => $tenant->id, 'idempotency_key' => 'sales-order-payment:'.$payment->id],
+            [
+                'cash_register_id' => $register?->id,
+                'cash_session_id' => $session?->id,
+                'sales_order_id' => $order?->id,
+                'direction' => $payment->kind === 'refund' ? 'out' : 'in',
+                'kind' => $payment->kind === 'refund' ? 'customer_refund' : 'order_payment',
+                'method' => $payment->method,
+                'amount' => $payment->amount,
+                'description' => ($payment->kind === 'refund' ? 'Devolución de ' : 'Cobro de ').'OT-'.str_pad((string) $order?->order_number, 6, '0', STR_PAD_LEFT),
+                'reference' => $payment->reference,
+                'source_type' => 'sales_order_payment',
+                'source_id' => (string) $payment->id,
+                'metadata' => ['notes' => $payment->notes],
+                'created_by' => $payment->received_by,
+                'occurred_at' => $payment->received_at,
+            ],
+        );
+    }
+
     public function ensureCashSession(Tenant $tenant, ?int $userId, ?int $branchId = null): CashSession
     {
         $session = $this->activeSession($tenant, $userId, null, $branchId);
@@ -70,7 +104,7 @@ class CashService
 
     public function recordDtePayments(Tenant $tenant, FiscalSyncOperation $operation, string $documentId, string $number): void
     {
-        if (filled($operation->payload['workshop_order_id'] ?? null)) {
+        if (filled($operation->payload['workshop_order_id'] ?? null) || filled($operation->payload['sales_order_id'] ?? null)) {
             return;
         }
 

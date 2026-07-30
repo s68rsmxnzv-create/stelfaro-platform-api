@@ -1,0 +1,27 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+
+#[Fillable(['tenant_id', 'idempotency_key', 'quotation_number', 'core_sucursal_id', 'core_sucursal_code', 'core_sucursal_name', 'core_customer_id', 'customer_name', 'customer_phone', 'customer_email', 'title', 'status', 'subtotal', 'discount_total', 'total', 'requested_deposit', 'valid_until', 'terms', 'notes', 'created_by', 'sent_at', 'accepted_at', 'rejected_at', 'converted_at'])]
+class Quotation extends Model
+{
+    protected function casts(): array
+    {
+        return ['subtotal' => 'decimal:2', 'discount_total' => 'decimal:2', 'total' => 'decimal:2', 'requested_deposit' => 'decimal:2', 'valid_until' => 'date', 'sent_at' => 'datetime', 'accepted_at' => 'datetime', 'rejected_at' => 'datetime', 'converted_at' => 'datetime'];
+    }
+
+    public function lines(): HasMany
+    {
+        return $this->hasMany(QuotationLine::class);
+    }
+
+    public function order(): HasOne
+    {
+        return $this->hasOne(SalesOrder::class);
+    }
+}

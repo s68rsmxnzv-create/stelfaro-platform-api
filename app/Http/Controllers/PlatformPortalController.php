@@ -106,6 +106,11 @@ class PlatformPortalController extends Controller
         return $this->renderBillingModule(['app' => ['id' => 'taller', 'name' => 'Caja', 'description' => 'Cobros, salidas y ventas conectadas con Taller.'], 'module' => 'cash']);
     }
 
+    public function tallerCommercialOrders(): Response
+    {
+        return $this->renderBillingModule(['app' => ['id' => 'taller', 'name' => 'Órdenes y cotizaciones', 'description' => 'Trabajos comerciales, anticipos y cuentas por cobrar.'], 'module' => 'commercial-orders']);
+    }
+
     public function tallerFollowUps(): Response
     {
         return $this->renderBillingModule(['app' => ['id' => 'taller', 'name' => 'Pendientes', 'description' => 'Notas y recordatorios operativos sin efectos financieros ni fiscales.'], 'module' => 'follow-ups']);
@@ -202,6 +207,11 @@ class PlatformPortalController extends Controller
     public function facturacionCash(): Response
     {
         return $this->renderBillingModule(['app' => ['id' => 'facturacion', 'name' => 'Caja', 'description' => 'Control de dinero, cobros, salidas y reporte comercial.'], 'module' => 'cash']);
+    }
+
+    public function facturacionCommercialOrders(): Response
+    {
+        return $this->renderBillingModule(['app' => ['id' => 'facturacion', 'name' => 'Órdenes y cotizaciones', 'description' => 'Cotizaciones, trabajos por encargo, anticipos y cuentas por cobrar.'], 'module' => 'commercial-orders']);
     }
 
     public function facturacionFollowUps(): Response

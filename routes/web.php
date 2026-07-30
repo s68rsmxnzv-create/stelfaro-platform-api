@@ -71,6 +71,7 @@ Route::domain(config('platform.portal.host'))
         Route::get('/catalogo', [PlatformPortalController::class, 'tallerCatalog'])->name('apps.taller.catalog');
         Route::get('/inventario', [PlatformPortalController::class, 'tallerInventory'])->name('apps.taller.inventory');
         Route::get('/caja', [PlatformPortalController::class, 'tallerCash'])->name('apps.taller.cash');
+        Route::get('/ordenes-trabajo', [PlatformPortalController::class, 'tallerCommercialOrders'])->name('apps.taller.commercial-orders');
         Route::get('/pendientes', [PlatformPortalController::class, 'tallerFollowUps'])->name('apps.taller.follow-ups');
         Route::get('/anexos', [PlatformPortalController::class, 'tallerAnnexes'])->name('apps.taller.annexes');
         Route::get('/facturacion/{documentSlug?}', [PlatformPortalController::class, 'tallerBilling'])->name('apps.taller.billing');
@@ -94,6 +95,7 @@ Route::domain(config('platform.portal.host'))
         Route::get('/catalogo', [PlatformPortalController::class, 'facturacionCatalog'])->name('apps.facturacion.catalog');
         Route::get('/inventario', [PlatformPortalController::class, 'facturacionInventory'])->name('apps.facturacion.inventory');
         Route::get('/caja', [PlatformPortalController::class, 'facturacionCash'])->name('apps.facturacion.cash');
+        Route::get('/ordenes-trabajo', [PlatformPortalController::class, 'facturacionCommercialOrders'])->name('apps.facturacion.commercial-orders');
         Route::get('/pendientes', [PlatformPortalController::class, 'facturacionFollowUps'])->name('apps.facturacion.follow-ups');
         Route::get('/anexos', [PlatformPortalController::class, 'facturacionAnnexes'])->name('apps.facturacion.annexes');
         Route::get('/{documentSlug}', [PlatformPortalController::class, 'facturacionBilling'])
@@ -136,46 +138,46 @@ foreach (['taller', 'facturacion'] as $legacyApp) {
 }
 
 $adminApiRoutes = function (): void {
-        Route::get('/me', PlatformSessionController::class);
-        Route::get('/admin/platform/users', [GlobalUserController::class, 'index']);
-        Route::get('/admin/platform/audit-logs', [PlatformAuditLogController::class, 'index']);
-        Route::get('/admin/platform/requests', [AdminTenantRequestController::class, 'index']);
-        Route::patch('/admin/platform/requests/{tenantRequest}', [AdminTenantRequestController::class, 'update']);
-        Route::post('/admin/platform/requests/{tenantRequest}/review', [AdminTenantRequestController::class, 'review']);
-        Route::post('/admin/platform/requests/{tenantRequest}/create-user', [AdminTenantRequestController::class, 'createUser']);
-        Route::post('/admin/platform/requests/{tenantRequest}/create-branch', [AdminTenantRequestController::class, 'createBranch']);
-        Route::post('/admin/platform/requests/{tenantRequest}/create-point-of-sale', [AdminTenantRequestController::class, 'createPointOfSale']);
-        Route::get('/admin/core/session', CoreSessionController::class);
-        Route::get('/admin/platform/subscriptions', [SubscriptionController::class, 'index']);
-        Route::put('/admin/platform/tenants/{tenant}/subscription', [SubscriptionController::class, 'update']);
-        Route::get('/admin/platform/tenants/by-core-empresa/{coreEmpresaId}/subscription', [SubscriptionController::class, 'showByCoreEmpresa']);
-        Route::put('/admin/platform/tenants/by-core-empresa/{coreEmpresaId}/subscription', [SubscriptionController::class, 'updateByCoreEmpresa']);
-        Route::get('/admin/platform/apps', [TenantAppOnboardingController::class, 'apps']);
-        Route::post('/admin/platform/tenants', [TenantAppOnboardingController::class, 'store']);
-        Route::get('/admin/platform/tenants/by-core-empresa/{coreEmpresaId}', [TenantLookupController::class, 'byCoreEmpresa']);
-        Route::delete('/admin/platform/tenants/by-core-empresa/{coreEmpresaId}', [TenantPurgeController::class, 'destroyByCoreEmpresa']);
-        Route::post('/admin/platform/tenants/by-core-empresa/{coreEmpresaId}/purge', [TenantPurgeController::class, 'destroyByCoreEmpresa']);
-        Route::get('/platform/notifications', [InternalNotificationController::class, 'index']);
-        Route::post('/platform/notifications/read-all', [InternalNotificationController::class, 'readAll']);
-        Route::post('/platform/notifications/{notification}/read', [InternalNotificationController::class, 'read']);
-        Route::delete('/platform/notifications/{notification}', [InternalNotificationController::class, 'destroy']);
-        Route::get('/platform/tenants/{tenant}/users', [TenantUserController::class, 'index']);
-        Route::get('/platform/tenants/{tenant}/audit-logs', [PlatformAuditLogController::class, 'tenant']);
-        Route::get('/platform/tenants/{tenant}/subscription', [SubscriptionController::class, 'showForTenant']);
-        Route::get('/platform/tenants/by-core-empresa/{coreEmpresaId}/subscription', [SubscriptionController::class, 'showForTenantByCoreEmpresa']);
-        Route::get('/platform/tenants/{tenant}/fiscal-scope', [TenantFiscalAssignmentController::class, 'scope']);
-        Route::post('/platform/tenants/{tenant}/users', [TenantUserController::class, 'store']);
-        Route::post('/platform/tenants/{tenant}/invitations', [TenantUserController::class, 'invite']);
-        Route::post('/platform/invitations/{invitation}/resend', [TenantInvitationController::class, 'resend']);
-        Route::get('/platform/invitations/{invitation}/delivery', [TenantInvitationController::class, 'delivery']);
-        Route::patch('/platform/memberships/{membership}/role', [TenantMembershipController::class, 'updateRole']);
-        Route::post('/platform/memberships/{membership}/temporary-password', [TenantMembershipController::class, 'resetTemporaryPassword']);
-        Route::put('/platform/memberships/{membership}/fiscal-assignments', [TenantFiscalAssignmentController::class, 'store']);
-        Route::patch('/platform/memberships/{membership}/suspend', [TenantMembershipController::class, 'suspend']);
-        Route::patch('/platform/memberships/{membership}/reactivate', [TenantMembershipController::class, 'reactivate']);
-        Route::delete('/platform/memberships/{membership}', [TenantMembershipController::class, 'destroy']);
-        Route::any('/admin/notifications/{path?}', NotificationProxyController::class)
-            ->where('path', '.*');
+    Route::get('/me', PlatformSessionController::class);
+    Route::get('/admin/platform/users', [GlobalUserController::class, 'index']);
+    Route::get('/admin/platform/audit-logs', [PlatformAuditLogController::class, 'index']);
+    Route::get('/admin/platform/requests', [AdminTenantRequestController::class, 'index']);
+    Route::patch('/admin/platform/requests/{tenantRequest}', [AdminTenantRequestController::class, 'update']);
+    Route::post('/admin/platform/requests/{tenantRequest}/review', [AdminTenantRequestController::class, 'review']);
+    Route::post('/admin/platform/requests/{tenantRequest}/create-user', [AdminTenantRequestController::class, 'createUser']);
+    Route::post('/admin/platform/requests/{tenantRequest}/create-branch', [AdminTenantRequestController::class, 'createBranch']);
+    Route::post('/admin/platform/requests/{tenantRequest}/create-point-of-sale', [AdminTenantRequestController::class, 'createPointOfSale']);
+    Route::get('/admin/core/session', CoreSessionController::class);
+    Route::get('/admin/platform/subscriptions', [SubscriptionController::class, 'index']);
+    Route::put('/admin/platform/tenants/{tenant}/subscription', [SubscriptionController::class, 'update']);
+    Route::get('/admin/platform/tenants/by-core-empresa/{coreEmpresaId}/subscription', [SubscriptionController::class, 'showByCoreEmpresa']);
+    Route::put('/admin/platform/tenants/by-core-empresa/{coreEmpresaId}/subscription', [SubscriptionController::class, 'updateByCoreEmpresa']);
+    Route::get('/admin/platform/apps', [TenantAppOnboardingController::class, 'apps']);
+    Route::post('/admin/platform/tenants', [TenantAppOnboardingController::class, 'store']);
+    Route::get('/admin/platform/tenants/by-core-empresa/{coreEmpresaId}', [TenantLookupController::class, 'byCoreEmpresa']);
+    Route::delete('/admin/platform/tenants/by-core-empresa/{coreEmpresaId}', [TenantPurgeController::class, 'destroyByCoreEmpresa']);
+    Route::post('/admin/platform/tenants/by-core-empresa/{coreEmpresaId}/purge', [TenantPurgeController::class, 'destroyByCoreEmpresa']);
+    Route::get('/platform/notifications', [InternalNotificationController::class, 'index']);
+    Route::post('/platform/notifications/read-all', [InternalNotificationController::class, 'readAll']);
+    Route::post('/platform/notifications/{notification}/read', [InternalNotificationController::class, 'read']);
+    Route::delete('/platform/notifications/{notification}', [InternalNotificationController::class, 'destroy']);
+    Route::get('/platform/tenants/{tenant}/users', [TenantUserController::class, 'index']);
+    Route::get('/platform/tenants/{tenant}/audit-logs', [PlatformAuditLogController::class, 'tenant']);
+    Route::get('/platform/tenants/{tenant}/subscription', [SubscriptionController::class, 'showForTenant']);
+    Route::get('/platform/tenants/by-core-empresa/{coreEmpresaId}/subscription', [SubscriptionController::class, 'showForTenantByCoreEmpresa']);
+    Route::get('/platform/tenants/{tenant}/fiscal-scope', [TenantFiscalAssignmentController::class, 'scope']);
+    Route::post('/platform/tenants/{tenant}/users', [TenantUserController::class, 'store']);
+    Route::post('/platform/tenants/{tenant}/invitations', [TenantUserController::class, 'invite']);
+    Route::post('/platform/invitations/{invitation}/resend', [TenantInvitationController::class, 'resend']);
+    Route::get('/platform/invitations/{invitation}/delivery', [TenantInvitationController::class, 'delivery']);
+    Route::patch('/platform/memberships/{membership}/role', [TenantMembershipController::class, 'updateRole']);
+    Route::post('/platform/memberships/{membership}/temporary-password', [TenantMembershipController::class, 'resetTemporaryPassword']);
+    Route::put('/platform/memberships/{membership}/fiscal-assignments', [TenantFiscalAssignmentController::class, 'store']);
+    Route::patch('/platform/memberships/{membership}/suspend', [TenantMembershipController::class, 'suspend']);
+    Route::patch('/platform/memberships/{membership}/reactivate', [TenantMembershipController::class, 'reactivate']);
+    Route::delete('/platform/memberships/{membership}', [TenantMembershipController::class, 'destroy']);
+    Route::any('/admin/notifications/{path?}', NotificationProxyController::class)
+        ->where('path', '.*');
 };
 
 Route::domain(config('platform.hosts.admin'))

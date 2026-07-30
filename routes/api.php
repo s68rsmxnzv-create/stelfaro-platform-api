@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Controllers\Api\AndroidPrintAgentController;
 use App\Http\Controllers\Api\V1\Platform\AdminTenantRequestController;
+use App\Http\Controllers\Api\V1\Platform\AndroidPrintController;
 use App\Http\Controllers\Api\V1\Platform\CashRegisterController;
 use App\Http\Controllers\Api\V1\Platform\CashSettingsController;
 use App\Http\Controllers\Api\V1\Platform\CatalogCategoryController;
@@ -21,6 +23,9 @@ use App\Http\Controllers\Api\V1\Platform\InventorySaleController;
 use App\Http\Controllers\Api\V1\Platform\InventorySupplierController;
 use App\Http\Controllers\Api\V1\Platform\InventoryTransferController;
 use App\Http\Controllers\Api\V1\Platform\PlatformAuditLogController;
+use App\Http\Controllers\Api\V1\Platform\QuotationController;
+use App\Http\Controllers\Api\V1\Platform\ReceivableController;
+use App\Http\Controllers\Api\V1\Platform\SalesOrderController;
 use App\Http\Controllers\Api\V1\Platform\SubscriptionController;
 use App\Http\Controllers\Api\V1\Platform\TenantFiscalAssignmentController;
 use App\Http\Controllers\Api\V1\Platform\TenantInvitationController;
@@ -35,8 +40,6 @@ use App\Http\Controllers\Api\V1\Platform\WorkshopOrderController;
 use App\Http\Controllers\Api\V1\Platform\WorkshopTicketSettingsController;
 use App\Http\Controllers\Api\V1\PlatformSessionController;
 use App\Http\Controllers\Api\V1\WompiWebhookController;
-use App\Http\Controllers\Api\AndroidPrintAgentController;
-use App\Http\Controllers\Api\V1\Platform\AndroidPrintController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\PlatformAdmin\CoreProxyController;
 use App\Http\Controllers\PlatformAdmin\CoreSessionController;
@@ -128,6 +131,22 @@ Route::prefix('v1')->group(function (): void {
             });
         Route::get('platform/tenants/{tenant}/commercial/dashboard', CommercialDashboardController::class)
             ->middleware('tenant.app:facturacion');
+        Route::prefix('platform/tenants/{tenant}')
+            ->middleware('tenant.app:facturacion')
+            ->group(function (): void {
+                Route::get('sales-orders', [SalesOrderController::class, 'index']);
+                Route::post('sales-orders', [SalesOrderController::class, 'store']);
+                Route::get('sales-orders/{salesOrder}', [SalesOrderController::class, 'show']);
+                Route::patch('sales-orders/{salesOrder}', [SalesOrderController::class, 'update']);
+                Route::post('sales-orders/{salesOrder}/payments', [SalesOrderController::class, 'recordPayment']);
+                Route::post('sales-orders/{salesOrder}/cancel', [SalesOrderController::class, 'cancel']);
+                Route::post('sales-orders/{salesOrder}/invoice-link', [SalesOrderController::class, 'linkInvoice']);
+                Route::get('quotations', [QuotationController::class, 'index']);
+                Route::post('quotations', [QuotationController::class, 'store']);
+                Route::patch('quotations/{quotation}/status', [QuotationController::class, 'status']);
+                Route::post('quotations/{quotation}/convert', [QuotationController::class, 'convert']);
+                Route::get('receivables', [ReceivableController::class, 'index']);
+            });
         Route::prefix('platform/tenants/{tenant}/follow-up-notes')->group(function (): void {
             Route::get('/', [FollowUpNoteController::class, 'index']);
             Route::post('/', [FollowUpNoteController::class, 'store']);
