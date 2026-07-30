@@ -237,6 +237,45 @@ class CoreBillingSessionTest extends TestCase
             && $request->hasHeader('Authorization', 'Bearer backoffice-token'));
     }
 
+    public function test_backoffice_core_session_is_reused_between_proxy_requests(): void
+    {
+        config([
+            'platform.admin.fiscal_membership_roles' => ['platform_owner', 'fiscal_admin'],
+            'services.dte_core.base_url' => 'https://core.test/api/v1',
+            'services.dte_core.internal_token' => 'internal-secret',
+            'services.dte_core.admin_email' => 'admin@stelfaro.com',
+            'services.dte_core.admin_role' => 'admin_fiscal',
+        ]);
+
+        Http::fake([
+            'https://core.test/api/v1/internal/auth/billing-session' => Http::response([
+                'token' => 'shared-backoffice-token',
+                'expires_at' => now()->addHour()->toISOString(),
+            ]),
+            'https://core.test/api/v1/health' => Http::response(['service' => 'DTE Core']),
+            'https://core.test/api/v1/billing/correlativos*' => Http::response(['data' => []]),
+        ]);
+
+        $user = User::factory()->create();
+        $tenant = Tenant::query()->create(['slug' => 'admin-session-cache', 'name' => 'Admin']);
+        $user->memberships()->create([
+            'tenant_id' => $tenant->id,
+            'role' => 'fiscal_admin',
+            'status' => 'active',
+            'is_default' => true,
+        ]);
+
+        $this->actingAs($user)
+            ->getJson('https://platform.stelfaro.com/api/v1/admin/core/health')
+            ->assertOk();
+        $this->getJson('https://platform.stelfaro.com/api/v1/admin/core/billing/correlativos?empresa_id=92&ambiente=00')
+            ->assertOk();
+
+        Http::assertSentCount(3);
+        Http::assertSent(fn ($request) => $request->url() === 'https://core.test/api/v1/billing/correlativos?empresa_id=92&ambiente=00'
+            && $request->hasHeader('Authorization', 'Bearer shared-backoffice-token'));
+    }
+
     public function test_platform_admin_without_fiscal_scope_cannot_open_backoffice_core_proxy(): void
     {
         config([

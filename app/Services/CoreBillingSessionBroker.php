@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\User;
 use App\Models\UserTenantMembership;
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
@@ -150,12 +152,57 @@ class CoreBillingSessionBroker
             throw new RuntimeException('La cuenta fiscal backoffice no esta configurada.');
         }
 
-        return $this->open([
-            'email' => $email,
-            'name' => 'Stelfaro Fiscal Admin',
-            'role' => config('services.dte_core.admin_role', 'admin_fiscal'),
-            'device_name' => is_string($deviceName) && $deviceName !== '' ? $deviceName : 'stelfaro-platform-admin',
-        ]);
+        $role = (string) config('services.dte_core.admin_role', 'admin_fiscal');
+        $deviceName = is_string($deviceName) && $deviceName !== '' ? $deviceName : 'stelfaro-platform-admin';
+        $cacheKey = 'dte-core:backoffice-session:'.hash('sha256', "{$email}|{$role}|{$deviceName}");
+
+        $cached = Cache::get($cacheKey);
+        if ($this->isUsableSession($cached)) {
+            return $cached;
+        }
+
+        return Cache::lock($cacheKey.':lock', 20)->block(20, function () use ($cacheKey, $email, $role, $deviceName): array {
+            $cached = Cache::get($cacheKey);
+            if ($this->isUsableSession($cached)) {
+                return $cached;
+            }
+
+            $session = $this->open([
+                'email' => $email,
+                'name' => 'Stelfaro Fiscal Admin',
+                'role' => $role,
+                'device_name' => $deviceName,
+            ]);
+
+            Cache::put($cacheKey, $session, $this->backofficeCacheExpiration($session));
+
+            return $session;
+        });
+    }
+
+    private function isUsableSession(mixed $session): bool
+    {
+        if (! is_array($session) || ! filled($session['token'] ?? null)) {
+            return false;
+        }
+
+        $expiresAt = $session['expires_at'] ?? null;
+
+        return ! is_string($expiresAt)
+            || $expiresAt === ''
+            || CarbonImmutable::parse($expiresAt)->isAfter(now()->addMinute());
+    }
+
+    private function backofficeCacheExpiration(array $session): CarbonImmutable
+    {
+        $maximum = CarbonImmutable::now()->addMinutes(30);
+        $expiresAt = $session['expires_at'] ?? null;
+
+        if (! is_string($expiresAt) || $expiresAt === '') {
+            return $maximum;
+        }
+
+        return CarbonImmutable::parse($expiresAt)->subMinute()->min($maximum);
     }
 
     /**
