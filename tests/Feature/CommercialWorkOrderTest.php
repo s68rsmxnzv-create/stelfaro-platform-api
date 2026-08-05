@@ -6,6 +6,8 @@ use App\Models\CashRegister;
 use App\Models\CashSession;
 use App\Models\InventorySale;
 use App\Models\PlatformApp;
+use App\Models\ReceivableAccount;
+use App\Models\SalesOrder;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -101,11 +103,23 @@ class CommercialWorkOrderTest extends TestCase
             'status' => 'active',
             'metadata' => ['payment_status' => 'receivable', 'outstanding_amount' => 12, 'customer_name' => 'Consumidor Final'],
         ]);
+        $settledOrderId = $this->postJson($this->base($tenant).'/sales-orders', [
+            'title' => 'Trabajo ya pagado',
+            'customer' => ['name' => 'Cliente sin saldo'],
+            'lines' => [['description' => 'Servicio pagado', 'quantity' => 1, 'unit_price' => 20]],
+        ])->assertCreated()->json('data.id');
+        $settledOrder = SalesOrder::query()->findOrFail($settledOrderId);
+        $settledOrder->forceFill(['financial_status' => 'settled'])->save();
+        ReceivableAccount::query()
+            ->where('source_type', 'sales_order')
+            ->where('source_id', $settledOrderId)
+            ->update(['paid_amount' => 20, 'balance' => 0, 'status' => 'settled', 'settled_at' => now()]);
 
         $this->getJson($this->base($tenant).'/receivables')
             ->assertOk()
             ->assertJsonPath('summary.open', 27)
             ->assertJsonPath('summary.accounts', 2)
+            ->assertJsonCount(2, 'data')
             ->assertJsonFragment(['source_type' => 'sales_order', 'source_id' => $orderId, 'balance' => 15])
             ->assertJsonFragment(['source_type' => 'dte', 'source_id' => 182, 'balance' => 12]);
     }

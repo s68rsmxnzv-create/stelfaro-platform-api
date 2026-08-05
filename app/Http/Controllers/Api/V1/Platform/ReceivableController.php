@@ -18,7 +18,11 @@ class ReceivableController extends Controller
         abort_unless($policy->canViewTenantCatalog($request->user(), $tenant), 403);
         $data = $request->validate(['status' => ['nullable', Rule::in(['open', 'partial', 'settled', 'cancelled'])], 'q' => ['nullable', 'string', 'max:120']]);
         $query = ReceivableAccount::query()->where('tenant_id', $tenant->id)->with('entries');
-        $query->when($data['status'] ?? null, fn ($q, $status) => $q->where('status', $status));
+        if (isset($data['status'])) {
+            $query->where('status', $data['status']);
+        } else {
+            $query->whereIn('status', ['open', 'partial']);
+        }
         $query->when($data['q'] ?? null, fn ($q, $term) => $q->where(fn ($nested) => $nested->where('customer_name', 'like', "%{$term}%")->orWhere('source_number', 'like', "%{$term}%")));
         $rows = $query->latest()->limit(200)->get();
         $accounts = $rows->map(fn (ReceivableAccount $account) => [
