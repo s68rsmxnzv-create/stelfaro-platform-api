@@ -45,7 +45,7 @@ class WorkshopOrderController extends Controller
             ->where('status', 'active')
             ->get(['total_amount', 'reporting_sign', 'metadata'])
             ->filter(fn (InventorySale $sale): bool => data_get($sale->metadata, 'payment_status') === 'receivable')
-            ->sum(fn (InventorySale $sale): float => (float) $sale->total_amount * (int) $sale->reporting_sign);
+            ->sum(fn (InventorySale $sale): float => (float) data_get($sale->metadata, 'outstanding_amount', (float) $sale->total_amount * (int) $sale->reporting_sign));
 
         $recent = (clone $orders)
             ->whereIn('status', $activeStatuses)

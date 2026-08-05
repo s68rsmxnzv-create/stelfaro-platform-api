@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\CashRegister;
 use App\Models\CashSession;
+use App\Models\InventorySale;
 use App\Models\PlatformApp;
 use App\Models\Tenant;
 use App\Models\User;
@@ -76,6 +77,37 @@ class CommercialWorkOrderTest extends TestCase
         $this->assertDatabaseHas('sales_orders', ['id' => $orderId, 'quotation_id' => $quotationId, 'total' => 80]);
         $this->assertDatabaseHas('receivable_accounts', ['source_type' => 'sales_order', 'source_id' => $orderId, 'status' => 'partial', 'balance' => 55]);
         $this->assertDatabaseHas('quotations', ['id' => $quotationId, 'status' => 'converted']);
+    }
+
+    public function test_receivables_endpoint_unifies_orders_and_dte_balances(): void
+    {
+        [$user, $tenant] = $this->member();
+        $orderId = $this->actingAs($user)->postJson($this->base($tenant).'/sales-orders', [
+            'title' => 'Trabajo pendiente',
+            'customer' => ['name' => 'Cliente de orden'],
+            'lines' => [['description' => 'Servicio', 'quantity' => 1, 'unit_price' => 15]],
+        ])->assertCreated()->json('data.id');
+        InventorySale::query()->create([
+            'tenant_id' => $tenant->id,
+            'source_type' => 'dte',
+            'source_id' => '182',
+            'source_number' => 'DTE-01-M001P001-000000000000182',
+            'sale_date' => today(),
+            'operation_kind' => 'sale',
+            'reporting_sign' => 1,
+            'net_amount' => 10.62,
+            'tax_amount' => 1.38,
+            'total_amount' => 12,
+            'status' => 'active',
+            'metadata' => ['payment_status' => 'receivable', 'outstanding_amount' => 12, 'customer_name' => 'Consumidor Final'],
+        ]);
+
+        $this->getJson($this->base($tenant).'/receivables')
+            ->assertOk()
+            ->assertJsonPath('summary.open', 27)
+            ->assertJsonPath('summary.accounts', 2)
+            ->assertJsonFragment(['source_type' => 'sales_order', 'source_id' => $orderId, 'balance' => 15])
+            ->assertJsonFragment(['source_type' => 'dte', 'source_id' => 182, 'balance' => 12]);
     }
 
     private function base(Tenant $tenant): string

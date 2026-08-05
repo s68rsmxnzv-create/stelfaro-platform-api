@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Platform;
 
 use App\Http\Controllers\Controller;
+use App\Models\InventorySale;
 use App\Models\ReceivableAccount;
 use App\Models\Tenant;
 use App\Services\PlatformAccessPolicy;
@@ -20,7 +21,60 @@ class ReceivableController extends Controller
         $query->when($data['status'] ?? null, fn ($q, $status) => $q->where('status', $status));
         $query->when($data['q'] ?? null, fn ($q, $term) => $q->where(fn ($nested) => $nested->where('customer_name', 'like', "%{$term}%")->orWhere('source_number', 'like', "%{$term}%")));
         $rows = $query->latest()->limit(200)->get();
+        $accounts = $rows->map(fn (ReceivableAccount $account) => [
+            'id' => $account->id,
+            'collection_id' => $account->source_id,
+            'source_type' => $account->source_type,
+            'source_id' => $account->source_id,
+            'source_number' => $account->source_number,
+            'customer' => ['id' => $account->core_customer_id, 'name' => $account->customer_name],
+            'original_amount' => (float) $account->original_amount,
+            'paid_amount' => (float) $account->paid_amount,
+            'refunded_amount' => (float) $account->refunded_amount,
+            'balance' => (float) $account->balance,
+            'status' => $account->status,
+            'recognized_at' => $account->recognized_at?->toISOString(),
+            'entries' => $account->entries->map(fn ($entry) => ['id' => $entry->id, 'type' => $entry->entry_type, 'amount' => (float) $entry->amount, 'reference' => $entry->reference, 'notes' => $entry->notes, 'occurred_at' => $entry->occurred_at?->toISOString()])->values(),
+        ]);
 
-        return response()->json(['data' => $rows->map(fn (ReceivableAccount $account) => ['id' => $account->id, 'source_type' => $account->source_type, 'source_id' => $account->source_id, 'source_number' => $account->source_number, 'customer' => ['id' => $account->core_customer_id, 'name' => $account->customer_name], 'original_amount' => (float) $account->original_amount, 'paid_amount' => (float) $account->paid_amount, 'refunded_amount' => (float) $account->refunded_amount, 'balance' => (float) $account->balance, 'status' => $account->status, 'recognized_at' => $account->recognized_at?->toISOString(), 'entries' => $account->entries->map(fn ($entry) => ['id' => $entry->id, 'type' => $entry->entry_type, 'amount' => (float) $entry->amount, 'reference' => $entry->reference, 'notes' => $entry->notes, 'occurred_at' => $entry->occurred_at?->toISOString()])->values()])->values(), 'summary' => ['open' => round((float) $rows->whereIn('status', ['open', 'partial'])->sum('balance'), 2), 'accounts' => $rows->whereIn('status', ['open', 'partial'])->count()]]);
+        $dteAccounts = collect();
+        if (! isset($data['status']) || in_array($data['status'], ['open', 'partial'], true)) {
+            $term = trim((string) ($data['q'] ?? ''));
+            $dteAccounts = InventorySale::query()
+                ->where('tenant_id', $tenant->id)
+                ->where('source_type', 'dte')
+                ->where('status', 'active')
+                ->latest('sale_date')
+                ->get(['id', 'source_id', 'source_number', 'sale_date', 'total_amount', 'reporting_sign', 'metadata'])
+                ->filter(fn (InventorySale $sale): bool => data_get($sale->metadata, 'payment_status') === 'receivable')
+                ->map(function (InventorySale $sale): array {
+                    $original = round((float) $sale->total_amount * (int) $sale->reporting_sign, 2);
+                    $balance = max(0, round((float) data_get($sale->metadata, 'outstanding_amount', $original), 2));
+
+                    return [
+                        'id' => 'dte-'.$sale->id,
+                        'collection_id' => $sale->id,
+                        'source_type' => 'dte',
+                        'source_id' => (int) $sale->source_id,
+                        'source_number' => $sale->source_number,
+                        'customer' => ['id' => data_get($sale->metadata, 'customer_id'), 'name' => data_get($sale->metadata, 'customer_name', 'Consumidor Final')],
+                        'original_amount' => $original,
+                        'paid_amount' => max(0, round($original - $balance, 2)),
+                        'refunded_amount' => 0.0,
+                        'balance' => $balance,
+                        'status' => $balance < $original ? 'partial' : 'open',
+                        'recognized_at' => $sale->sale_date?->startOfDay()->toISOString(),
+                        'entries' => [],
+                    ];
+                })
+                ->filter(fn (array $account): bool => $account['balance'] > 0)
+                ->filter(fn (array $account): bool => $term === '' || str_contains(mb_strtolower($account['source_number'].' '.$account['customer']['name']), mb_strtolower($term)))
+                ->filter(fn (array $account): bool => ! isset($data['status']) || $account['status'] === $data['status'])
+                ->values();
+        }
+
+        $allAccounts = $accounts->concat($dteAccounts)->sortByDesc('recognized_at')->values();
+
+        return response()->json(['data' => $allAccounts, 'summary' => ['open' => round((float) $allAccounts->whereIn('status', ['open', 'partial'])->sum('balance'), 2), 'accounts' => $allAccounts->whereIn('status', ['open', 'partial'])->count()]]);
     }
 }
