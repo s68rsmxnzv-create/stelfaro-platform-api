@@ -18,14 +18,14 @@ onMounted(() => {
 </script>
 
 <template>
-    <div class="sf-safe-screen bg-app text-text">
-        <header class="border-b border-white/10 bg-[var(--sf-color-navbar)] text-white">
-            <div class="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 lg:px-8">
-                <Link href="/" class="flex items-center gap-3" aria-label="Volver al inicio de Stelfaro">
-                    <img src="/pwa/stelfaro-mark-on-dark.svg" alt="" class="h-11 w-10 shrink-0 object-contain sm:h-12 sm:w-11" />
+    <div class="guest-landing sf-safe-screen min-h-screen w-full max-w-full overflow-x-clip bg-app text-text">
+        <header class="public-header fixed inset-x-0 top-0 z-50 border-b border-white/10 text-white">
+            <div class="mx-auto flex h-[calc(4rem+env(safe-area-inset-top))] max-w-7xl items-center justify-between gap-3 pb-0 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[env(safe-area-inset-top)] sm:h-[calc(5rem+env(safe-area-inset-top))] sm:px-5 sm:pt-[env(safe-area-inset-top)] lg:h-[calc(6rem+env(safe-area-inset-top))] lg:px-8">
+                <Link href="/" class="group flex min-w-0 items-center gap-2.5" aria-label="Volver al inicio de StelFaro">
+                    <img src="/pwa/stelfaro-mark-on-dark.svg" alt="" class="h-10 w-9 shrink-0 object-contain sm:h-12 sm:w-11 lg:h-16 lg:w-14" />
                     <span>
-                        <strong class="block text-lg leading-none tracking-tight">StelFaro</strong>
-                        <span class="mt-1 hidden text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-300 sm:block">
+                        <strong class="block truncate text-base leading-none tracking-tight sm:text-lg lg:text-xl">StelFaro</strong>
+                        <span class="mt-1.5 hidden text-[10px] font-semibold uppercase tracking-[0.2em] text-sky-300 sm:block">
                             Tu negocio, más simple
                         </span>
                     </span>
@@ -34,7 +34,7 @@ onMounted(() => {
                 <div class="flex items-center gap-2">
                     <button
                         type="button"
-                        class="grid h-11 w-11 place-items-center rounded-xl border border-white/10 bg-white/10 text-white transition hover:bg-white/20"
+                        class="grid h-10 w-10 place-items-center rounded-lg border border-white/10 bg-white/5 text-white transition hover:bg-white/15 sm:h-11 sm:w-11"
                         :aria-label="isDark ? 'Activar modo claro' : 'Activar modo oscuro'"
                         :title="isDark ? 'Modo claro' : 'Modo oscuro'"
                         @click="toggleTheme"
@@ -47,36 +47,38 @@ onMounted(() => {
                             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
                         </svg>
                     </button>
-                    <Link href="/" class="inline-flex h-11 items-center rounded-xl px-3 text-sm font-bold text-slate-200 transition hover:bg-white/10 hover:text-white sm:px-4">
+                    <Link href="/" class="inline-flex h-10 items-center rounded-lg border border-white/10 bg-white/5 px-3 text-sm font-bold text-slate-200 transition hover:bg-white/15 hover:text-white sm:h-11 sm:px-4">
                         <span aria-hidden="true">←</span>
                         <span class="ml-2 hidden sm:inline">Volver al inicio</span>
                     </Link>
                 </div>
             </div>
+            <div class="header-accent absolute inset-x-0 bottom-[-1px] h-px" aria-hidden="true"></div>
         </header>
 
-        <main class="relative isolate overflow-hidden">
-            <div class="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_15%_20%,rgba(14,165,233,0.10),transparent_30%),radial-gradient(circle_at_85%_80%,rgba(16,185,129,0.08),transparent_28%)]"></div>
+        <main class="relative isolate overflow-hidden pt-[calc(4rem+env(safe-area-inset-top))] sm:pt-[calc(5rem+env(safe-area-inset-top))] lg:pt-[calc(6rem+env(safe-area-inset-top))]">
+            <div class="hero-glow pointer-events-none absolute inset-0 -z-10" aria-hidden="true"></div>
 
-            <div class="mx-auto grid min-h-[calc(100vh-4rem)] max-w-7xl items-center gap-12 px-5 py-10 sm:min-h-[calc(100vh-5rem)] sm:py-16 lg:grid-cols-[0.9fr_1.1fr] lg:px-8">
+            <div class="mx-auto grid min-h-[calc(100vh-4rem-env(safe-area-inset-top))] max-w-7xl items-center gap-10 px-4 py-10 sm:min-h-[calc(100vh-5rem-env(safe-area-inset-top))] sm:px-5 sm:py-14 lg:min-h-[calc(100vh-6rem-env(safe-area-inset-top))] lg:grid-cols-[0.92fr_1.08fr] lg:px-8 lg:py-16">
                 <section class="hidden max-w-xl lg:block">
-                    <h1 class="text-5xl font-black leading-[1.05] tracking-[-0.04em]">
+                    <p class="mb-5 text-sm font-semibold text-primary">El mismo espacio para toda tu operación.</p>
+                    <h1 class="text-5xl font-black leading-[1.05] tracking-[-0.04em] xl:text-6xl">
                         Tu operación te espera.
                     </h1>
                     <p class="mt-6 text-lg leading-8 text-muted">
                         Una sola cuenta para acceder a la operación completa de tu negocio, estés donde estés.
                     </p>
 
-                    <div class="mt-10 grid gap-4">
-                        <div class="flex items-center gap-4 rounded-2xl border border-line bg-surface/80 p-4 shadow-surface">
-                            <span class="grid h-11 w-11 place-items-center rounded-xl bg-primary-soft font-black text-primary">01</span>
+                    <div class="mt-10 divide-y divide-line border-y border-line">
+                        <div class="flex items-center gap-4 py-5">
+                            <span class="font-mono text-xs font-black text-primary">01</span>
                             <div>
                                 <strong class="block">Un solo acceso</strong>
                                 <span class="text-sm text-muted">Entramos directamente al espacio que te corresponde.</span>
                             </div>
                         </div>
-                        <div class="flex items-center gap-4 rounded-2xl border border-line bg-surface/80 p-4 shadow-surface">
-                            <span class="grid h-11 w-11 place-items-center rounded-xl bg-success-soft font-black text-success">✓</span>
+                        <div class="flex items-center gap-4 py-5">
+                            <span class="font-mono text-xs font-black text-success">02</span>
                             <div>
                                 <strong class="block">Sesión protegida</strong>
                                 <span class="text-sm text-muted">Tus permisos y empresas permanecen separados y seguros.</span>
@@ -86,7 +88,7 @@ onMounted(() => {
                 </section>
 
                 <section class="flex justify-center lg:justify-end">
-                    <div class="w-full max-w-md rounded-3xl border border-line bg-surface p-6 shadow-xl shadow-slate-950/10 dark:shadow-black/30 sm:p-8">
+                    <div class="login-panel relative w-full max-w-md overflow-hidden rounded-2xl border border-line bg-surface p-6 shadow-xl shadow-slate-950/10 dark:shadow-black/30 sm:p-8">
                         <slot />
                     </div>
                 </section>
@@ -94,3 +96,44 @@ onMounted(() => {
         </main>
     </div>
 </template>
+
+<style scoped>
+.public-header {
+    background:
+        radial-gradient(circle at 18% 0%, rgb(37 99 235 / 24%), transparent 30%),
+        linear-gradient(105deg, #07162f 0%, #0a1b3d 55%, #0d2854 100%);
+}
+
+.header-accent {
+    background: linear-gradient(90deg, transparent 8%, #2563eb 38%, #38bdf8 50%, #2563eb 62%, transparent 92%);
+    opacity: 0.65;
+}
+
+.hero-glow {
+    background:
+        radial-gradient(circle at 78% 28%, rgb(14 165 233 / 13%), transparent 28rem),
+        radial-gradient(circle at 12% 78%, rgb(37 99 235 / 8%), transparent 24rem);
+}
+
+.login-panel::before {
+    position: absolute;
+    inset: 0 0 auto;
+    height: 3px;
+    content: '';
+    background: linear-gradient(90deg, #2563eb, #38bdf8 55%, transparent);
+}
+
+.guest-landing main {
+    padding-right: env(safe-area-inset-right);
+    padding-left: env(safe-area-inset-left);
+}
+
+@supports (background: color-mix(in srgb, black 90%, transparent)) {
+    .public-header {
+        background:
+            radial-gradient(circle at 18% 0%, rgb(37 99 235 / 22%), transparent 30%),
+            color-mix(in srgb, #071a38 93%, transparent);
+        backdrop-filter: blur(18px) saturate(125%);
+    }
+}
+</style>
