@@ -275,6 +275,7 @@ class WorkshopOrderController extends Controller
             'payment.method' => ['required_with:payment.amount', Rule::in(['cash', 'card', 'transfer', 'other'])],
             'payment.reference' => ['nullable', 'string', 'max:120'],
             'payment.notes' => ['nullable', 'string', 'max:2000'],
+            'direct_service' => ['sometimes', 'boolean'],
         ]);
         if (isset($data['payment']) && ($data['approval_decision'] ?? null) !== 'approved') {
             throw ValidationException::withMessages(['payment' => 'El abono al aprobar requiere que el cliente acepte el presupuesto.']);
@@ -283,8 +284,16 @@ class WorkshopOrderController extends Controller
             $locked = WorkshopOrder::query()->whereKey($order->id)->with('payments')->lockForUpdate()->firstOrFail();
             $nextStatus = $data['status'] ?? $locked->status;
             $this->validateTransition($locked, $nextStatus, $data);
-            $update = collect($data)->except('payment')->all();
-            if (array_key_exists('approval_decision', $update)) {
+            $update = collect($data)->except(['payment', 'direct_service'])->all();
+            if ($data['direct_service'] ?? false) {
+                $update['status'] = 'repairing';
+                $update['approval_decision'] = 'approved';
+                $update['approval_method'] = 'in_person';
+                $update['approval_notes'] = 'Trabajo y precio acordados directamente al recibir el equipo.';
+                $update['approval_recorded_by'] = $request->user()->id;
+                $update['approval_decided_at'] = now();
+            }
+            if (array_key_exists('approval_decision', $data)) {
                 $update['status'] = $update['approval_decision'] === 'approved' ? 'approved' : 'cancelled';
                 $update['approval_recorded_by'] = $request->user()->id;
                 $update['approval_decided_at'] = now();
@@ -610,6 +619,24 @@ class WorkshopOrderController extends Controller
 
     private function validateTransition(WorkshopOrder $order, string $nextStatus, array $data): void
     {
+        if ($data['direct_service'] ?? false) {
+            if ($order->status !== 'received' || $nextStatus !== 'repairing') {
+                throw ValidationException::withMessages(['direct_service' => 'La reparación directa solo puede iniciarse desde una orden recién recibida.']);
+            }
+            $errors = [];
+            if (trim((string) ($data['diagnosis'] ?? '')) === '') {
+                $errors['diagnosis'] = 'Indica el trabajo acordado con el cliente.';
+            }
+            if (($data['estimated_total'] ?? null) === null) {
+                $errors['estimated_total'] = 'Indica el precio acordado con el cliente.';
+            }
+            if ($errors !== []) {
+                throw ValidationException::withMessages($errors);
+            }
+
+            return;
+        }
+
         $transitions = [
             'received' => ['received', 'diagnosing', 'cancelled'],
             'diagnosing' => ['diagnosing', 'awaiting_approval', 'cancelled'],

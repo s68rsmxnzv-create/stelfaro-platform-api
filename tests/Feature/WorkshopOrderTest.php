@@ -222,6 +222,40 @@ class WorkshopOrderTest extends TestCase
             ->assertOk()->assertJsonPath('data.billing.status', 'invoiced')->assertJsonPath('data.billing.core_document_id', 901);
     }
 
+    public function test_direct_service_skips_diagnosis_flow_with_agreed_work_and_price(): void
+    {
+        [$user, $tenant] = $this->member();
+        $order = $this->actingAs($user)->postJson("/api/v1/platform/tenants/{$tenant->id}/workshop/orders", [
+            'customer' => ['core_customer_id' => 451, 'name' => 'Cliente cambio directo'],
+            'device' => ['type' => 'phone', 'brand' => 'Samsung', 'model' => 'A54', 'power_status' => 'on'],
+            'reported_fault' => 'Pantalla quebrada',
+        ])->assertCreated()->json('data');
+        $url = "/api/v1/platform/tenants/{$tenant->id}/workshop/orders/{$order['id']}";
+
+        $this->patchJson($url, ['status' => 'repairing', 'direct_service' => true])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['diagnosis', 'estimated_total']);
+
+        $this->patchJson($url, [
+            'status' => 'repairing',
+            'direct_service' => true,
+            'diagnosis' => 'Cambio de pantalla completa',
+            'estimated_total' => 65,
+        ])->assertOk()
+            ->assertJsonPath('data.status', 'repairing')
+            ->assertJsonPath('data.diagnosis', 'Cambio de pantalla completa')
+            ->assertJsonPath('data.estimated_total', 65)
+            ->assertJsonPath('data.approval.decision', 'approved')
+            ->assertJsonPath('data.approval.method', 'in_person');
+
+        $this->assertDatabaseHas('workshop_orders', [
+            'id' => $order['id'],
+            'status' => 'repairing',
+            'approval_decision' => 'approved',
+            'approval_method' => 'in_person',
+        ]);
+    }
+
     public function test_cancelled_order_with_advance_requires_and_records_financial_resolution(): void
     {
         [$user, $tenant] = $this->member();
