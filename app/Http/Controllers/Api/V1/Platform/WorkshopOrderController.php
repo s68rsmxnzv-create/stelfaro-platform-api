@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Platform;
 
 use App\Http\Controllers\Controller;
+use App\Models\InventoryReservation;
 use App\Models\InventorySale;
 use App\Models\ReceivableAccount;
 use App\Models\Tenant;
@@ -259,7 +260,7 @@ class WorkshopOrderController extends Controller
         ]]);
     }
 
-    public function update(Request $request, Tenant $tenant, WorkshopOrder $order, PlatformAccessPolicy $policy, CashService $cash): JsonResponse
+    public function update(Request $request, Tenant $tenant, WorkshopOrder $order, PlatformAccessPolicy $policy, CashService $cash, InventoryService $inventory): JsonResponse
     {
         abort_unless($order->tenant_id === $tenant->id, 404);
         abort_unless($policy->canOperateTenant($request->user(), $tenant), 403);
@@ -278,7 +279,7 @@ class WorkshopOrderController extends Controller
         if (isset($data['payment']) && ($data['approval_decision'] ?? null) !== 'approved') {
             throw ValidationException::withMessages(['payment' => 'El abono al aprobar requiere que el cliente acepte el presupuesto.']);
         }
-        $order = DB::transaction(function () use ($data, $request, $tenant, $order, $cash): WorkshopOrder {
+        $order = DB::transaction(function () use ($data, $request, $tenant, $order, $cash, $inventory): WorkshopOrder {
             $locked = WorkshopOrder::query()->whereKey($order->id)->with('payments')->lockForUpdate()->firstOrFail();
             $nextStatus = $data['status'] ?? $locked->status;
             $this->validateTransition($locked, $nextStatus, $data);
@@ -296,6 +297,9 @@ class WorkshopOrderController extends Controller
                 $locked->delivered_at = now();
             }
             $locked->save();
+            if (($update['status'] ?? null) === 'cancelled') {
+                $this->releaseReservedMaterials($tenant, $locked, $inventory, $request->user()->id);
+            }
             if (isset($data['payment'])) {
                 $this->recordOpenOrderPayment($locked, $tenant, $request, $data['payment'], $cash, 'Abono al aprobar presupuesto');
             }
@@ -333,6 +337,7 @@ class WorkshopOrderController extends Controller
 
             if ($data['action'] === 'deliver_close') {
                 abort_unless($locked->status === 'ready', 422, 'Solo una orden lista puede entregarse y cerrarse.');
+                abort_if($this->hasReservedMaterials($tenant, $locked), 422, 'Confirma como instalados o libera los repuestos reservados antes de cerrar la orden.');
                 $total = (float) ($data['final_total'] ?? $locked->estimated_total ?? 0);
                 if ($paid > $total) {
                     throw ValidationException::withMessages(['final_total' => 'El total final no puede ser menor que lo ya recibido.']);
@@ -360,10 +365,14 @@ class WorkshopOrderController extends Controller
                     'source_number' => 'T-'.str_pad((string) $locked->ticket_number, 6, '0', STR_PAD_LEFT),
                     'sale_date' => now()->toDateString(),
                     'metadata' => ['customer_id' => $locked->device->customer->core_customer_id, 'customer_name' => $locked->device->customer->name, 'payment_status' => $remaining > 0 ? 'receivable' : 'paid', 'outstanding_amount' => $remaining, 'billing_status' => $wantsDte ? 'pending' : 'unbilled'],
-                    'lines' => [['description' => 'Servicio de reparación '.$locked->device->brand.' '.$locked->device->model, 'quantity' => 1, 'unit_price' => $total, 'net_total' => $total, 'line_origin' => 'free']],
+                    'lines' => [
+                        ['description' => 'Servicio de reparación '.$locked->device->brand.' '.$locked->device->model, 'quantity' => 1, 'unit_price' => $total, 'net_total' => $total, 'line_origin' => 'free'],
+                        ...$this->materialCostLines($tenant, $locked),
+                    ],
                 ], $request->user()->id);
             } else {
                 abort_unless($locked->status === 'cancelled', 422, 'Solo una orden cancelada puede liquidarse como cancelación.');
+                $this->releaseReservedMaterials($tenant, $locked, $inventory, $request->user()->id);
                 $diagnosticCharge = round((float) ($data['diagnostic_charge'] ?? $data['retained_amount'] ?? 0), 2);
                 $refund = max(0, round($paid - $diagnosticCharge, 2));
                 $collection = max(0, round($diagnosticCharge - $paid, 2));
@@ -386,7 +395,10 @@ class WorkshopOrderController extends Controller
                         'source_number' => 'T-'.str_pad((string) $locked->ticket_number, 6, '0', STR_PAD_LEFT),
                         'sale_date' => now()->toDateString(),
                         'metadata' => ['customer_id' => $locked->device->customer->core_customer_id, 'customer_name' => $locked->device->customer->name, 'payment_status' => 'paid', 'outstanding_amount' => 0, 'billing_status' => 'unbilled', 'cancelled_repair' => true],
-                        'lines' => [['description' => 'Servicio de diagnóstico '.$locked->device->brand.' '.$locked->device->model, 'quantity' => 1, 'unit_price' => $diagnosticCharge, 'net_total' => $diagnosticCharge, 'line_origin' => 'free']],
+                        'lines' => [
+                            ['description' => 'Servicio de diagnóstico '.$locked->device->brand.' '.$locked->device->model, 'quantity' => 1, 'unit_price' => $diagnosticCharge, 'net_total' => $diagnosticCharge, 'line_origin' => 'free'],
+                            ...$this->materialCostLines($tenant, $locked),
+                        ],
                     ], $request->user()->id);
                 }
             }
@@ -643,5 +655,57 @@ class WorkshopOrderController extends Controller
         }
 
         return $sum % 10 === 0;
+    }
+
+    private function hasReservedMaterials(Tenant $tenant, WorkshopOrder $order): bool
+    {
+        return InventoryReservation::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('source_type', 'workshop_order')
+            ->where('source_id', (string) $order->id)
+            ->where('status', InventoryReservation::STATUS_RESERVED)
+            ->exists();
+    }
+
+    private function releaseReservedMaterials(Tenant $tenant, WorkshopOrder $order, InventoryService $inventory, ?int $userId): void
+    {
+        InventoryReservation::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('source_type', 'workshop_order')
+            ->where('source_id', (string) $order->id)
+            ->where('status', InventoryReservation::STATUS_RESERVED)
+            ->lockForUpdate()
+            ->get()
+            ->each(fn (InventoryReservation $reservation) => $inventory->releaseReservation($tenant, $reservation, $userId));
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private function materialCostLines(Tenant $tenant, WorkshopOrder $order): array
+    {
+        return InventoryReservation::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('source_type', 'workshop_order')
+            ->where('source_id', (string) $order->id)
+            ->where('status', InventoryReservation::STATUS_CONFIRMED)
+            ->with(['lines.catalogItem', 'lines.allocations'])
+            ->get()
+            ->flatMap(function (InventoryReservation $reservation) {
+                return $reservation->lines->map(function ($line): array {
+                    $quantity = (float) $line->quantity;
+                    $cost = (float) $line->allocations->sum(fn ($allocation): float => (float) $allocation->quantity * (float) $allocation->unit_cost);
+
+                    return [
+                        'catalog_item_id' => $line->catalog_item_id,
+                        'description' => $line->description_snapshot ?: $line->catalogItem?->name,
+                        'quantity' => $quantity,
+                        'unit_price' => 0,
+                        'net_total' => 0,
+                        'line_origin' => 'workshop_material',
+                        'reference_unit_cost' => $quantity > 0 ? round($cost / $quantity, 4) : 0,
+                    ];
+                });
+            })
+            ->values()
+            ->all();
     }
 }

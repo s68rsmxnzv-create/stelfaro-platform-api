@@ -46,6 +46,18 @@ class CatalogItemController extends Controller
             $query->where('catalog_category_id', (int) $request->query('category_id'));
         }
 
+        if ($request->filled('core_sucursal_id')) {
+            $branchId = (int) $request->query('core_sucursal_id');
+            $query->whereHas('inventoryLots', fn ($lots) => $lots
+                ->where('core_sucursal_id', $branchId)
+                ->where('available_quantity', '>', 0));
+            $query->withSum([
+                'inventoryLots as branch_stock_quantity' => fn ($lots) => $lots
+                    ->where('core_sucursal_id', $branchId)
+                    ->where('available_quantity', '>', 0),
+            ], 'available_quantity');
+        }
+
         $items = $query->paginate((int) min(max((int) $request->query('per_page', 50), 1), 100));
 
         return response()->json([
@@ -236,6 +248,7 @@ class CatalogItemController extends Controller
             'reference_cost' => $item->reference_cost !== null ? (float) $item->reference_cost : null,
             'cost_source' => $item->cost_source,
             'stock_quantity' => (float) $item->stock_quantity,
+            'branch_stock_quantity' => isset($item->branch_stock_quantity) ? (float) $item->branch_stock_quantity : null,
             'min_stock_quantity' => (float) $item->min_stock_quantity,
             'status' => $item->status,
             'metadata' => $item->metadata,

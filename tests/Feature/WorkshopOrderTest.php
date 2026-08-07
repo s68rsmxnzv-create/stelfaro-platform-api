@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\CashRegister;
 use App\Models\CashSession;
+use App\Models\CatalogItem;
+use App\Models\InventoryLot;
 use App\Models\InventoryPurchase;
 use App\Models\PlatformApp;
 use App\Models\Tenant;
@@ -404,6 +406,131 @@ class WorkshopOrderTest extends TestCase
             ->assertJsonPath('commercial.purchase_tax_credit_month', 16.5)
             ->assertJsonPath('commercial.estimated_tax_payable_month', 0)
             ->assertJsonPath('commercial.estimated_tax_credit_balance_month', 3.5);
+    }
+
+    public function test_workshop_can_reserve_consume_and_return_a_part_from_its_branch(): void
+    {
+        [$user, $tenant] = $this->member();
+        $item = CatalogItem::query()->create([
+            'tenant_id' => $tenant->id,
+            'sku' => 'DISPLAY-S23U',
+            'name' => 'Pantalla Samsung S23 Ultra',
+            'item_type' => 'part',
+            'controls_inventory' => true,
+            'stock_quantity' => 2,
+            'status' => 'active',
+        ]);
+        InventoryLot::query()->create([
+            'tenant_id' => $tenant->id,
+            'core_sucursal_id' => 5,
+            'core_sucursal_code' => 'M001',
+            'core_sucursal_name' => 'Casa matriz',
+            'catalog_item_id' => $item->id,
+            'lot_code' => 'DISPLAY-001',
+            'received_date' => today(),
+            'unit_cost' => 100,
+            'initial_quantity' => 2,
+            'available_quantity' => 2,
+            'status' => 'active',
+        ]);
+        $order = $this->actingAs($user)->postJson("/api/v1/platform/tenants/{$tenant->id}/workshop/orders", [
+            'customer' => ['core_customer_id' => 501, 'name' => 'Cliente repuesto interno'],
+            'core_sucursal_id' => 5,
+            'core_sucursal_code' => 'M001',
+            'core_sucursal_name' => 'Casa matriz',
+            'device' => ['type' => 'phone', 'brand' => 'Samsung', 'model' => 'S23 Ultra', 'power_status' => 'on'],
+            'reported_fault' => 'Pantalla quebrada',
+        ])->assertCreated()->json('data');
+        $base = "/api/v1/platform/tenants/{$tenant->id}/workshop/orders/{$order['id']}/materials";
+
+        $this->getJson("/api/v1/platform/tenants/{$tenant->id}/catalog/items?q=S23&controls_inventory=true&core_sucursal_id=5")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.branch_stock_quantity', 2);
+
+        $material = $this->postJson($base, ['catalog_item_id' => $item->id, 'quantity' => 1])
+            ->assertCreated()
+            ->assertJsonPath('data.status', 'reserved')
+            ->assertJsonPath('data.total_cost', 100)
+            ->json('data');
+        $this->assertDatabaseHas('inventory_lots', ['catalog_item_id' => $item->id, 'core_sucursal_id' => 5, 'available_quantity' => 1]);
+        $this->assertDatabaseCount('inventory_movements', 0);
+
+        $this->postJson($base."/{$material['id']}/consume")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'confirmed');
+        $this->assertDatabaseHas('inventory_movements', [
+            'tenant_id' => $tenant->id,
+            'catalog_item_id' => $item->id,
+            'movement_type' => 'exit',
+            'reason' => 'workshop_consumption',
+            'reference_number' => 'T-000001',
+        ]);
+
+        $this->postJson($base."/{$material['id']}/return", ['notes' => 'La pantalla no era compatible'])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'reversed');
+        $this->assertDatabaseHas('inventory_lots', ['catalog_item_id' => $item->id, 'available_quantity' => 2]);
+        $this->assertDatabaseHas('inventory_movements', ['catalog_item_id' => $item->id, 'movement_type' => 'entry', 'reason' => 'workshop_return']);
+    }
+
+    public function test_consumed_workshop_part_is_an_internal_cost_without_duplicating_customer_revenue(): void
+    {
+        [$user, $tenant] = $this->member();
+        $item = CatalogItem::query()->create([
+            'tenant_id' => $tenant->id,
+            'sku' => 'BAT-A54',
+            'name' => 'Batería Samsung A54',
+            'item_type' => 'part',
+            'controls_inventory' => true,
+            'stock_quantity' => 1,
+            'status' => 'active',
+        ]);
+        InventoryLot::query()->create([
+            'tenant_id' => $tenant->id,
+            'core_sucursal_id' => 5,
+            'core_sucursal_code' => 'M001',
+            'core_sucursal_name' => 'Casa matriz',
+            'catalog_item_id' => $item->id,
+            'lot_code' => 'BAT-001',
+            'received_date' => today(),
+            'unit_cost' => 40,
+            'initial_quantity' => 1,
+            'available_quantity' => 1,
+            'status' => 'active',
+        ]);
+        $order = $this->actingAs($user)->postJson("/api/v1/platform/tenants/{$tenant->id}/workshop/orders", [
+            'customer' => ['core_customer_id' => 502, 'name' => 'Cliente servicio completo'],
+            'core_sucursal_id' => 5,
+            'core_sucursal_code' => 'M001',
+            'core_sucursal_name' => 'Casa matriz',
+            'device' => ['type' => 'phone', 'brand' => 'Samsung', 'model' => 'A54', 'power_status' => 'on'],
+            'reported_fault' => 'No retiene carga',
+        ])->assertCreated()->json('data');
+        $orderUrl = "/api/v1/platform/tenants/{$tenant->id}/workshop/orders/{$order['id']}";
+        $material = $this->postJson($orderUrl.'/materials', ['catalog_item_id' => $item->id, 'quantity' => 1])->assertCreated()->json('data');
+        $this->postJson($orderUrl."/materials/{$material['id']}/consume")->assertOk();
+        $this->patchJson($orderUrl, ['status' => 'diagnosing'])->assertOk();
+        $this->patchJson($orderUrl, ['status' => 'awaiting_approval', 'diagnosis' => 'Cambio de batería', 'estimated_total' => 100])->assertOk();
+        $this->patchJson($orderUrl, ['approval_decision' => 'approved', 'approval_method' => 'in_person'])->assertOk();
+        $this->patchJson($orderUrl, ['status' => 'repairing'])->assertOk();
+        $this->patchJson($orderUrl, ['status' => 'ready'])->assertOk();
+        $this->postJson($orderUrl.'/settlement', [
+            'action' => 'deliver_close',
+            'final_total' => 100,
+            'amount_received' => 0,
+            'payment_timing' => 'credit',
+            'document_choice' => 'work_order',
+        ])->assertOk()->assertJsonPath('data.financial.final_total', 100);
+
+        $this->assertDatabaseHas('inventory_sales', ['tenant_id' => $tenant->id, 'source_type' => 'workshop_order', 'source_id' => (string) $order['id'], 'total_amount' => 100]);
+        $this->assertDatabaseHas('inventory_sale_lines', ['catalog_item_id' => $item->id, 'line_origin' => 'workshop_material', 'net_total' => 0, 'reference_unit_cost' => 40]);
+        $this->assertDatabaseHas('inventory_sale_lines', ['catalog_item_id' => null, 'line_origin' => 'free', 'net_total' => 100]);
+        $this->getJson("/api/v1/platform/tenants/{$tenant->id}/cash/sales-report")
+            ->assertOk()
+            ->assertJsonPath('summary.total', 100)
+            ->assertJsonPath('summary.cost', 40)
+            ->assertJsonPath('summary.margin', 60);
     }
 
     private function member(): array

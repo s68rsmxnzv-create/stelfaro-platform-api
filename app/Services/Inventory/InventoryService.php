@@ -564,6 +564,7 @@ class InventoryService
             $sourceType = $this->blankToNull($data['source_type'] ?? null) ?? $reservation->source_type ?? 'dte';
             $sourceId = $this->blankToNull($data['source_id'] ?? null) ?? $reservation->source_id;
             $sourceNumber = $this->blankToNull($data['source_number'] ?? null) ?? $reservation->source_number;
+            $movementReason = $this->blankToNull($data['movement_reason'] ?? null) ?? 'sale';
 
             $reservation->load('lines.allocations.lot', 'lines.catalogItem');
             foreach ($reservation->lines as $line) {
@@ -579,7 +580,7 @@ class InventoryService
                         $item,
                         $allocation->lot,
                         'exit',
-                        'sale',
+                        $movementReason,
                         (float) $allocation->quantity,
                         (float) $allocation->unit_cost,
                         $this->availableQuantityForItem($tenant, $item, $reservation->core_sucursal_id),
@@ -664,6 +665,7 @@ class InventoryService
             $sourceId = $this->blankToNull($data['source_id'] ?? null);
             $sourceNumber = $this->blankToNull($data['source_number'] ?? null) ?? $reservation->source_number;
             $notes = $this->blankToNull($data['notes'] ?? null);
+            $movementReason = $this->blankToNull($data['movement_reason'] ?? null) ?? 'reversal';
 
             $reservation->load('lines.allocations');
             foreach ($reservation->lines as $line) {
@@ -690,7 +692,7 @@ class InventoryService
                         $item,
                         $lot,
                         'entry',
-                        'reversal',
+                        $movementReason,
                         (float) $allocation->quantity,
                         (float) $allocation->unit_cost,
                         $this->availableQuantityForItem($tenant, $item, $reservation->core_sucursal_id),
