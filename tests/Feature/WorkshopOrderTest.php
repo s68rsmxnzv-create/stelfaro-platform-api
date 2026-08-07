@@ -531,6 +531,14 @@ class WorkshopOrderTest extends TestCase
             ->assertJsonPath('summary.total', 100)
             ->assertJsonPath('summary.cost', 40)
             ->assertJsonPath('summary.margin', 60);
+        $this->getJson("/api/v1/platform/tenants/{$tenant->id}/inventory/reports/margin")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.name', 'Servicio de reparación Samsung A54')
+            ->assertJsonPath('data.0.sales_total', 100)
+            ->assertJsonPath('data.0.reference_cost_total', 40)
+            ->assertJsonPath('data.0.margin_total', 60)
+            ->assertJsonPath('data.0.margin_percent', 60);
     }
 
     private function member(): array

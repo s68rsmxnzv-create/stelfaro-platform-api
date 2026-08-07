@@ -7,6 +7,7 @@ use App\Models\CatalogItem;
 use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
 use App\Models\InventoryPurchase;
+use App\Models\InventorySale;
 use App\Models\InventorySaleLine;
 use App\Models\Tenant;
 use App\Services\Inventory\InventoryPurchaseAnnexExportService;
@@ -83,15 +84,7 @@ class InventoryReportController extends Controller
     {
         abort_unless($policy->canViewTenantCatalog($request->user(), $tenant), 403);
 
-        $sales = $this->sales($request, $tenant, $policy)->getData(true)['data'] ?? [];
-        $rows = collect($sales)->map(function (array $row): array {
-            $salesTotal = (float) ($row['sales_total'] ?? 0);
-            $costTotal = (float) ($row['reference_cost_total'] ?? 0);
-            $row['margin_total'] = round($salesTotal - $costTotal, 2);
-            $row['margin_percent'] = $salesTotal > 0 ? round((($salesTotal - $costTotal) / $salesTotal) * 100, 2) : 0;
-
-            return $row;
-        })->values();
+        $rows = $this->marginRows($request, $tenant);
 
         return response()->json(['data' => $rows]);
     }
@@ -457,16 +450,86 @@ class InventoryReportController extends Controller
 
     private function marginRows(Request $request, Tenant $tenant)
     {
-        return $this->salesRows($request, $tenant)->map(function ($row): array {
-            $salesTotal = (float) ($row->sales_total ?? 0);
-            $costTotal = (float) ($row->reference_cost_total ?? 0);
+        return $this->marginReportRows($request, $tenant)->map(function (array $row): array {
+            $salesTotal = (float) ($row['sales_total'] ?? 0);
+            $costTotal = (float) ($row['reference_cost_total'] ?? 0);
 
             return [
-                ...$row->toArray(),
+                ...$row,
                 'margin_total' => round($salesTotal - $costTotal, 2),
                 'margin_percent' => $salesTotal > 0 ? round((($salesTotal - $costTotal) / $salesTotal) * 100, 2) : 0,
             ];
         })->values();
+    }
+
+    private function marginReportRows(Request $request, Tenant $tenant)
+    {
+        $from = $request->query('from');
+        $to = $request->query('to');
+        $branchId = $request->filled('core_sucursal_id') ? (int) $request->query('core_sucursal_id') : null;
+        $rows = [];
+
+        $sales = InventorySale::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('status', 'active')
+            ->when($from, fn ($query) => $query->whereDate('sale_date', '>=', $from))
+            ->when($to, fn ($query) => $query->whereDate('sale_date', '<=', $to))
+            ->when($branchId, fn ($query) => $query->where('core_sucursal_id', $branchId))
+            ->with('lines.catalogItem:id,sku,name')
+            ->latest('id')
+            ->limit(self::REPORT_LIMIT)
+            ->get();
+
+        foreach ($sales as $sale) {
+            $sign = (float) ($sale->reporting_sign ?? 1);
+            $isWorkshopOrder = $sale->source_type === 'workshop_order';
+            $materialCost = $isWorkshopOrder
+                ? (float) $sale->lines
+                    ->where('line_origin', 'workshop_material')
+                    ->sum(fn ($line): float => (float) $line->quantity * (float) $line->reference_unit_cost)
+                : 0.0;
+            $reportableLines = $isWorkshopOrder
+                ? $sale->lines->where('line_origin', '!=', 'workshop_material')->values()
+                : $sale->lines->values();
+
+            foreach ($reportableLines as $index => $line) {
+                $sku = $line->catalogItem?->sku ?? 'LIBRE';
+                $name = $line->catalogItem?->name ?? $line->description_snapshot ?? 'Descripción libre';
+                $key = implode('|', [
+                    $line->catalog_item_id ?? 'free',
+                    $line->line_origin,
+                    $name,
+                ]);
+
+                $rows[$key] ??= [
+                    'catalog_item_id' => $line->catalog_item_id,
+                    'line_origin' => $line->line_origin,
+                    'sku' => $sku,
+                    'name' => $name,
+                    'quantity' => 0.0,
+                    'sales_total' => 0.0,
+                    'reference_cost_total' => 0.0,
+                ];
+                $rows[$key]['quantity'] += (float) $line->quantity * $sign;
+                $rows[$key]['sales_total'] += (float) $line->net_total * $sign;
+                $rows[$key]['reference_cost_total'] += (float) $line->quantity * (float) $line->reference_unit_cost * $sign;
+
+                if ($isWorkshopOrder && $index === 0) {
+                    $rows[$key]['reference_cost_total'] += $materialCost * $sign;
+                }
+            }
+        }
+
+        return collect(array_values($rows))
+            ->map(function (array $row): array {
+                foreach (['quantity', 'sales_total', 'reference_cost_total'] as $field) {
+                    $row[$field] = round((float) $row[$field], $field === 'quantity' ? 3 : 2);
+                }
+
+                return $row;
+            })
+            ->sortByDesc('sales_total')
+            ->values();
     }
 
     private function kardexRows(Request $request, Tenant $tenant)
