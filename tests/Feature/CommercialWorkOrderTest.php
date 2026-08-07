@@ -24,10 +24,11 @@ class CommercialWorkOrderTest extends TestCase
 
         $order = $this->actingAs($user)->postJson($this->base($tenant).'/sales-orders', [
             'title' => 'Ventana francesa',
-            'customer' => ['id' => 81, 'name' => 'Cliente Vidriería'],
+            'customer' => ['id' => 81, 'name' => 'CLIENTE VIDRIERÍA'],
             'lines' => [['description' => 'Fabricación e instalación', 'quantity' => 1, 'unit_price' => 100]],
             'deposit' => ['amount' => 40, 'method' => 'cash'],
         ])->assertCreated()
+            ->assertJsonPath('data.customer.name', 'Cliente Vidriería')
             ->assertJsonPath('data.total', 100)
             ->assertJsonPath('data.paid_total', 40)
             ->assertJsonPath('data.balance', 60)
@@ -71,10 +72,10 @@ class CommercialWorkOrderTest extends TestCase
         $this->openCash($tenant, $user);
         $quotationId = $this->actingAs($user)->postJson($this->base($tenant).'/quotations', [
             'title' => 'Mueble a medida',
-            'customer' => ['name' => 'Carlos'],
+            'customer' => ['name' => 'cARLOS péREZ'],
             'requested_deposit' => 25,
             'lines' => [['description' => 'Fabricación', 'quantity' => 1, 'unit_price' => 80]],
-        ])->assertCreated()->json('data.id');
+        ])->assertCreated()->assertJsonPath('data.customer.name', 'Carlos Pérez')->json('data.id');
 
         $this->patchJson($this->base($tenant)."/quotations/{$quotationId}/status", ['status' => 'accepted', 'approval_method' => 'whatsapp', 'approval_note' => 'Confirmó el presupuesto.'])->assertOk();
         $orderId = $this->postJson($this->base($tenant)."/quotations/{$quotationId}/convert", [

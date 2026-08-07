@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\CustomerNameNormalizer;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,6 +14,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 class FollowUpNote extends Model
 {
+    protected static function booted(): void
+    {
+        static::saving(function (FollowUpNote $note): void {
+            $note->person_name = CustomerNameNormalizer::normalize($note->person_name);
+        });
+    }
+
     protected function casts(): array
     {
         return [

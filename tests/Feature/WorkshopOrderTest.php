@@ -22,7 +22,7 @@ class WorkshopOrderTest extends TestCase
     {
         [$user, $tenant] = $this->member();
         $response = $this->actingAs($user)->postJson("/api/v1/platform/tenants/{$tenant->id}/workshop/orders", [
-            'customer' => ['core_customer_id' => 44, 'name' => 'Ana López', 'phone' => '7000-0000'],
+            'customer' => ['core_customer_id' => 44, 'name' => '  aNA   lÓPEZ ', 'phone' => '7000-0000'],
             'device' => ['type' => 'phone', 'brand' => 'Apple', 'model' => 'iPhone 13', 'imei' => '490154203237518', 'power_status' => 'on', 'functional_tests' => ['display' => 'passed'], 'is_locked' => true, 'access_type' => 'pattern', 'access_secret' => '1-2-5-8'],
             'reported_fault' => 'No enciende',
             'physical_condition' => 'Golpe en esquina inferior',
@@ -31,7 +31,7 @@ class WorkshopOrderTest extends TestCase
             'advance' => ['amount' => 20, 'method' => 'cash'],
         ]);
 
-        $response->assertCreated()->assertJsonPath('data.ticket', 'T-000001')->assertJsonPath('data.paid_total', 20);
+        $response->assertCreated()->assertJsonPath('data.ticket', 'T-000001')->assertJsonPath('data.customer.name', 'Ana López')->assertJsonPath('data.paid_total', 20);
         $response->assertJsonPath('data.balance', 80);
         $this->assertDatabaseHas('receivable_accounts', ['tenant_id' => $tenant->id, 'source_type' => 'workshop_order', 'source_id' => $response->json('data.id'), 'status' => 'partial', 'balance' => 80]);
         $this->assertDatabaseHas('workshop_customers', ['tenant_id' => $tenant->id, 'core_customer_id' => 44]);
