@@ -60,6 +60,19 @@ Route::domain(config('platform.portal.host'))
         Route::get('/fotos/{token}/imagenes/{photo}', [PublicWorkshopPhotoController::class, 'photo'])->name('workshop.photos.image');
     });
 
+// Compatibilidad con enlaces generados antes de servir las aplicaciones bajo un único origen.
+Route::domain(config('platform.portal.host'))
+    ->get('/eventos-mh/{eventSlug?}', function (Request $request, ?string $eventSlug = null) {
+        $target = PortalUrl::app('facturacion', '/eventos-mh'.($eventSlug ? '/'.$eventSlug : ''));
+
+        if ($request->getQueryString()) {
+            $target .= '?'.$request->getQueryString();
+        }
+
+        return redirect()->away($target);
+    })
+    ->name('apps.facturacion.mh-events.legacy');
+
 Route::domain(config('platform.portal.host'))
     ->prefix(trim(config('platform.paths.taller', '/taller'), '/'))
     ->middleware(['auth', 'verified', EnsurePasswordIsChanged::class, 'tenant.app:taller'])
