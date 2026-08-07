@@ -25,8 +25,8 @@ class CatalogItemController extends Controller
         if ($request->filled('q')) {
             $term = trim((string) $request->query('q'));
             $query->where(function ($sub) use ($term): void {
-                $sub->where('name', 'like', "%{$term}%")
-                    ->orWhere('sku', 'like', "%{$term}%");
+                $sub->whereLike('name', "%{$term}%")
+                    ->orWhereLike('sku', "%{$term}%");
             });
         }
 

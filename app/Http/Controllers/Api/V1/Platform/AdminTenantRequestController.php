@@ -37,9 +37,9 @@ class AdminTenantRequestController extends Controller
         if (filled($validated['q'] ?? null)) {
             $term = trim((string) $validated['q']);
             $query->where(function ($builder) use ($term): void {
-                $builder->where('subject', 'like', "%{$term}%")
-                    ->orWhereHas('tenant', fn ($tenant) => $tenant->where('name', 'like', "%{$term}%"))
-                    ->orWhereHas('requester', fn ($user) => $user->where('name', 'like', "%{$term}%")->orWhere('email', 'like', "%{$term}%"));
+                $builder->whereLike('subject', "%{$term}%")
+                    ->orWhereHas('tenant', fn ($tenant) => $tenant->whereLike('name', "%{$term}%"))
+                    ->orWhereHas('requester', fn ($user) => $user->whereLike('name', "%{$term}%")->orWhereLike('email', "%{$term}%"));
             });
         }
 

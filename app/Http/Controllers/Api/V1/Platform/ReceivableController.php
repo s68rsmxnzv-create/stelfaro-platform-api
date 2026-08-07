@@ -24,7 +24,7 @@ class ReceivableController extends Controller
         } else {
             $query->whereIn('status', ['open', 'partial']);
         }
-        $query->when($data['q'] ?? null, fn ($q, $term) => $q->where(fn ($nested) => $nested->where('customer_name', 'like', "%{$term}%")->orWhere('source_number', 'like', "%{$term}%")));
+        $query->when($data['q'] ?? null, fn ($q, $term) => $q->where(fn ($nested) => $nested->whereLike('customer_name', "%{$term}%")->orWhereLike('source_number', "%{$term}%")));
         $this->applyAging($query, $data['aging'] ?? null);
         $rows = $query->latest()->limit(200)->get();
         $accounts = $rows->map(fn (ReceivableAccount $account) => [

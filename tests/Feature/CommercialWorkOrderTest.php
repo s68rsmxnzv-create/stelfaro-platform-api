@@ -36,6 +36,11 @@ class CommercialWorkOrderTest extends TestCase
         $this->assertDatabaseHas('receivable_accounts', ['tenant_id' => $tenant->id, 'source_type' => 'sales_order', 'source_id' => $order['id'], 'status' => 'partial', 'balance' => 60]);
         $this->assertDatabaseHas('cash_movements', ['tenant_id' => $tenant->id, 'sales_order_id' => $order['id'], 'direction' => 'in', 'amount' => 40]);
         $this->assertDatabaseCount('inventory_sales', 0);
+
+        $this->getJson($this->base($tenant).'/sales-orders?q=cliente+vidriería')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $order['id']);
     }
 
     public function test_cancelling_order_cancels_receivable_and_records_refund_as_cash_output(): void

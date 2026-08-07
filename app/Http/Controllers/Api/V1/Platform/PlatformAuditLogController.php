@@ -6,8 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\PlatformAuditLog;
 use App\Models\SecurityEvent;
 use App\Models\Tenant;
-use App\Services\PlatformAdminAccess;
 use App\Services\PlatformAccessPolicy;
+use App\Services\PlatformAdminAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -101,17 +101,17 @@ class PlatformAuditLogController extends Controller
         if (! empty($filters['q'])) {
             $term = trim((string) $filters['q']);
             $query->where(function ($sub) use ($term): void {
-                $sub->where('action', 'like', "%{$term}%")
-                    ->orWhere('url', 'like', "%{$term}%")
-                    ->orWhere('method', 'like', "%{$term}%")
-                    ->orWhere('resource_type', 'like', "%{$term}%")
-                    ->orWhere('resource_id', 'like', "%{$term}%")
+                $sub->whereLike('action', "%{$term}%")
+                    ->orWhereLike('url', "%{$term}%")
+                    ->orWhereLike('method', "%{$term}%")
+                    ->orWhereLike('resource_type', "%{$term}%")
+                    ->orWhereLike('resource_id', "%{$term}%")
                     ->orWhereHas('user', fn ($user) => $user
-                        ->where('name', 'like', "%{$term}%")
-                        ->orWhere('email', 'like', "%{$term}%"))
+                        ->whereLike('name', "%{$term}%")
+                        ->orWhereLike('email', "%{$term}%"))
                     ->orWhereHas('tenant', fn ($tenant) => $tenant
-                        ->where('name', 'like', "%{$term}%")
-                        ->orWhere('slug', 'like', "%{$term}%"));
+                        ->whereLike('name', "%{$term}%")
+                        ->orWhereLike('slug', "%{$term}%"));
             });
         }
 
@@ -164,13 +164,13 @@ class PlatformAuditLogController extends Controller
         if (! empty($filters['q'])) {
             $term = trim((string) $filters['q']);
             $query->where(function ($sub) use ($term): void {
-                $sub->where('type', 'like', "%{$term}%")
-                    ->orWhere('url', 'like', "%{$term}%")
-                    ->orWhere('method', 'like', "%{$term}%")
-                    ->orWhere('field', 'like', "%{$term}%")
+                $sub->whereLike('type', "%{$term}%")
+                    ->orWhereLike('url', "%{$term}%")
+                    ->orWhereLike('method', "%{$term}%")
+                    ->orWhereLike('field', "%{$term}%")
                     ->orWhereHas('user', fn ($user) => $user
-                        ->where('name', 'like', "%{$term}%")
-                        ->orWhere('email', 'like', "%{$term}%"));
+                        ->whereLike('name', "%{$term}%")
+                        ->orWhereLike('email', "%{$term}%"));
             });
         }
 

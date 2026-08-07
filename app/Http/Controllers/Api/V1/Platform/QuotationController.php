@@ -23,7 +23,7 @@ class QuotationController extends Controller
         $data = $request->validate(['q' => ['nullable', 'string', 'max:120'], 'status' => ['nullable', 'string', 'max:24']]);
         Quotation::query()->where('tenant_id', $tenant->id)->whereIn('status', ['draft', 'sent'])->whereDate('valid_until', '<', today())->update(['status' => 'expired']);
         $query = Quotation::query()->where('tenant_id', $tenant->id)->with(['lines', 'order']);
-        $query->when($data['q'] ?? null, fn ($q, $term) => $q->where(fn ($nested) => $nested->where('customer_name', 'like', "%{$term}%")->orWhere('title', 'like', "%{$term}%")->orWhere('quotation_number', $term)));
+        $query->when($data['q'] ?? null, fn ($q, $term) => $q->where(fn ($nested) => $nested->whereLike('customer_name', "%{$term}%")->orWhereLike('title', "%{$term}%")->orWhere('quotation_number', $term)));
         $query->when($data['status'] ?? null, fn ($q, $status) => $q->where('status', $status));
 
         return response()->json(['data' => $query->latest()->limit(100)->get()->map(fn (Quotation $quotation) => $this->payload($quotation))->values()]);

@@ -93,10 +93,10 @@ class WorkshopOrderController extends Controller
         if ($request->filled('q')) {
             $term = trim((string) $data['q']);
             $query->where(function ($q) use ($term): void {
-                $q->where('ticket_number', 'like', "%{$term}%")
-                    ->orWhere('reported_fault', 'like', "%{$term}%")
-                    ->orWhereHas('device', fn ($d) => $d->where('brand', 'like', "%{$term}%")->orWhere('model', 'like', "%{$term}%")->orWhere('imei', 'like', "%{$term}%")->orWhere('serial_number', 'like', "%{$term}%"))
-                    ->orWhereHas('device.customer', fn ($c) => $c->where('name', 'like', "%{$term}%")->orWhere('phone', 'like', "%{$term}%"));
+                $q->whereLike('ticket_number', "%{$term}%")
+                    ->orWhereLike('reported_fault', "%{$term}%")
+                    ->orWhereHas('device', fn ($d) => $d->whereLike('brand', "%{$term}%")->orWhereLike('model', "%{$term}%")->orWhereLike('imei', "%{$term}%")->orWhereLike('serial_number', "%{$term}%"))
+                    ->orWhereHas('device.customer', fn ($c) => $c->whereLike('name', "%{$term}%")->orWhereLike('phone', "%{$term}%"));
             });
         }
         if (! empty($data['priority'])) {

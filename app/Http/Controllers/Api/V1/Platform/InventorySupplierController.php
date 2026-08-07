@@ -19,7 +19,7 @@ class InventorySupplierController extends Controller
         $query = $tenant->inventorySuppliers()->orderBy('name');
         if ($request->filled('q')) {
             $term = trim((string) $request->query('q'));
-            $query->where(fn ($sub) => $sub->where('name', 'like', "%{$term}%")->orWhere('tax_id', 'like', "%{$term}%"));
+            $query->where(fn ($sub) => $sub->whereLike('name', "%{$term}%")->orWhereLike('tax_id', "%{$term}%"));
         }
         if ($request->filled('status')) {
             $query->where('status', (string) $request->query('status'));

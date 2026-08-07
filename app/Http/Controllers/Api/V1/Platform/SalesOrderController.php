@@ -23,7 +23,7 @@ class SalesOrderController extends Controller
         abort_unless($policy->canViewTenantCatalog($request->user(), $tenant), 403);
         $data = $request->validate(['q' => ['nullable', 'string', 'max:120'], 'status' => ['nullable', 'string', 'max:24'], 'page' => ['nullable', 'integer', 'min:1'], 'per_page' => ['nullable', 'integer', 'min:5', 'max:100']]);
         $query = SalesOrder::query()->where('tenant_id', $tenant->id)->with(['lines', 'payments', 'statusEvents']);
-        $query->when($data['q'] ?? null, fn ($q, $term) => $q->where(fn ($nested) => $nested->where('customer_name', 'like', "%{$term}%")->orWhere('title', 'like', "%{$term}%")->orWhere('order_number', $term)));
+        $query->when($data['q'] ?? null, fn ($q, $term) => $q->where(fn ($nested) => $nested->whereLike('customer_name', "%{$term}%")->orWhereLike('title', "%{$term}%")->orWhere('order_number', $term)));
         $query->when($data['status'] ?? null, fn ($q, $status) => $q->where('status', $status));
         $orders = $query->latest()->paginate((int) ($data['per_page'] ?? 20));
 

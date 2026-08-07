@@ -38,7 +38,7 @@ class WorkshopOrderTest extends TestCase
         $this->assertDatabaseHas('workshop_order_payments', ['tenant_id' => $tenant->id, 'amount' => 20]);
         $this->assertDatabaseMissing('workshop_devices', ['access_secret' => '1-2-5-8']);
         $this->assertSame('1-2-5-8', WorkshopDevice::query()->firstOrFail()->access_secret);
-        $this->getJson("/api/v1/platform/tenants/{$tenant->id}/workshop/orders?q=Ana&status=received&per_page=5")
+        $this->getJson("/api/v1/platform/tenants/{$tenant->id}/workshop/orders?q=ana+lópez&status=received&per_page=5")
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('meta.total', 1)

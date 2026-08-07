@@ -48,6 +48,12 @@ class PlatformCatalogTest extends TestCase
             'controls_inventory' => true,
             'stock_quantity' => 0,
         ]);
+
+        $this->actingAs($owner)
+            ->getJson("/api/v1/platform/tenants/{$tenant->id}/catalog/items?q=pantalla+oled")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.name', 'Pantalla OLED');
     }
 
     public function test_service_items_are_forced_to_catalog_only(): void
