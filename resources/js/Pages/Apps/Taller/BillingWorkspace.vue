@@ -69,12 +69,13 @@ const authToken = ref(props.coreSession?.token || null);
 const isTaller = computed(() => props.app.id === 'taller');
 const requiresCoreSession = computed(() => !['catalog', 'operational-placeholder', 'settings', 'audit'].includes(props.module));
 const currentPath = computed(() => new URL(page.url, window.location.origin).pathname);
+const isPathWithin = (path) => currentPath.value === path || currentPath.value.startsWith(`${path}/`);
 const extraNavItems = computed(() => {
     if (!isTaller.value) return [];
 
     return [
-        { label: 'Recepción', href: `${props.appBaseUrl}/recepcion`, active: currentPath.value.startsWith(`${props.appBaseUrl}/recepcion`) },
-        { label: 'Órdenes', href: `${props.appBaseUrl}/ordenes`, active: currentPath.value.startsWith(`${props.appBaseUrl}/ordenes`) },
+        { label: 'Recepción', href: `${props.appBaseUrl}/recepcion`, active: isPathWithin(`${props.appBaseUrl}/recepcion`) },
+        { label: 'Órdenes', href: `${props.appBaseUrl}/ordenes`, active: isPathWithin(`${props.appBaseUrl}/ordenes`) },
     ];
 });
 const logout = () => {
