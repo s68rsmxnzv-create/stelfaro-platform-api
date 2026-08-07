@@ -143,7 +143,9 @@ Route::prefix('v1')->group(function (): void {
                 Route::post('sales-orders/{salesOrder}/invoice-link', [SalesOrderController::class, 'linkInvoice']);
                 Route::get('quotations', [QuotationController::class, 'index']);
                 Route::post('quotations', [QuotationController::class, 'store']);
+                Route::put('quotations/{quotation}', [QuotationController::class, 'update']);
                 Route::patch('quotations/{quotation}/status', [QuotationController::class, 'status']);
+                Route::post('quotations/{quotation}/duplicate', [QuotationController::class, 'duplicate']);
                 Route::post('quotations/{quotation}/convert', [QuotationController::class, 'convert']);
                 Route::get('receivables', [ReceivableController::class, 'index']);
             });

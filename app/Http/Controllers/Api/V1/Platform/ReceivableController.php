@@ -9,6 +9,7 @@ use App\Models\Tenant;
 use App\Services\PlatformAccessPolicy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 
 class ReceivableController extends Controller
@@ -16,7 +17,7 @@ class ReceivableController extends Controller
     public function index(Request $request, Tenant $tenant, PlatformAccessPolicy $policy): JsonResponse
     {
         abort_unless($policy->canViewTenantCatalog($request->user(), $tenant), 403);
-        $data = $request->validate(['status' => ['nullable', Rule::in(['open', 'partial', 'settled', 'cancelled'])], 'q' => ['nullable', 'string', 'max:120']]);
+        $data = $request->validate(['status' => ['nullable', Rule::in(['open', 'partial', 'settled', 'cancelled'])], 'aging' => ['nullable', Rule::in(['current', 'overdue', '30', '60', '90'])], 'q' => ['nullable', 'string', 'max:120']]);
         $query = ReceivableAccount::query()->where('tenant_id', $tenant->id)->with('entries');
         if (isset($data['status'])) {
             $query->where('status', $data['status']);
@@ -24,6 +25,7 @@ class ReceivableController extends Controller
             $query->whereIn('status', ['open', 'partial']);
         }
         $query->when($data['q'] ?? null, fn ($q, $term) => $q->where(fn ($nested) => $nested->where('customer_name', 'like', "%{$term}%")->orWhere('source_number', 'like', "%{$term}%")));
+        $this->applyAging($query, $data['aging'] ?? null);
         $rows = $query->latest()->limit(200)->get();
         $accounts = $rows->map(fn (ReceivableAccount $account) => [
             'id' => $account->id,
@@ -38,6 +40,8 @@ class ReceivableController extends Controller
             'balance' => (float) $account->balance,
             'status' => $account->status,
             'recognized_at' => $account->recognized_at?->toISOString(),
+            'due_at' => $account->due_at?->toISOString(),
+            'days_overdue' => $account->due_at && $account->due_at->isPast() ? $account->due_at->startOfDay()->diffInDays(today()) : 0,
             'entries' => $account->entries->map(fn ($entry) => ['id' => $entry->id, 'type' => $entry->entry_type, 'amount' => (float) $entry->amount, 'reference' => $entry->reference, 'notes' => $entry->notes, 'occurred_at' => $entry->occurred_at?->toISOString()])->values(),
         ]);
 
@@ -54,6 +58,8 @@ class ReceivableController extends Controller
                 ->map(function (InventorySale $sale): array {
                     $original = round((float) $sale->total_amount * (int) $sale->reporting_sign, 2);
                     $balance = max(0, round((float) data_get($sale->metadata, 'outstanding_amount', $original), 2));
+                    $dueAt = data_get($sale->metadata, 'due_at');
+                    $dueDate = $dueAt ? Carbon::parse($dueAt) : null;
 
                     return [
                         'id' => 'dte-'.$sale->id,
@@ -68,6 +74,8 @@ class ReceivableController extends Controller
                         'balance' => $balance,
                         'status' => $balance < $original ? 'partial' : 'open',
                         'recognized_at' => $sale->sale_date?->startOfDay()->toISOString(),
+                        'due_at' => $dueDate?->toISOString(),
+                        'days_overdue' => $dueDate && $dueDate->isPast() ? $dueDate->startOfDay()->diffInDays(today()) : 0,
                         'entries' => [],
                     ];
                 })
@@ -77,8 +85,38 @@ class ReceivableController extends Controller
                 ->values();
         }
 
-        $allAccounts = $accounts->concat($dteAccounts)->sortByDesc('recognized_at')->values();
+        $allAccounts = $accounts->concat($dteAccounts);
+        if ($aging = ($data['aging'] ?? null)) {
+            $allAccounts = $allAccounts->filter(function (array $account) use ($aging): bool {
+                $days = (int) $account['days_overdue'];
 
-        return response()->json(['data' => $allAccounts, 'summary' => ['open' => round((float) $allAccounts->whereIn('status', ['open', 'partial'])->sum('balance'), 2), 'accounts' => $allAccounts->whereIn('status', ['open', 'partial'])->count()]]);
+                return match ($aging) {
+                    'current' => $days === 0,
+                    'overdue' => $days > 0,
+                    '30' => $days >= 30 && $days < 60,
+                    '60' => $days >= 60 && $days < 90,
+                    '90' => $days >= 90,
+                    default => true,
+                };
+            });
+        }
+        $allAccounts = $allAccounts->sortByDesc('recognized_at')->values();
+
+        return response()->json(['data' => $allAccounts, 'summary' => ['open' => round((float) $allAccounts->whereIn('status', ['open', 'partial'])->sum('balance'), 2), 'accounts' => $allAccounts->whereIn('status', ['open', 'partial'])->count(), 'overdue' => round((float) $allAccounts->where('days_overdue', '>', 0)->sum('balance'), 2)]]);
+    }
+
+    private function applyAging($query, ?string $aging): void
+    {
+        if ($aging === 'current') {
+            $query->where(fn ($q) => $q->whereNull('due_at')->orWhereDate('due_at', '>=', today()));
+        } elseif ($aging === 'overdue') {
+            $query->whereDate('due_at', '<', today());
+        } elseif (in_array($aging, ['30', '60', '90'], true)) {
+            $days = (int) $aging;
+            $query->whereDate('due_at', '<=', today()->subDays($days));
+            if ($days < 90) {
+                $query->whereDate('due_at', '>', today()->subDays($days + 30));
+            }
+        }
     }
 }

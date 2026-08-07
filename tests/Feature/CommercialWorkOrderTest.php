@@ -71,7 +71,7 @@ class CommercialWorkOrderTest extends TestCase
             'lines' => [['description' => 'Fabricación', 'quantity' => 1, 'unit_price' => 80]],
         ])->assertCreated()->json('data.id');
 
-        $this->patchJson($this->base($tenant)."/quotations/{$quotationId}/status", ['status' => 'accepted'])->assertOk();
+        $this->patchJson($this->base($tenant)."/quotations/{$quotationId}/status", ['status' => 'accepted', 'approval_method' => 'whatsapp', 'approval_note' => 'Confirmó el presupuesto.'])->assertOk();
         $orderId = $this->postJson($this->base($tenant)."/quotations/{$quotationId}/convert", [
             'deposit' => ['amount' => 25, 'method' => 'cash'],
         ])->assertOk()->json('data.order_id');
@@ -87,6 +87,7 @@ class CommercialWorkOrderTest extends TestCase
         $orderId = $this->actingAs($user)->postJson($this->base($tenant).'/sales-orders', [
             'title' => 'Trabajo pendiente',
             'customer' => ['name' => 'Cliente de orden'],
+            'due_at' => now()->subDays(35)->toISOString(),
             'lines' => [['description' => 'Servicio', 'quantity' => 1, 'unit_price' => 15]],
         ])->assertCreated()->json('data.id');
         InventorySale::query()->create([
@@ -122,6 +123,88 @@ class CommercialWorkOrderTest extends TestCase
             ->assertJsonCount(2, 'data')
             ->assertJsonFragment(['source_type' => 'sales_order', 'source_id' => $orderId, 'balance' => 15])
             ->assertJsonFragment(['source_type' => 'dte', 'source_id' => 182, 'balance' => 12]);
+
+        $this->getJson($this->base($tenant).'/receivables?aging=30')
+            ->assertOk()
+            ->assertJsonPath('summary.open', 15)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.source_id', $orderId);
+    }
+
+    public function test_payment_is_atomic_idempotent_and_cannot_exceed_locked_balance(): void
+    {
+        [$user, $tenant] = $this->member();
+        $orderId = $this->actingAs($user)->postJson($this->base($tenant).'/sales-orders', ['title' => 'Trabajo', 'customer' => ['name' => 'Cliente'], 'lines' => [['description' => 'Servicio', 'quantity' => 1, 'unit_price' => 50]]])->json('data.id');
+        $payload = ['amount' => 20, 'method' => 'cash', 'idempotency_key' => 'payment-safe-1'];
+        $this->postJson($this->base($tenant)."/sales-orders/{$orderId}/payments", $payload)->assertUnprocessable();
+        $this->assertDatabaseCount('sales_order_payments', 0);
+        $this->openCash($tenant, $user);
+        $this->postJson($this->base($tenant)."/sales-orders/{$orderId}/payments", $payload)->assertOk()->assertJsonPath('data.balance', 30);
+        $this->postJson($this->base($tenant)."/sales-orders/{$orderId}/payments", $payload)->assertOk()->assertJsonPath('data.balance', 30);
+        $this->assertDatabaseCount('sales_order_payments', 1);
+        $this->assertDatabaseCount('cash_movements', 1);
+    }
+
+    public function test_order_accepts_zero_partial_or_full_deposit_but_rejects_overpayment(): void
+    {
+        [$user, $tenant] = $this->member();
+        $this->openCash($tenant, $user);
+        $base = ['title' => 'Producto encargado', 'customer' => ['name' => 'Cliente'], 'lines' => [['description' => 'Producto a fabricar', 'quantity' => 1, 'unit_price' => 100]]];
+
+        $this->actingAs($user)->postJson($this->base($tenant).'/sales-orders', $base)->assertCreated()->assertJsonPath('data.balance', 100);
+        $this->postJson($this->base($tenant).'/sales-orders', [...$base, 'idempotency_key' => 'partial-order', 'deposit' => ['amount' => 40, 'method' => 'cash']])->assertCreated()->assertJsonPath('data.balance', 60);
+        $this->postJson($this->base($tenant).'/sales-orders', [...$base, 'idempotency_key' => 'paid-order', 'deposit' => ['amount' => 100, 'method' => 'cash']])->assertCreated()->assertJsonPath('data.balance', 0);
+        $this->postJson($this->base($tenant).'/sales-orders', [...$base, 'idempotency_key' => 'overpaid-order', 'deposit' => ['amount' => 101, 'method' => 'cash']])->assertUnprocessable();
+
+        $this->assertDatabaseMissing('sales_orders', ['idempotency_key' => 'overpaid-order']);
+        $this->assertDatabaseCount('cash_movements', 2);
+    }
+
+    public function test_saving_a_quotation_never_creates_cash_or_receivable_movements(): void
+    {
+        [$user, $tenant] = $this->member();
+        $this->openCash($tenant, $user);
+
+        $this->actingAs($user)->postJson($this->base($tenant).'/quotations', [
+            'title' => 'Propuesta sin cobro',
+            'customer' => ['name' => 'Cliente'],
+            'requested_deposit' => 40,
+            'lines' => [['description' => 'Producto', 'quantity' => 1, 'unit_price' => 100]],
+        ])->assertCreated()->assertJsonPath('data.requested_deposit', 40);
+
+        $this->postJson($this->base($tenant).'/quotations', [
+            'title' => 'Propuesta inválida',
+            'customer' => ['name' => 'Cliente'],
+            'requested_deposit' => 101,
+            'lines' => [['description' => 'Producto', 'quantity' => 1, 'unit_price' => 100]],
+        ])->assertUnprocessable();
+
+        $this->assertDatabaseCount('cash_movements', 0);
+        $this->assertDatabaseCount('receivable_accounts', 0);
+        $this->assertDatabaseCount('inventory_sales', 0);
+    }
+
+    public function test_order_enforces_transitions_and_blocks_direct_cancellation_after_invoice(): void
+    {
+        [$user, $tenant] = $this->member();
+        $orderId = $this->actingAs($user)->postJson($this->base($tenant).'/sales-orders', ['title' => 'Trabajo', 'customer' => ['name' => 'Cliente'], 'lines' => [['description' => 'Servicio', 'quantity' => 1, 'unit_price' => 25]]])->json('data.id');
+        $this->patchJson($this->base($tenant)."/sales-orders/{$orderId}", ['status' => 'delivered'])->assertUnprocessable();
+        foreach (['approved', 'in_progress', 'ready'] as $status) {
+            $this->patchJson($this->base($tenant)."/sales-orders/{$orderId}", ['status' => $status])->assertOk();
+        }
+        $this->postJson($this->base($tenant)."/sales-orders/{$orderId}/invoice-link", ['core_dte_document_id' => 901, 'dte_number' => 'DTE-01-TEST', 'dte_generation_code' => 'GEN-901', 'dte_type' => '01'])->assertOk();
+        $this->postJson($this->base($tenant)."/sales-orders/{$orderId}/cancel", ['reason' => 'Prueba'])->assertUnprocessable();
+        $this->assertDatabaseCount('sales_order_status_events', 4);
+    }
+
+    public function test_quotation_can_be_edited_approved_duplicated_and_viewed_publicly(): void
+    {
+        [$user, $tenant] = $this->member();
+        $quotation = $this->actingAs($user)->postJson($this->base($tenant).'/quotations', ['title' => 'Ventana', 'customer' => ['name' => 'Cliente'], 'lines' => [['description' => 'Ventana', 'quantity' => 1, 'unit_price' => 80]]])->assertCreated()->json('data');
+        $this->putJson($this->base($tenant)."/quotations/{$quotation['id']}", ['title' => 'Ventana francesa', 'customer' => ['name' => 'Cliente'], 'lines' => [['description' => 'Ventana', 'quantity' => 1, 'unit_price' => 90]]])->assertOk()->assertJsonPath('data.total', 90);
+        $this->patchJson($this->base($tenant)."/quotations/{$quotation['id']}/status", ['status' => 'accepted', 'approval_method' => 'whatsapp'])->assertOk();
+        $this->postJson($this->base($tenant)."/quotations/{$quotation['id']}/duplicate")->assertCreated()->assertJsonPath('data.status', 'draft');
+        $this->get($quotation['public_url'])->assertOk()->assertSee('Ventana francesa')->assertSee('Imprimir / guardar PDF');
     }
 
     private function base(Tenant $tenant): string

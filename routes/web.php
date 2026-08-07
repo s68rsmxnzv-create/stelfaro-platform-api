@@ -20,6 +20,7 @@ use App\Http\Controllers\PlatformInvitationPageController;
 use App\Http\Controllers\PlatformPortalController;
 use App\Http\Controllers\PlatformRedirectController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PublicQuotationController;
 use App\Http\Controllers\PublicWorkshopDeviceController;
 use App\Http\Controllers\PublicWorkshopPhotoController;
 use App\Http\Controllers\ShortDteQrProxyController;
@@ -222,6 +223,8 @@ Route::domain(config('platform.portal.host'))
         });
 
     });
+
+Route::get('/cotizaciones/{token}', PublicQuotationController::class)->name('quotations.public');
 
 if (config('platform.hosts.platform') !== config('platform.portal.host')) {
     Route::domain(config('platform.hosts.platform'))

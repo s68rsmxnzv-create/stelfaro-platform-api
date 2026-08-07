@@ -28,6 +28,7 @@ class ReceivableLedger
             refunded: $refunded,
             cancelled: $order->status === 'cancelled',
             metadata: ['order_status' => $order->status, 'billing_status' => $order->billing_status],
+            dueAt: null,
             payments: $payments->map(fn ($payment): array => [
                 'id' => $payment->id,
                 'kind' => $payment->kind,
@@ -58,6 +59,7 @@ class ReceivableLedger
             refunded: $refunded,
             cancelled: $order->status === 'cancelled',
             metadata: ['order_status' => $order->status, 'billing_status' => $order->billing_status],
+            dueAt: $order->due_at,
             payments: $payments->map(fn ($payment): array => [
                 'id' => $payment->id,
                 'kind' => $payment->kind,
@@ -70,7 +72,7 @@ class ReceivableLedger
     }
 
     /** @param array<int, array<string, mixed>> $payments */
-    private function sync(int $tenantId, string $sourceType, int $sourceId, string $sourceNumber, ?int $customerId, string $customerName, float $charge, float $paid, float $refunded, bool $cancelled, array $metadata, array $payments): ReceivableAccount
+    private function sync(int $tenantId, string $sourceType, int $sourceId, string $sourceNumber, ?int $customerId, string $customerName, float $charge, float $paid, float $refunded, bool $cancelled, array $metadata, mixed $dueAt, array $payments): ReceivableAccount
     {
         $netPaid = round($paid - $refunded, 2);
         $balance = $cancelled ? 0.0 : max(0, round($charge - $netPaid, 2));
@@ -93,6 +95,7 @@ class ReceivableLedger
             'balance' => $balance,
             'status' => $status,
             'recognized_at' => $account->recognized_at ?? now(),
+            'due_at' => $dueAt,
             'settled_at' => $status === 'settled' ? ($account->settled_at ?? now()) : null,
             'cancelled_at' => $cancelled ? ($account->cancelled_at ?? now()) : null,
             'metadata' => $metadata,
