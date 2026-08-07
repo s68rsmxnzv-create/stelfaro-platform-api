@@ -124,6 +124,23 @@ class InertiaPlatformPagesTest extends TestCase
             );
     }
 
+    public function test_taller_user_keeps_workshop_context_when_opening_billing_url_directly(): void
+    {
+        $user = $this->userWithApps(['facturacion', 'taller'], 'taller');
+
+        $this->actingAs($user)
+            ->get('https://platform.stelfaro.com/facturacion')
+            ->assertRedirect('https://platform.stelfaro.com/taller/');
+
+        $this->actingAs($user)
+            ->get('https://platform.stelfaro.com/facturacion/ccf?cliente=25')
+            ->assertRedirect('https://platform.stelfaro.com/taller/facturacion/ccf?cliente=25');
+
+        $this->actingAs($user)
+            ->get('https://platform.stelfaro.com/facturacion/clientes')
+            ->assertRedirect('https://platform.stelfaro.com/taller/clientes');
+    }
+
     public function test_commercial_orders_are_available_in_billing_and_workshop_apps(): void
     {
         $this->actingAs($this->userWithApp('facturacion'))
@@ -266,6 +283,50 @@ class InertiaPlatformPagesTest extends TestCase
             'status' => 'active',
             'is_default' => true,
         ]);
+        $user = User::factory()->create();
+        $user->memberships()->create([
+            'tenant_id' => $tenant->id,
+            'role' => 'owner',
+            'status' => 'active',
+            'is_default' => true,
+        ]);
+
+        return $user;
+    }
+
+    /**
+     * @param  array<int, string>  $appKeys
+     */
+    private function userWithApps(array $appKeys, string $defaultAppKey): User
+    {
+        $apps = collect($appKeys)->mapWithKeys(function (string $appKey): array {
+            $app = PlatformApp::query()->firstOrCreate(
+                ['key' => $appKey],
+                [
+                    'name' => $appKey === 'taller' ? 'Taller electrónico' : 'Facturación',
+                    'host' => $appKey.'.stelfaro.com',
+                    'default_path' => '/',
+                    'status' => 'active',
+                ],
+            );
+
+            return [$appKey => $app];
+        });
+
+        $tenant = Tenant::query()->create([
+            'slug' => fake()->unique()->slug(2),
+            'name' => fake()->company(),
+            'primary_app_id' => $apps->get($defaultAppKey)?->id,
+        ]);
+
+        $apps->each(function (PlatformApp $app, string $appKey) use ($tenant, $defaultAppKey): void {
+            $tenant->appAccesses()->create([
+                'platform_app_id' => $app->id,
+                'status' => 'active',
+                'is_default' => $appKey === $defaultAppKey,
+            ]);
+        });
+
         $user = User::factory()->create();
         $user->memberships()->create([
             'tenant_id' => $tenant->id,

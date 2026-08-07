@@ -5,6 +5,7 @@ use App\Http\Middleware\AuditPlatformActivity;
 use App\Http\Middleware\EnsureTenantAppAccess;
 use App\Http\Middleware\ExpireIdlePlatformSession;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\PreserveWorkshopAppContext;
 use App\Http\Middleware\RejectSuspiciousInput;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -22,6 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'tenant.app' => EnsureTenantAppAccess::class,
+            'tenant.preserve-workshop-context' => PreserveWorkshopAppContext::class,
         ]);
 
         $middleware->append([

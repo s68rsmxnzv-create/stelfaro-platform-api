@@ -102,7 +102,13 @@ Route::domain(config('platform.portal.host'))
 
 Route::domain(config('platform.portal.host'))
     ->prefix(trim(config('platform.paths.facturacion', '/facturacion'), '/'))
-    ->middleware(['auth', 'verified', EnsurePasswordIsChanged::class, 'tenant.app:facturacion'])
+    ->middleware([
+        'auth',
+        'verified',
+        EnsurePasswordIsChanged::class,
+        'tenant.app:facturacion',
+        'tenant.preserve-workshop-context',
+    ])
     ->group(function (): void {
         Route::get('/', [PlatformPortalController::class, 'facturacion'])->name('apps.facturacion');
         Route::get('/clientes', [PlatformPortalController::class, 'facturacionCustomers'])->name('apps.facturacion.customers');
