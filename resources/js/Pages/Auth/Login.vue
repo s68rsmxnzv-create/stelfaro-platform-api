@@ -90,7 +90,7 @@ const submit = () => {
                     <circle class="opacity-25" cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3" />
                     <path class="opacity-75" fill="currentColor" d="M12 3a9 9 0 0 1 9 9h-3a6 6 0 0 0-6-6V3Z" />
                 </svg>
-                {{ form.processing ? 'Ingresando…' : 'Ingresar a StelFaro' }}
+                {{ form.processing ? 'Ingresando…' : 'Ingresar' }}
             </UiButton>
         </form>
 
