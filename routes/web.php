@@ -228,6 +228,9 @@ Route::domain(config('platform.portal.host'))
             ->middleware(EnsurePasswordIsChanged::class)
             ->name('portal.home');
 
+        Route::inertia('/terminos-y-condiciones', 'Legal/Terms')->name('portal.terms');
+        Route::inertia('/politica-de-privacidad', 'Legal/Privacy')->name('portal.privacy');
+
         Route::get('/invitations/{token}', PlatformInvitationPageController::class)
             ->name('platform.invitations.accept');
 
