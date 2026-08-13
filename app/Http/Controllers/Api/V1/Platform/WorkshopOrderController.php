@@ -466,6 +466,9 @@ class WorkshopOrderController extends Controller
             }
             $payment = $locked->payments()->create(['tenant_id' => $tenant->id, 'received_by' => $request->user()->id, 'kind' => 'payment', 'amount' => $data['amount'], 'method' => $data['method'], 'reference' => $data['reference'] ?? null, 'notes' => $data['notes'] ?? ($locked->closed_at ? 'Abono posterior al cierre' : 'Anticipo durante la orden'), 'received_at' => now()]);
             $cash->recordWorkshopPayment($tenant, $payment);
+            // Refresca la relación (cargada antes de crear el pago) para que el forceFill/save de abajo
+            // no dispare el observer de la orden con un saldo desactualizado en la cuenta por cobrar.
+            $locked->load('payments');
             $remaining = round($balance - (float) $data['amount'], 2);
             if ($locked->closed_at !== null && $remaining <= 0) {
                 $locked->forceFill(['financial_status' => 'settled'])->save();
