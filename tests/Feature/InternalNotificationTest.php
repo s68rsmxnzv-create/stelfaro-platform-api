@@ -33,7 +33,7 @@ class InternalNotificationTest extends TestCase
         $this->app->instance(FiscalCalendarClient::class, $calendar);
 
         $generator = app(TaxDeadlineNotificationGenerator::class);
-        $today = CarbonImmutable::create(2026, 7, 19, 0, 0, 0, 'America/El_Salvador');
+        $today = CarbonImmutable::create(2026, 8, 13, 0, 0, 0, 'America/El_Salvador');
 
         $this->assertSame(1, $generator->generate($today));
         $this->assertSame(0, $generator->generate($today));
@@ -42,6 +42,33 @@ class InternalNotificationTest extends TestCase
             'tenant_id' => $tenant->id,
             'category' => 'tax_deadline',
             'due_date' => '2026-08-20',
+        ]);
+    }
+
+    public function test_generator_ignores_deadlines_outside_the_current_month(): void
+    {
+        [$user, $tenant] = $this->member();
+        $calendar = Mockery::mock(FiscalCalendarClient::class);
+        $calendar->shouldReceive('publishedDeadlines')->once()->with(2026)->andReturn([[
+            'id' => 82,
+            'date' => '2026-09-14',
+            'type' => 'declaration_deadline',
+            'name' => 'Declaración y pago mensual del IVA',
+            'form_code' => 'F-07',
+            'active' => true,
+        ]]);
+        $calendar->shouldReceive('publishedDeadlines')->once()->with(2027)->andReturn([]);
+        $this->app->instance(FiscalCalendarClient::class, $calendar);
+
+        $generator = app(TaxDeadlineNotificationGenerator::class);
+        $today = CarbonImmutable::create(2026, 8, 13, 0, 0, 0, 'America/El_Salvador');
+
+        $this->assertSame(0, $generator->generate($today));
+        $this->assertDatabaseMissing('internal_notifications', [
+            'user_id' => $user->id,
+            'tenant_id' => $tenant->id,
+            'category' => 'tax_deadline',
+            'due_date' => '2026-09-14',
         ]);
     }
 

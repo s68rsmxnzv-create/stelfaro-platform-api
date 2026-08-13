@@ -26,6 +26,9 @@ class TaxDeadlineNotificationGenerator
             if (! $dueDate || $dueDate->lt($today)) {
                 continue;
             }
+            if ($dueDate->year !== $today->year || $dueDate->month !== $today->month) {
+                continue;
+            }
 
             $days = (int) $today->diffInDays($dueDate, false);
             $stage = $this->stageFor($days);
