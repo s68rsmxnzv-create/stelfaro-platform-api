@@ -86,6 +86,8 @@ Route::domain(config('platform.portal.host'))
         Route::get('/inventario', [PlatformPortalController::class, 'tallerInventory'])->name('apps.taller.inventory');
         Route::get('/caja', [PlatformPortalController::class, 'tallerCash'])->name('apps.taller.cash');
         Route::get('/ordenes-trabajo', [PlatformPortalController::class, 'tallerCommercialOrders'])->name('apps.taller.commercial-orders');
+        Route::get('/ordenes-trabajo/cotizaciones/nueva', [PlatformPortalController::class, 'tallerQuoteBuilder'])->name('apps.taller.quote-builder.new');
+        Route::get('/ordenes-trabajo/cotizaciones/{quotationId}/editar', [PlatformPortalController::class, 'tallerQuoteBuilder'])->whereNumber('quotationId')->name('apps.taller.quote-builder.edit');
         Route::get('/pendientes', [PlatformPortalController::class, 'tallerFollowUps'])->name('apps.taller.follow-ups');
         Route::get('/anexos', [PlatformPortalController::class, 'tallerAnnexes'])->name('apps.taller.annexes');
         Route::get('/facturacion/{documentSlug?}', [PlatformPortalController::class, 'tallerBilling'])->name('apps.taller.billing');
@@ -116,6 +118,8 @@ Route::domain(config('platform.portal.host'))
         Route::get('/inventario', [PlatformPortalController::class, 'facturacionInventory'])->name('apps.facturacion.inventory');
         Route::get('/caja', [PlatformPortalController::class, 'facturacionCash'])->name('apps.facturacion.cash');
         Route::get('/ordenes-trabajo', [PlatformPortalController::class, 'facturacionCommercialOrders'])->name('apps.facturacion.commercial-orders');
+        Route::get('/ordenes-trabajo/cotizaciones/nueva', [PlatformPortalController::class, 'facturacionQuoteBuilder'])->name('apps.facturacion.quote-builder.new');
+        Route::get('/ordenes-trabajo/cotizaciones/{quotationId}/editar', [PlatformPortalController::class, 'facturacionQuoteBuilder'])->whereNumber('quotationId')->name('apps.facturacion.quote-builder.edit');
         Route::get('/pendientes', [PlatformPortalController::class, 'facturacionFollowUps'])->name('apps.facturacion.follow-ups');
         Route::get('/anexos', [PlatformPortalController::class, 'facturacionAnnexes'])->name('apps.facturacion.annexes');
         Route::get('/{documentSlug}', [PlatformPortalController::class, 'facturacionBilling'])

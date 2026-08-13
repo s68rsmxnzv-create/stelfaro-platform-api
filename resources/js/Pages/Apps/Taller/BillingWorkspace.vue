@@ -20,6 +20,10 @@ const props = defineProps({
         type: String,
         default: 'fe',
     },
+    quotationId: {
+        type: [Number, String],
+        default: null,
+    },
     eventSlug: {
         type: String,
         default: 'invalidacion',
@@ -111,6 +115,7 @@ const navigate = ({ event, href }) => {
             :core-base-url="coreBaseUrl"
             :dashboard-url="appBaseUrl"
             :document-slug="documentSlug"
+            :quotation-id="quotationId"
             :event-slug="eventSlug"
             :artifact-slug="artifactSlug"
             :extra-nav-items="extraNavItems"

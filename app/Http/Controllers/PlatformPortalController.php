@@ -111,6 +111,15 @@ class PlatformPortalController extends Controller
         return $this->renderBillingModule(['app' => ['id' => 'taller', 'name' => 'Órdenes y cotizaciones', 'description' => 'Trabajos comerciales, anticipos y cuentas por cobrar.'], 'module' => 'commercial-orders']);
     }
 
+    public function tallerQuoteBuilder(?string $quotationId = null): Response
+    {
+        return $this->renderBillingModule([
+            'app' => ['id' => 'taller', 'name' => 'Cotizaciones', 'description' => 'Propuestas comerciales para clientes de Taller.'],
+            'module' => 'quote-builder',
+            'quotationId' => $quotationId !== null ? (int) $quotationId : null,
+        ]);
+    }
+
     public function tallerFollowUps(): Response
     {
         return $this->renderBillingModule(['app' => ['id' => 'taller', 'name' => 'Pendientes', 'description' => 'Notas y recordatorios operativos sin efectos financieros ni fiscales.'], 'module' => 'follow-ups']);
@@ -212,6 +221,15 @@ class PlatformPortalController extends Controller
     public function facturacionCommercialOrders(): Response
     {
         return $this->renderBillingModule(['app' => ['id' => 'facturacion', 'name' => 'Órdenes y cotizaciones', 'description' => 'Cotizaciones, trabajos por encargo, anticipos y cuentas por cobrar.'], 'module' => 'commercial-orders']);
+    }
+
+    public function facturacionQuoteBuilder(?string $quotationId = null): Response
+    {
+        return $this->renderBillingModule([
+            'app' => ['id' => 'facturacion', 'name' => 'Cotizaciones', 'description' => 'Propuestas comerciales para tus clientes.'],
+            'module' => 'quote-builder',
+            'quotationId' => $quotationId !== null ? (int) $quotationId : null,
+        ]);
     }
 
     public function facturacionFollowUps(): Response
