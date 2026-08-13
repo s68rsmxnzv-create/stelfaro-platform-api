@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Platform;
 
 use App\Http\Controllers\Controller;
+use App\Models\Quotation;
 use App\Models\Tenant;
 use App\Services\Inventory\CommercialSummaryService;
 use App\Services\PlatformAccessPolicy;
@@ -18,6 +19,7 @@ class CommercialDashboardController extends Controller
         return response()->json([
             'generated_at' => now()->toIso8601String(),
             'commercial' => $summary->totals($tenant),
+            'quotes_pending' => Quotation::query()->where('tenant_id', $tenant->id)->where('status', 'draft')->count(),
         ]);
     }
 }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Platform;
 use App\Http\Controllers\Controller;
 use App\Models\InventoryReservation;
 use App\Models\InventorySale;
+use App\Models\Quotation;
 use App\Models\ReceivableAccount;
 use App\Models\Tenant;
 use App\Models\WorkshopCustomer;
@@ -69,6 +70,7 @@ class WorkshopOrderController extends Controller
                 ...$commercial->totals($tenant),
                 'receivables' => round((float) $receivables + (float) $dteReceivables, 2),
             ],
+            'quotes_pending' => Quotation::query()->where('tenant_id', $tenant->id)->where('status', 'draft')->count(),
             'recent_orders' => $recent->map(fn (WorkshopOrder $order): array => $this->payload($order))->values(),
         ]);
     }
