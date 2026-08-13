@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
-#[Fillable(['tenant_id', 'idempotency_key', 'public_token', 'quotation_number', 'version', 'core_sucursal_id', 'core_sucursal_code', 'core_sucursal_name', 'core_customer_id', 'customer_name', 'customer_phone', 'customer_email', 'title', 'status', 'approval_method', 'approval_note', 'subtotal', 'discount_total', 'total', 'requested_deposit', 'valid_until', 'terms', 'notes', 'created_by', 'approved_by', 'sent_at', 'accepted_at', 'rejected_at', 'converted_at'])]
+#[Fillable(['tenant_id', 'idempotency_key', 'public_token', 'quotation_number', 'version', 'core_sucursal_id', 'core_sucursal_code', 'core_sucursal_name', 'core_customer_id', 'customer_name', 'customer_phone', 'customer_email', 'title', 'status', 'approval_method', 'approval_note', 'subtotal', 'discount_total', 'tax_total', 'total', 'requested_deposit', 'valid_until', 'terms', 'notes', 'created_by', 'approved_by', 'sent_at', 'accepted_at', 'rejected_at', 'converted_at'])]
 class Quotation extends Model
 {
     protected static function booted(): void
@@ -21,7 +21,7 @@ class Quotation extends Model
 
     protected function casts(): array
     {
-        return ['subtotal' => 'decimal:2', 'discount_total' => 'decimal:2', 'total' => 'decimal:2', 'requested_deposit' => 'decimal:2', 'valid_until' => 'date', 'sent_at' => 'datetime', 'accepted_at' => 'datetime', 'rejected_at' => 'datetime', 'converted_at' => 'datetime'];
+        return ['subtotal' => 'decimal:2', 'discount_total' => 'decimal:2', 'tax_total' => 'decimal:2', 'total' => 'decimal:2', 'requested_deposit' => 'decimal:2', 'valid_until' => 'date', 'sent_at' => 'datetime', 'accepted_at' => 'datetime', 'rejected_at' => 'datetime', 'converted_at' => 'datetime'];
     }
 
     public function lines(): HasMany

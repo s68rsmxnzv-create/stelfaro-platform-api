@@ -45,11 +45,7 @@ class QuotationController extends Controller
                 'title' => $data['title'], 'status' => 'draft', ...$totals, 'requested_deposit' => min($totals['total'], (float) ($data['requested_deposit'] ?? 0)),
                 'valid_until' => $data['valid_until'] ?? null, 'terms' => $data['terms'] ?? null, 'notes' => $data['notes'] ?? null, 'created_by' => $request->user()->id,
             ]);
-            foreach ($data['lines'] as $line) {
-                $gross = round((float) $line['quantity'] * (float) $line['unit_price'], 2);
-                $discount = min($gross, (float) ($line['discount_amount'] ?? 0));
-                $quotation->lines()->create(['tenant_id' => $tenant->id, 'catalog_item_id' => $line['catalog_item_id'] ?? null, 'description_snapshot' => $line['description'], 'quantity' => $line['quantity'], 'unit_price' => $line['unit_price'], 'discount_amount' => $discount, 'line_total' => $gross - $discount]);
-            }
+            $this->createLines($quotation, $data['lines']);
 
             return $quotation->refresh()->load('lines');
         });
@@ -89,7 +85,7 @@ class QuotationController extends Controller
             $copy = $quotation->replicate(['quotation_number', 'status', 'sent_at', 'accepted_at', 'rejected_at', 'converted_at']);
             $copy->fill(['idempotency_key' => (string) Str::uuid(), 'public_token' => (string) Str::uuid(), 'quotation_number' => ((int) Quotation::query()->where('tenant_id', $tenant->id)->max('quotation_number')) + 1, 'version' => (int) $quotation->version + 1, 'status' => 'draft', 'created_by' => $request->user()->id])->save();
             foreach ($quotation->lines as $line) {
-                $copy->lines()->create($line->only(['tenant_id', 'catalog_item_id', 'description_snapshot', 'unit_code', 'quantity', 'unit_price', 'discount_amount', 'line_total']));
+                $copy->lines()->create($line->only(['tenant_id', 'catalog_item_id', 'description_snapshot', 'unit_code', 'quantity', 'unit_price', 'price_includes_tax', 'discount_amount', 'tax_amount', 'line_total']));
             }
 
             return $copy->refresh()->load(['lines', 'order']);
@@ -150,19 +146,48 @@ class QuotationController extends Controller
 
     private function validated(Request $request): array
     {
-        return $request->validate(['idempotency_key' => ['nullable', 'string', 'max:120'], 'title' => ['required', 'string', 'max:180'], 'customer.id' => ['nullable', 'integer'], 'customer.name' => ['required', 'string', 'max:160'], 'customer.phone' => ['nullable', 'string', 'max:40'], 'customer.email' => ['nullable', 'email', 'max:160'], 'core_sucursal_id' => ['nullable', 'integer'], 'core_sucursal_code' => ['nullable', 'string', 'max:30'], 'core_sucursal_name' => ['nullable', 'string', 'max:160'], 'requested_deposit' => ['nullable', 'numeric', 'min:0'], 'valid_until' => ['nullable', 'date'], 'terms' => ['nullable', 'string', 'max:5000'], 'notes' => ['nullable', 'string', 'max:5000'], 'lines' => ['required', 'array', 'min:1'], 'lines.*.catalog_item_id' => ['nullable', 'integer'], 'lines.*.description' => ['required', 'string', 'max:255'], 'lines.*.quantity' => ['required', 'numeric', 'gt:0'], 'lines.*.unit_price' => ['required', 'numeric', 'min:0'], 'lines.*.discount_amount' => ['nullable', 'numeric', 'min:0']]);
+        return $request->validate(['idempotency_key' => ['nullable', 'string', 'max:120'], 'title' => ['required', 'string', 'max:180'], 'customer.id' => ['nullable', 'integer'], 'customer.name' => ['required', 'string', 'max:160'], 'customer.phone' => ['nullable', 'string', 'max:40'], 'customer.email' => ['nullable', 'email', 'max:160'], 'core_sucursal_id' => ['nullable', 'integer'], 'core_sucursal_code' => ['nullable', 'string', 'max:30'], 'core_sucursal_name' => ['nullable', 'string', 'max:160'], 'requested_deposit' => ['nullable', 'numeric', 'min:0'], 'valid_until' => ['nullable', 'date'], 'terms' => ['nullable', 'string', 'max:5000'], 'notes' => ['nullable', 'string', 'max:5000'], 'lines' => ['required', 'array', 'min:1'], 'lines.*.catalog_item_id' => ['nullable', 'integer'], 'lines.*.description' => ['required', 'string', 'max:255'], 'lines.*.quantity' => ['required', 'numeric', 'gt:0'], 'lines.*.unit_price' => ['required', 'numeric', 'min:0'], 'lines.*.price_includes_tax' => ['nullable', 'boolean'], 'lines.*.discount_amount' => ['nullable', 'numeric', 'min:0']]);
+    }
+
+    /**
+     * @return array{discount: float, tax_amount: float, line_total: float}
+     */
+    private function lineCalc(array $line): array
+    {
+        $gross = round((float) $line['quantity'] * (float) $line['unit_price'], 2);
+        $discount = min($gross, round((float) ($line['discount_amount'] ?? 0), 2));
+        $net = $gross - $discount;
+        $priceIncludesTax = (bool) ($line['price_includes_tax'] ?? true);
+
+        if ($priceIncludesTax) {
+            $taxableBase = round($net / 1.13, 2);
+            $tax = round($net - $taxableBase, 2);
+            $lineTotal = $net;
+        } else {
+            $tax = round($net * 0.13, 2);
+            $lineTotal = round($net + $tax, 2);
+        }
+
+        return ['discount' => $discount, 'tax_amount' => $tax, 'line_total' => $lineTotal];
     }
 
     private function totals(array $lines): array
     {
-        $subtotal = collect($lines)->sum(fn ($line) => round((float) $line['quantity'] * (float) $line['unit_price'], 2));
-        $discount = collect($lines)->sum(function ($line): float {
+        $subtotal = 0.0;
+        $discount = 0.0;
+        $tax = 0.0;
+        $total = 0.0;
+
+        foreach ($lines as $line) {
             $gross = round((float) $line['quantity'] * (float) $line['unit_price'], 2);
+            $calc = $this->lineCalc($line);
+            $subtotal += $gross;
+            $discount += $calc['discount'];
+            $tax += $calc['tax_amount'];
+            $total += $calc['line_total'];
+        }
 
-            return min($gross, round((float) ($line['discount_amount'] ?? 0), 2));
-        });
-
-        return ['subtotal' => round($subtotal, 2), 'discount_total' => round($discount, 2), 'total' => max(0, round($subtotal - $discount, 2))];
+        return ['subtotal' => round($subtotal, 2), 'discount_total' => round($discount, 2), 'tax_total' => round($tax, 2), 'total' => max(0, round($total, 2))];
     }
 
     private function authorize(Request $request, Tenant $tenant, Quotation $quotation, PlatformAccessPolicy $policy): void
@@ -173,15 +198,14 @@ class QuotationController extends Controller
 
     private function payload(Quotation $quotation): array
     {
-        return ['id' => $quotation->id, 'number' => 'C-'.str_pad((string) $quotation->quotation_number, 6, '0', STR_PAD_LEFT), 'version' => (int) $quotation->version, 'title' => $quotation->title, 'status' => $quotation->status, 'public_url' => url('/cotizaciones/'.$quotation->public_token), 'approval' => ['method' => $quotation->approval_method, 'note' => $quotation->approval_note, 'accepted_at' => $quotation->accepted_at?->toISOString()], 'branch' => ['id' => $quotation->core_sucursal_id, 'code' => $quotation->core_sucursal_code, 'name' => $quotation->core_sucursal_name], 'customer' => ['id' => $quotation->core_customer_id, 'name' => $quotation->customer_name, 'phone' => $quotation->customer_phone, 'email' => $quotation->customer_email], 'subtotal' => (float) $quotation->subtotal, 'discount_total' => (float) $quotation->discount_total, 'total' => (float) $quotation->total, 'requested_deposit' => (float) $quotation->requested_deposit, 'valid_until' => $quotation->valid_until?->toDateString(), 'terms' => $quotation->terms, 'notes' => $quotation->notes, 'order_id' => $quotation->order?->id, 'lines' => $quotation->lines->map(fn ($line) => ['id' => $line->id, 'catalog_item_id' => $line->catalog_item_id, 'description' => $line->description_snapshot, 'quantity' => (float) $line->quantity, 'unit_price' => (float) $line->unit_price, 'discount_amount' => (float) $line->discount_amount, 'total' => (float) $line->line_total])->values(), 'created_at' => $quotation->created_at?->toISOString()];
+        return ['id' => $quotation->id, 'number' => 'C-'.str_pad((string) $quotation->quotation_number, 6, '0', STR_PAD_LEFT), 'version' => (int) $quotation->version, 'title' => $quotation->title, 'status' => $quotation->status, 'public_url' => url('/cotizaciones/'.$quotation->public_token), 'approval' => ['method' => $quotation->approval_method, 'note' => $quotation->approval_note, 'accepted_at' => $quotation->accepted_at?->toISOString()], 'branch' => ['id' => $quotation->core_sucursal_id, 'code' => $quotation->core_sucursal_code, 'name' => $quotation->core_sucursal_name], 'customer' => ['id' => $quotation->core_customer_id, 'name' => $quotation->customer_name, 'phone' => $quotation->customer_phone, 'email' => $quotation->customer_email], 'subtotal' => (float) $quotation->subtotal, 'discount_total' => (float) $quotation->discount_total, 'tax_total' => (float) $quotation->tax_total, 'total' => (float) $quotation->total, 'requested_deposit' => (float) $quotation->requested_deposit, 'valid_until' => $quotation->valid_until?->toDateString(), 'terms' => $quotation->terms, 'notes' => $quotation->notes, 'order_id' => $quotation->order?->id, 'lines' => $quotation->lines->map(fn ($line) => ['id' => $line->id, 'catalog_item_id' => $line->catalog_item_id, 'description' => $line->description_snapshot, 'quantity' => (float) $line->quantity, 'unit_price' => (float) $line->unit_price, 'price_includes_tax' => (bool) $line->price_includes_tax, 'discount_amount' => (float) $line->discount_amount, 'tax_amount' => (float) $line->tax_amount, 'total' => (float) $line->line_total])->values(), 'created_at' => $quotation->created_at?->toISOString()];
     }
 
     private function createLines(Quotation $quotation, array $lines): void
     {
         foreach ($lines as $line) {
-            $gross = round((float) $line['quantity'] * (float) $line['unit_price'], 2);
-            $discount = min($gross, round((float) ($line['discount_amount'] ?? 0), 2));
-            $quotation->lines()->create(['tenant_id' => $quotation->tenant_id, 'catalog_item_id' => $line['catalog_item_id'] ?? null, 'description_snapshot' => $line['description'], 'quantity' => $line['quantity'], 'unit_price' => $line['unit_price'], 'discount_amount' => $discount, 'line_total' => $gross - $discount]);
+            $calc = $this->lineCalc($line);
+            $quotation->lines()->create(['tenant_id' => $quotation->tenant_id, 'catalog_item_id' => $line['catalog_item_id'] ?? null, 'description_snapshot' => $line['description'], 'quantity' => $line['quantity'], 'unit_price' => $line['unit_price'], 'price_includes_tax' => (bool) ($line['price_includes_tax'] ?? true), 'discount_amount' => $calc['discount'], 'tax_amount' => $calc['tax_amount'], 'line_total' => $calc['line_total']]);
         }
     }
 }
