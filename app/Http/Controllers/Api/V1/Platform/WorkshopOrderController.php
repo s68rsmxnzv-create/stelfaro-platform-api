@@ -92,9 +92,14 @@ class WorkshopOrderController extends Controller
         $query = $tenant->workshopOrders()->with(['device.customer', 'payments', 'reception'])->withCount('photos');
         if ($request->filled('q')) {
             $term = trim((string) $data['q']);
-            $query->where(function ($q) use ($term): void {
-                $q->whereLike('ticket_number', "%{$term}%")
-                    ->orWhereLike('reported_fault', "%{$term}%")
+            $ticketNumber = preg_match('/^t-?0*(\d+)$/i', $term, $matches) ? (int) $matches[1] : null;
+            $query->where(function ($q) use ($term, $ticketNumber): void {
+                if ($ticketNumber !== null) {
+                    $q->orWhere('ticket_number', $ticketNumber);
+                } else {
+                    $q->whereLike('ticket_number', "%{$term}%");
+                }
+                $q->orWhereLike('reported_fault', "%{$term}%")
                     ->orWhereHas('device', fn ($d) => $d->whereLike('brand', "%{$term}%")->orWhereLike('model', "%{$term}%")->orWhereLike('imei', "%{$term}%")->orWhereLike('serial_number', "%{$term}%"))
                     ->orWhereHas('device.customer', fn ($c) => $c->whereLike('name', "%{$term}%")->orWhereLike('phone', "%{$term}%"));
             });
