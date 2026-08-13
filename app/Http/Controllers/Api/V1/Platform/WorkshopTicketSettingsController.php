@@ -23,13 +23,11 @@ class WorkshopTicketSettingsController extends Controller
         abort_unless($policy->canOperateTenant($request->user(), $tenant), 403);
         $data = $request->validate([
             'receipt_copies' => ['required', 'integer', Rule::in([1, 2])],
-            'print_equipment_label' => ['required', 'boolean'],
             'terms' => ['nullable', 'string', 'max:4000'],
         ]);
         $metadata = $tenant->metadata ?? [];
         data_set($metadata, 'workshop.ticket', [
             'receipt_copies' => (int) $data['receipt_copies'],
-            'print_equipment_label' => (bool) $data['print_equipment_label'],
             'terms' => trim((string) ($data['terms'] ?? '')),
         ]);
         $tenant->update(['metadata' => $metadata]);
@@ -37,12 +35,11 @@ class WorkshopTicketSettingsController extends Controller
         return response()->json(['data' => $this->settings($tenant->fresh())]);
     }
 
-    /** @return array{receipt_copies:int,print_equipment_label:bool,terms:string} */
+    /** @return array{receipt_copies:int,terms:string} */
     private function settings(Tenant $tenant): array
     {
         return [
             'receipt_copies' => in_array((int) data_get($tenant->metadata, 'workshop.ticket.receipt_copies', 2), [1, 2], true) ? (int) data_get($tenant->metadata, 'workshop.ticket.receipt_copies', 2) : 2,
-            'print_equipment_label' => (bool) data_get($tenant->metadata, 'workshop.ticket.print_equipment_label', true),
             'terms' => (string) data_get($tenant->metadata, 'workshop.ticket.terms', ''),
         ];
     }

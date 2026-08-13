@@ -50,12 +50,10 @@ class WorkshopDeviceAccessTest extends TestCase
         [$user, $tenant] = $this->order();
         $this->actingAs($user)->patchJson("/api/v1/platform/tenants/{$tenant->id}/workshop/ticket-settings", [
             'receipt_copies' => 1,
-            'print_equipment_label' => false,
             'terms' => "Primera condición.\n\nSegunda condición.",
         ])->assertOk()->assertJsonPath('data.receipt_copies', 1);
         $this->getJson("/api/v1/platform/tenants/{$tenant->id}/workshop/ticket-settings")
             ->assertOk()
-            ->assertJsonPath('data.print_equipment_label', false)
             ->assertJsonPath('data.terms', "Primera condición.\n\nSegunda condición.");
     }
 
