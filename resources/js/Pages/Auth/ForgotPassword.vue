@@ -26,9 +26,9 @@ const submit = () => {
         <Head title="Recuperar contraseña" />
 
         <div class="mb-4 text-sm text-gray-600">
-            Forgot your password? No problem. Just let us know your email
-            address and we will email you a password reset link that will allow
-            you to choose a new one.
+            ¿Olvidaste tu contraseña? No hay problema. Indícanos tu correo
+            electrónico y te enviaremos un enlace para restablecer tu
+            contraseña y elegir una nueva.
         </div>
 
         <div
@@ -40,7 +40,7 @@ const submit = () => {
 
         <form @submit.prevent="submit">
             <div>
-                <InputLabel for="email" value="Email" />
+                <InputLabel for="email" value="Correo electrónico" />
 
                 <TextInput
                     id="email"
@@ -60,7 +60,7 @@ const submit = () => {
                     :class="{ 'opacity-25': form.processing }"
                     :disabled="form.processing"
                 >
-                    Email Password Reset Link
+                    Enviar enlace para restablecer contraseña
                 </PrimaryButton>
             </div>
         </form>
