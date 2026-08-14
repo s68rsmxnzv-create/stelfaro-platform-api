@@ -7,8 +7,10 @@ use App\Models\CatalogCategory;
 use App\Models\CatalogItem;
 use App\Models\Tenant;
 use App\Services\PlatformAccessPolicy;
+use App\Services\PlatformAuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -96,6 +98,66 @@ class CatalogItemController extends Controller
 
         return response()->json([
             'data' => $this->payload($item->refresh()->load('category')),
+        ]);
+    }
+
+    public function bulkUpdatePrices(Request $request, Tenant $tenant, PlatformAccessPolicy $policy, PlatformAuditLogger $audit): JsonResponse
+    {
+        abort_unless($policy->canManageTenantCatalog($request->user(), $tenant), 403);
+
+        $validated = $request->validate([
+            'items' => ['required', 'array', 'min:1', 'max:500'],
+            'items.*.id' => [
+                'required',
+                'integer',
+                'distinct',
+                Rule::exists('catalog_items', 'id')->where('tenant_id', $tenant->id),
+            ],
+            'items.*.base_price' => ['required', 'numeric', 'min:0', 'max:999999999.99'],
+        ]);
+
+        $requestedPrices = collect($validated['items'])
+            ->mapWithKeys(fn (array $row): array => [(int) $row['id'] => round((float) $row['base_price'], 2)]);
+
+        [$items, $changes] = DB::transaction(function () use ($tenant, $requestedPrices): array {
+            $items = CatalogItem::query()
+                ->where('tenant_id', $tenant->id)
+                ->whereKey($requestedPrices->keys())
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
+            $changes = [];
+
+            foreach ($requestedPrices as $itemId => $newPrice) {
+                /** @var CatalogItem $item */
+                $item = $items->get($itemId);
+                $oldPrice = round((float) $item->base_price, 2);
+                if ($oldPrice === $newPrice) {
+                    continue;
+                }
+
+                $item->forceFill(['base_price' => $newPrice])->save();
+                $changes[] = [
+                    'catalog_item_id' => $item->id,
+                    'old_price' => $oldPrice,
+                    'new_price' => $newPrice,
+                ];
+            }
+
+            return [$items, $changes];
+        });
+
+        $audit->record($request, 'catalog.prices.bulk_updated', [
+            'item_count' => count($changes),
+            'changes' => $changes,
+        ]);
+        $items->load('category');
+
+        return response()->json([
+            'data' => $requestedPrices->keys()
+                ->map(fn (int $itemId): array => $this->payload($items->get($itemId)))
+                ->values(),
+            'meta' => ['updated' => count($changes)],
         ]);
     }
 

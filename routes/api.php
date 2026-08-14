@@ -197,6 +197,7 @@ Route::prefix('v1')->group(function (): void {
                 Route::post('orders/{order}/device-access', [WorkshopOrderController::class, 'deviceAccess']);
             });
         Route::post('platform/tenants/{tenant}/catalog/items', [CatalogItemController::class, 'store']);
+        Route::patch('platform/tenants/{tenant}/catalog/items/prices/bulk', [CatalogItemController::class, 'bulkUpdatePrices']);
         Route::patch('platform/tenants/{tenant}/catalog/items/{item}', [CatalogItemController::class, 'update']);
         Route::delete('platform/tenants/{tenant}/catalog/items/{item}', [CatalogItemController::class, 'destroy']);
         Route::get('platform/tenants/{tenant}/inventory/suppliers', [InventorySupplierController::class, 'index']);

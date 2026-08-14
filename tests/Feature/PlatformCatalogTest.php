@@ -94,6 +94,97 @@ class PlatformCatalogTest extends TestCase
             ->assertJsonPath('data.sku', 'LUBR-ACEI10W3-001');
     }
 
+    public function test_owner_can_manage_and_reactivate_categories(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        $categoryId = $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/catalog/categories", [
+                'name' => 'Accesorios',
+                'kind' => 'product',
+            ])
+            ->assertCreated()
+            ->json('data.id');
+
+        $this->actingAs($owner)
+            ->patchJson("/api/v1/platform/tenants/{$tenant->id}/catalog/categories/{$categoryId}", [
+                'name' => 'Accesorios móviles',
+                'status' => 'inactive',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.name', 'Accesorios móviles')
+            ->assertJsonPath('data.status', 'inactive');
+
+        $this->actingAs($owner)
+            ->getJson("/api/v1/platform/tenants/{$tenant->id}/catalog/categories?status=active")
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        $this->actingAs($owner)
+            ->patchJson("/api/v1/platform/tenants/{$tenant->id}/catalog/categories/{$categoryId}", ['status' => 'active'])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'active');
+    }
+
+    public function test_owner_can_update_catalog_prices_in_bulk(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        $first = CatalogItem::query()->create([
+            'tenant_id' => $tenant->id,
+            'sku' => 'BULK-001',
+            'name' => 'Producto uno',
+            'item_type' => 'product',
+            'base_price' => 10,
+        ]);
+        $second = CatalogItem::query()->create([
+            'tenant_id' => $tenant->id,
+            'sku' => 'BULK-002',
+            'name' => 'Producto dos',
+            'item_type' => 'product',
+            'base_price' => 20,
+        ]);
+
+        $this->actingAs($owner)
+            ->patchJson("/api/v1/platform/tenants/{$tenant->id}/catalog/items/prices/bulk", [
+                'items' => [
+                    ['id' => $first->id, 'base_price' => 11.99],
+                    ['id' => $second->id, 'base_price' => 24.50],
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('meta.updated', 2)
+            ->assertJsonPath('data.0.base_price', 11.99)
+            ->assertJsonPath('data.1.base_price', 24.5);
+
+        $this->assertDatabaseHas('catalog_items', ['id' => $first->id, 'base_price' => 11.99]);
+        $this->assertDatabaseHas('catalog_items', ['id' => $second->id, 'base_price' => 24.50]);
+        $this->assertDatabaseHas('platform_audit_logs', [
+            'tenant_id' => $tenant->id,
+            'action' => 'catalog.prices.bulk_updated',
+        ]);
+    }
+
+    public function test_bulk_price_update_rejects_an_item_from_another_tenant(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        $otherTenant = Tenant::query()->create(['slug' => 'bulk-other', 'name' => 'Bulk Other']);
+        $otherItem = CatalogItem::query()->create([
+            'tenant_id' => $otherTenant->id,
+            'sku' => 'OTHER-001',
+            'name' => 'Producto ajeno',
+            'item_type' => 'product',
+            'base_price' => 10,
+        ]);
+
+        $this->actingAs($owner)
+            ->patchJson("/api/v1/platform/tenants/{$tenant->id}/catalog/items/prices/bulk", [
+                'items' => [['id' => $otherItem->id, 'base_price' => 99]],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('items.0.id');
+
+        $this->assertSame(10.0, (float) $otherItem->refresh()->base_price);
+    }
+
     public function test_billing_user_can_view_but_cannot_manage_catalog(): void
     {
         [$owner, $tenant] = $this->userWithTenantRole('owner');
