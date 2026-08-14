@@ -26,6 +26,7 @@ use App\Http\Controllers\PublicWorkshopPhotoController;
 use App\Http\Controllers\ShortDteQrProxyController;
 use App\Http\Controllers\WompiPaymentConfirmationController;
 use App\Http\Controllers\WompiPaymentReturnController;
+use App\Http\Middleware\EnsureLegalDocumentsAccepted;
 use App\Http\Middleware\EnsurePasswordIsChanged;
 use App\Support\Platform\PortalUrl;
 use Illuminate\Http\Request;
@@ -75,7 +76,7 @@ Route::domain(config('platform.portal.host'))
 
 Route::domain(config('platform.portal.host'))
     ->prefix(trim(config('platform.paths.taller', '/taller'), '/'))
-    ->middleware(['auth', 'verified', EnsurePasswordIsChanged::class, 'tenant.app:taller'])
+    ->middleware(['auth', 'verified', EnsurePasswordIsChanged::class, EnsureLegalDocumentsAccepted::class, 'tenant.app:taller'])
     ->group(function (): void {
         Route::get('/', [PlatformPortalController::class, 'taller'])->name('apps.taller');
         Route::get('/recepcion', [PlatformPortalController::class, 'tallerReception'])->name('apps.taller.reception');
@@ -108,6 +109,7 @@ Route::domain(config('platform.portal.host'))
         'auth',
         'verified',
         EnsurePasswordIsChanged::class,
+        EnsureLegalDocumentsAccepted::class,
         'tenant.app:facturacion',
         'tenant.preserve-workshop-context',
     ])
@@ -143,7 +145,7 @@ foreach (['taller', 'facturacion'] as $legacyApp) {
 
     Route::domain(config("platform.hosts.{$legacyApp}"))
         ->get('/{path?}', function (Request $request, ?string $path = null) use ($legacyApp) {
-            if (in_array($path, ['login', 'forgot-password', 'change-temporary-password'], true)) {
+            if (in_array($path, ['login', 'forgot-password', 'change-temporary-password', 'aceptacion-legal'], true)) {
                 return redirect()->away(PortalUrl::path('/'.$path));
             }
 
@@ -206,17 +208,17 @@ $adminApiRoutes = function (): void {
 
 Route::domain(config('platform.hosts.admin'))
     ->prefix('platform-api/v1')
-    ->middleware(['auth', 'verified', EnsurePasswordIsChanged::class])
+    ->middleware(['auth', 'verified', EnsurePasswordIsChanged::class, EnsureLegalDocumentsAccepted::class])
     ->group($adminApiRoutes);
 
 Route::domain(config('platform.portal.host'))
     ->prefix('platform-api/v1')
-    ->middleware(['auth', 'verified', EnsurePasswordIsChanged::class])
+    ->middleware(['auth', 'verified', EnsurePasswordIsChanged::class, EnsureLegalDocumentsAccepted::class])
     ->group($adminApiRoutes);
 
 Route::domain(config('platform.portal.host'))
     ->prefix(trim(config('platform.paths.admin', '/administracion'), '/'))
-    ->middleware(['auth', 'verified', EnsurePasswordIsChanged::class])
+    ->middleware(['auth', 'verified', EnsurePasswordIsChanged::class, EnsureLegalDocumentsAccepted::class])
     ->get('/{path?}', function () {
         $index = public_path('administracion/index.html');
         abort_unless(is_file($index), 503, 'El panel administrativo no ha sido compilado.');
@@ -229,7 +231,7 @@ Route::domain(config('platform.portal.host'))
 Route::domain(config('platform.portal.host'))
     ->group(function (): void {
         Route::get('/', [PlatformPortalController::class, 'home'])
-            ->middleware(EnsurePasswordIsChanged::class)
+            ->middleware([EnsurePasswordIsChanged::class, EnsureLegalDocumentsAccepted::class])
             ->name('portal.home');
 
         Route::inertia('/terminos-y-condiciones', 'Legal/Terms')->name('portal.terms');
@@ -238,11 +240,11 @@ Route::domain(config('platform.portal.host'))
         Route::get('/invitations/{token}', PlatformInvitationPageController::class)
             ->name('platform.invitations.accept');
 
-        Route::middleware(['auth', 'verified', EnsurePasswordIsChanged::class])->group(function (): void {
+        Route::middleware(['auth', 'verified', EnsurePasswordIsChanged::class, EnsureLegalDocumentsAccepted::class])->group(function (): void {
             Route::get('/dashboard', PlatformRedirectController::class)->name('dashboard');
         });
 
-        Route::middleware(['auth', EnsurePasswordIsChanged::class])->group(function (): void {
+        Route::middleware(['auth', EnsurePasswordIsChanged::class, EnsureLegalDocumentsAccepted::class])->group(function (): void {
             Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
             Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
             Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');

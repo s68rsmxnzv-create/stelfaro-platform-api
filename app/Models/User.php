@@ -43,6 +43,11 @@ class User extends Authenticatable
         return $this->hasMany(InternalNotification::class);
     }
 
+    public function legalAcceptances(): HasMany
+    {
+        return $this->hasMany(LegalAcceptance::class);
+    }
+
     public function tenantRequests(): HasMany
     {
         return $this->hasMany(TenantRequest::class, 'requested_by_user_id');

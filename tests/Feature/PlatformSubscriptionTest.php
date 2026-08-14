@@ -78,6 +78,17 @@ class PlatformSubscriptionTest extends TestCase
             'trial_ends_at' => now()->addDays(3),
         ]);
 
+        $this->actingAs($user)->post('/aceptacion-legal', [
+            'current_password' => 'password',
+            'accept_terms' => true,
+            'accept_privacy' => true,
+            'authority_confirmed' => true,
+            'document_versions' => [
+                'terms' => config('legal.documents.terms.version'),
+                'privacy' => config('legal.documents.privacy.version'),
+            ],
+        ])->assertRedirect();
+
         $this->actingAs($user)
             ->getJson("/api/v1/platform/tenants/{$tenant->id}/subscription")
             ->assertOk()

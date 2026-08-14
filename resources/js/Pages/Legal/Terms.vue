@@ -4,7 +4,7 @@ import LegalLayout from '@/Layouts/LegalLayout.vue';
 
 <template>
     <LegalLayout title="Términos y condiciones">
-        <p class="text-sm font-semibold text-text">Última actualización: 13 de agosto de 2026</p>
+        <p class="text-sm font-semibold text-text">Versión 2026-08-13 · Última actualización: 13 de agosto de 2026</p>
 
         <p>
             Bienvenido a StelFaro. Estos Términos y Condiciones regulan el acceso y uso de la plataforma, sus

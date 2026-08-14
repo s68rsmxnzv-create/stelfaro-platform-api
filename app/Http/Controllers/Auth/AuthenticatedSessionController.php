@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Services\Cash\CashOnboardingNotification;
 use App\Services\CoreBillingSessionBroker;
+use App\Services\Legal\LegalAcceptanceRequirement;
 use App\Services\PlatformAdminAccess;
 use App\Services\PlatformAuditLogger;
 use App\Services\PlatformSessionResolver;
@@ -25,6 +26,7 @@ class AuthenticatedSessionController extends Controller
         private readonly CoreBillingSessionBroker $coreBillingSessions,
         private readonly PlatformAuditLogger $audit,
         private readonly CashOnboardingNotification $cashOnboarding,
+        private readonly LegalAcceptanceRequirement $legalAcceptance,
     ) {}
 
     /**
@@ -60,6 +62,16 @@ class AuthenticatedSessionController extends Controller
 
         if ($user->must_change_password) {
             $target = $request->getSchemeAndHttpHost().'/change-temporary-password';
+
+            if ($request->header('X-Inertia')) {
+                return Inertia::location($target);
+            }
+
+            return redirect($target);
+        }
+
+        if ($this->legalAcceptance->pending($user)) {
+            $target = $request->getSchemeAndHttpHost().'/aceptacion-legal';
 
             if ($request->header('X-Inertia')) {
                 return Inertia::location($target);

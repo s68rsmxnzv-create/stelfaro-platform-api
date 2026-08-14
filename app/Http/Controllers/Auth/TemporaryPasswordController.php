@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Services\Cash\CashOnboardingNotification;
+use App\Services\Legal\LegalAcceptanceRequirement;
 use App\Services\PlatformSessionResolver;
 use App\Support\Platform\PortalUrl;
 use Illuminate\Http\Request;
@@ -18,6 +19,7 @@ class TemporaryPasswordController extends Controller
     public function __construct(
         private readonly PlatformSessionResolver $sessionResolver,
         private readonly CashOnboardingNotification $cashOnboarding,
+        private readonly LegalAcceptanceRequirement $legalAcceptance,
     ) {}
 
     public function edit(): Response
@@ -37,6 +39,16 @@ class TemporaryPasswordController extends Controller
             'must_change_password' => false,
             'password_changed_at' => now(),
         ])->save();
+
+        if ($this->legalAcceptance->pending($request->user()->fresh())) {
+            $target = $request->getSchemeAndHttpHost().'/aceptacion-legal';
+
+            if ($request->header('X-Inertia')) {
+                return Inertia::location($target);
+            }
+
+            return redirect($target);
+        }
 
         $session = $this->sessionResolver->resolve($request->user());
         $this->cashOnboarding->ensure($request->user(), $session);

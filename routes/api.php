@@ -48,6 +48,7 @@ use App\Http\Controllers\PlatformAdmin\NotificationProxyController;
 use App\Http\Controllers\PlatformAdmin\TenantAppOnboardingController;
 use App\Http\Controllers\PublicWorkshopDeviceController;
 use App\Http\Controllers\PublicWorkshopPhotoController;
+use App\Http\Middleware\EnsureLegalDocumentsAccepted;
 use App\Http\Middleware\EnsurePasswordIsChanged;
 use Illuminate\Support\Facades\Route;
 
@@ -77,7 +78,7 @@ Route::prefix('v1')->group(function (): void {
 
     Route::post('webhooks/wompi', WompiWebhookController::class);
 
-    Route::middleware(['web', 'auth', 'verified', EnsurePasswordIsChanged::class])->group(function (): void {
+    Route::middleware(['web', 'auth', 'verified', EnsurePasswordIsChanged::class, EnsureLegalDocumentsAccepted::class])->group(function (): void {
         Route::get('me', PlatformSessionController::class);
         Route::get('me/profile', [UserProfileController::class, 'show']);
         Route::patch('me/profile', [UserProfileController::class, 'update']);

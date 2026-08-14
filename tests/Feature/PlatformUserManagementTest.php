@@ -153,6 +153,17 @@ class PlatformUserManagementTest extends TestCase
             ]], 202),
         ]);
 
+        $this->actingAs($owner)->post('/aceptacion-legal', [
+            'current_password' => 'password',
+            'accept_terms' => true,
+            'accept_privacy' => true,
+            'authority_confirmed' => true,
+            'document_versions' => [
+                'terms' => config('legal.documents.terms.version'),
+                'privacy' => config('legal.documents.privacy.version'),
+            ],
+        ])->assertRedirect();
+
         $this->actingAs($owner)
             ->postJson("/api/v1/platform/tenants/{$tenant->id}/users", [
                 'name' => 'Cajero Demo',

@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\ConfirmablePasswordController;
 use App\Http\Controllers\Auth\EmailVerificationNotificationController;
 use App\Http\Controllers\Auth\EmailVerificationPromptController;
+use App\Http\Controllers\Auth\LegalAcceptanceController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
@@ -35,6 +36,12 @@ Route::middleware('auth')->group(function () {
         ->name('password.temporary.edit');
     Route::put('change-temporary-password', [TemporaryPasswordController::class, 'update'])
         ->name('password.temporary.update');
+
+    Route::get('aceptacion-legal', [LegalAcceptanceController::class, 'edit'])
+        ->name('legal.acceptance.edit');
+    Route::post('aceptacion-legal', [LegalAcceptanceController::class, 'store'])
+        ->middleware('throttle:10,1')
+        ->name('legal.acceptance.store');
 
     Route::get('verify-email', EmailVerificationPromptController::class)
         ->name('verification.notice');
