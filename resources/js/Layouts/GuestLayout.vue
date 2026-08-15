@@ -74,7 +74,7 @@ onMounted(() => {
                     </div>
                 </section>
 
-                <section class="flex max-h-full justify-center overflow-y-auto lg:justify-end">
+                <section class="flex max-h-full items-start justify-center overflow-y-auto lg:justify-end">
                     <div class="login-panel relative w-full max-w-md overflow-hidden rounded-2xl border border-line bg-surface p-6 shadow-xl shadow-slate-950/10 dark:shadow-black/30 sm:p-8">
                         <slot />
                     </div>
