@@ -22,7 +22,7 @@ class WorkshopTicketSettingsController extends Controller
     {
         abort_unless($policy->canOperateTenant($request->user(), $tenant), 403);
         $data = $request->validate([
-            'receipt_copies' => ['required', 'integer', Rule::in([1, 2])],
+            'receipt_copies' => ['required', 'integer', Rule::in([1, 2, 3])],
             'terms' => ['nullable', 'string', 'max:4000'],
         ]);
         $metadata = $tenant->metadata ?? [];
@@ -39,7 +39,7 @@ class WorkshopTicketSettingsController extends Controller
     private function settings(Tenant $tenant): array
     {
         return [
-            'receipt_copies' => in_array((int) data_get($tenant->metadata, 'workshop.ticket.receipt_copies', 2), [1, 2], true) ? (int) data_get($tenant->metadata, 'workshop.ticket.receipt_copies', 2) : 2,
+            'receipt_copies' => in_array((int) data_get($tenant->metadata, 'workshop.ticket.receipt_copies', 2), [1, 2, 3], true) ? (int) data_get($tenant->metadata, 'workshop.ticket.receipt_copies', 2) : 2,
             'terms' => (string) data_get($tenant->metadata, 'workshop.ticket.terms', ''),
         ];
     }
