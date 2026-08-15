@@ -224,10 +224,9 @@ class InventoryPurchaseImportService
             $code = strtoupper(trim((string) Arr::get($tax, 'codigo')));
             $description = $this->normalizeText((string) Arr::get($tax, 'descripcion'));
             $value = (float) Arr::get($tax, 'valor', 0);
-            if ($code === 'C8' || str_contains($description, 'FOVIAL')) {
+            if ($code === 'D1' || str_contains($description, 'FOVIAL')) {
                 $fovial += $value;
-            }
-            if ($code === '59' || str_contains($description, 'COTRANS')) {
+            } elseif ($code === 'C8' || str_contains($description, 'COTRANS')) {
                 $cotrans += $value;
             }
         }
