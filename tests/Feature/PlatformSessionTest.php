@@ -22,13 +22,13 @@ class PlatformSessionTest extends TestCase
         $taller = PlatformApp::query()->create([
             'key' => 'taller',
             'name' => 'Taller electrónico',
-            'host' => 'taller.stelfaro.com',
+            'host' => 'new.stelfaro.com',
             'default_path' => '/',
         ]);
         $facturacion = PlatformApp::query()->create([
             'key' => 'facturacion',
             'name' => 'Facturación',
-            'host' => 'facturacion.stelfaro.com',
+            'host' => 'new.stelfaro.com',
             'default_path' => '/',
         ]);
         $tenant = Tenant::query()->create([
@@ -56,11 +56,11 @@ class PlatformSessionTest extends TestCase
             ->assertJsonPath('tenant.slug', 'servicio-tecnico-el-faro')
             ->assertJsonPath('tenant.role', 'owner')
             ->assertJsonPath('apps.0.id', 'taller')
-            ->assertJsonPath('apps.0.local_path', 'https://platform.stelfaro.com/taller/')
+            ->assertJsonPath('apps.0.local_path', 'https://new.stelfaro.com/taller/')
             ->assertJsonPath('apps.1.id', 'facturacion')
             ->assertJsonPath('default_app.id', 'taller')
-            ->assertJsonPath('default_app.local_path', 'https://platform.stelfaro.com/taller/')
-            ->assertJsonPath('redirect_url', 'https://platform.stelfaro.com/taller/');
+            ->assertJsonPath('default_app.local_path', 'https://new.stelfaro.com/taller/')
+            ->assertJsonPath('redirect_url', 'https://new.stelfaro.com/taller/');
     }
 
     public function test_platform_session_handles_user_without_tenant(): void

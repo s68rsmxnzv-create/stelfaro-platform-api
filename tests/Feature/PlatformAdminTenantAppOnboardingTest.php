@@ -21,12 +21,12 @@ class PlatformAdminTenantAppOnboardingTest extends TestCase
         PlatformApp::query()->create([
             'key' => 'facturacion',
             'name' => 'Facturación',
-            'host' => 'facturacion.stelfaro.com',
+            'host' => 'new.stelfaro.com',
         ]);
         PlatformApp::query()->create([
             'key' => 'taller',
             'name' => 'Taller',
-            'host' => 'taller.stelfaro.com',
+            'host' => 'new.stelfaro.com',
         ]);
         PlatformApp::query()->create([
             'key' => 'lab',
@@ -51,12 +51,12 @@ class PlatformAdminTenantAppOnboardingTest extends TestCase
         $facturacion = PlatformApp::query()->create([
             'key' => 'facturacion',
             'name' => 'Facturación',
-            'host' => 'facturacion.stelfaro.com',
+            'host' => 'new.stelfaro.com',
         ]);
         $taller = PlatformApp::query()->create([
             'key' => 'taller',
             'name' => 'Taller',
-            'host' => 'taller.stelfaro.com',
+            'host' => 'new.stelfaro.com',
         ]);
 
         $response = $this->actingAs($user)->postJson('/api/v1/admin/platform/tenants', [
@@ -105,7 +105,7 @@ class PlatformAdminTenantAppOnboardingTest extends TestCase
         $facturacion = PlatformApp::query()->create([
             'key' => 'facturacion',
             'name' => 'Facturación',
-            'host' => 'facturacion.stelfaro.com',
+            'host' => 'new.stelfaro.com',
         ]);
 
         $response = $this->actingAs($user)->postJson('/api/v1/admin/platform/tenants', [
@@ -142,7 +142,7 @@ class PlatformAdminTenantAppOnboardingTest extends TestCase
         PlatformApp::query()->create([
             'key' => 'facturacion',
             'name' => 'Facturación',
-            'host' => 'facturacion.stelfaro.com',
+            'host' => 'new.stelfaro.com',
         ]);
 
         $response = $this->actingAs($admin)->postJson('/api/v1/admin/platform/tenants', [
@@ -189,7 +189,7 @@ class PlatformAdminTenantAppOnboardingTest extends TestCase
         PlatformApp::query()->create([
             'key' => 'facturacion',
             'name' => 'Facturación',
-            'host' => 'facturacion.stelfaro.com',
+            'host' => 'new.stelfaro.com',
         ]);
 
         Http::fake([
@@ -254,7 +254,7 @@ class PlatformAdminTenantAppOnboardingTest extends TestCase
         PlatformApp::query()->create([
             'key' => 'facturacion',
             'name' => 'Facturación',
-            'host' => 'facturacion.stelfaro.com',
+            'host' => 'new.stelfaro.com',
         ]);
 
         $this->actingAs($user)
@@ -290,7 +290,7 @@ class PlatformAdminTenantAppOnboardingTest extends TestCase
         PlatformApp::query()->create([
             'key' => 'facturacion',
             'name' => 'Facturación',
-            'host' => 'facturacion.stelfaro.com',
+            'host' => 'new.stelfaro.com',
         ]);
 
         $this->actingAs($user)
@@ -324,7 +324,7 @@ class PlatformAdminTenantAppOnboardingTest extends TestCase
         PlatformApp::query()->create([
             'key' => 'facturacion',
             'name' => 'Facturación',
-            'host' => 'facturacion.stelfaro.com',
+            'host' => 'new.stelfaro.com',
         ]);
 
         $response = $this->actingAs($user)

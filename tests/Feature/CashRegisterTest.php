@@ -192,7 +192,7 @@ class CashRegisterTest extends TestCase
 
     private function member(): array
     {
-        $app = PlatformApp::query()->create(['key' => 'facturacion', 'name' => 'Facturación', 'host' => 'facturacion.stelfaro.com', 'default_path' => '/', 'status' => 'active']);
+        $app = PlatformApp::query()->create(['key' => 'facturacion', 'name' => 'Facturación', 'host' => 'new.stelfaro.com', 'default_path' => '/', 'status' => 'active']);
         $tenant = Tenant::query()->create(['slug' => 'cash-company', 'name' => 'Cash Company', 'status' => 'active', 'primary_app_id' => $app->id]);
         $tenant->appAccesses()->create(['platform_app_id' => $app->id, 'status' => 'active', 'is_default' => true]);
         $user = User::factory()->create(['email_verified_at' => now(), 'must_change_password' => false]);

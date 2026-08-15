@@ -206,10 +206,12 @@ $adminApiRoutes = function (): void {
         ->where('path', '.*');
 };
 
-Route::domain(config('platform.hosts.admin'))
-    ->prefix('platform-api/v1')
-    ->middleware(['auth', 'verified', EnsurePasswordIsChanged::class, EnsureLegalDocumentsAccepted::class])
-    ->group($adminApiRoutes);
+if (config('platform.hosts.admin') !== config('platform.portal.host')) {
+    Route::domain(config('platform.hosts.admin'))
+        ->prefix('platform-api/v1')
+        ->middleware(['auth', 'verified', EnsurePasswordIsChanged::class, EnsureLegalDocumentsAccepted::class])
+        ->group($adminApiRoutes);
+}
 
 Route::domain(config('platform.portal.host'))
     ->prefix('platform-api/v1')

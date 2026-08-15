@@ -22,7 +22,7 @@ class WorkshopDeviceAccessTest extends TestCase
         $credentials = app(WorkshopDeviceAccessService::class)->ensure($order);
         $token = basename($credentials['url']);
 
-        $this->get("https://platform.stelfaro.com/taller/equipo/{$token}")
+        $this->get("https://new.stelfaro.com/taller/equipo/{$token}")
             ->assertOk()
             ->assertSee('T-000001')
             ->assertDontSee('2580');
@@ -60,7 +60,7 @@ class WorkshopDeviceAccessTest extends TestCase
     private function order(): array
     {
         $tenant = Tenant::query()->create(['slug' => 'device-access', 'name' => 'Device Access', 'status' => 'active']);
-        $taller = PlatformApp::query()->firstOrCreate(['key' => 'taller'], ['name' => 'Taller', 'host' => 'taller.stelfaro.com', 'default_path' => '/', 'status' => 'active']);
+        $taller = PlatformApp::query()->firstOrCreate(['key' => 'taller'], ['name' => 'Taller', 'host' => 'new.stelfaro.com', 'default_path' => '/', 'status' => 'active']);
         $tenant->appAccesses()->create(['platform_app_id' => $taller->id, 'status' => 'active', 'is_default' => true]);
         $user = User::factory()->create(['email_verified_at' => now(), 'must_change_password' => false]);
         $user->memberships()->create(['tenant_id' => $tenant->id, 'role' => 'company_admin', 'status' => 'active', 'is_default' => true]);

@@ -15,8 +15,8 @@ class CoreBillingSessionTest extends TestCase
 
     public function test_core_billing_session_requires_authentication(): void
     {
-        $this->get('https://platform.stelfaro.com/taller/platform/core-billing-session')
-            ->assertRedirect('https://platform.stelfaro.com/login');
+        $this->get('https://new.stelfaro.com/taller/platform/core-billing-session')
+            ->assertRedirect('https://new.stelfaro.com/login');
     }
 
     public function test_core_billing_session_opens_core_session_for_platform_user(): void
@@ -55,7 +55,7 @@ class CoreBillingSessionTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->getJson('https://platform.stelfaro.com/taller/platform/core-billing-session')
+            ->getJson('https://new.stelfaro.com/taller/platform/core-billing-session')
             ->assertOk()
             ->assertJsonPath('token', 'core-token');
 
@@ -101,7 +101,7 @@ class CoreBillingSessionTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->getJson('https://platform.stelfaro.com/taller/platform/core-billing-session')
+            ->getJson('https://new.stelfaro.com/taller/platform/core-billing-session')
             ->assertOk();
 
         Http::assertSent(fn ($request) => $request->url() === 'https://core.test/api/v1/internal/auth/billing-session'
@@ -146,7 +146,7 @@ class CoreBillingSessionTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->getJson('https://platform.stelfaro.com/taller/platform/core-billing-session')
+            ->getJson('https://new.stelfaro.com/taller/platform/core-billing-session')
             ->assertOk();
 
         Http::assertSent(fn ($request) => $request->url() === 'https://core.test/api/v1/internal/auth/billing-session'
@@ -179,7 +179,7 @@ class CoreBillingSessionTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->getJson('https://platform.stelfaro.com/taller/platform/core-billing-session')
+            ->getJson('https://new.stelfaro.com/taller/platform/core-billing-session')
             ->assertForbidden();
 
         Http::assertNothingSent();
@@ -223,7 +223,7 @@ class CoreBillingSessionTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->getJson('https://platform.stelfaro.com/api/v1/admin/core/health')
+            ->getJson('https://new.stelfaro.com/api/v1/admin/core/health')
             ->assertOk()
             ->assertJsonPath('service', 'DTE Core');
 
@@ -266,9 +266,9 @@ class CoreBillingSessionTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->getJson('https://platform.stelfaro.com/api/v1/admin/core/health')
+            ->getJson('https://new.stelfaro.com/api/v1/admin/core/health')
             ->assertOk();
-        $this->getJson('https://platform.stelfaro.com/api/v1/admin/core/billing/correlativos?empresa_id=92&ambiente=00')
+        $this->getJson('https://new.stelfaro.com/api/v1/admin/core/billing/correlativos?empresa_id=92&ambiente=00')
             ->assertOk();
 
         Http::assertSentCount(3);
@@ -299,7 +299,7 @@ class CoreBillingSessionTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->getJson('https://platform.stelfaro.com/api/v1/admin/core/health')
+            ->getJson('https://new.stelfaro.com/api/v1/admin/core/health')
             ->assertForbidden();
     }
 
@@ -307,7 +307,7 @@ class CoreBillingSessionTest extends TestCase
     {
         $taller = PlatformApp::query()->firstOrCreate(
             ['key' => 'taller'],
-            ['name' => 'Taller electrónico', 'host' => 'taller.stelfaro.com', 'default_path' => '/', 'status' => 'active'],
+            ['name' => 'Taller electrónico', 'host' => 'new.stelfaro.com', 'default_path' => '/', 'status' => 'active'],
         );
         $tenant->appAccesses()->create([
             'platform_app_id' => $taller->id,

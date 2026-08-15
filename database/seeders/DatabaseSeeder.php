@@ -22,7 +22,7 @@ class DatabaseSeeder extends Seeder
             'key' => 'taller',
         ], [
             'name' => 'Taller electrónico',
-            'host' => 'taller.stelfaro.com',
+            'host' => 'new.stelfaro.com',
             'default_path' => '/',
         ]);
 
@@ -30,7 +30,7 @@ class DatabaseSeeder extends Seeder
             'key' => 'facturacion',
         ], [
             'name' => 'Facturación',
-            'host' => 'facturacion.stelfaro.com',
+            'host' => 'new.stelfaro.com',
             'default_path' => '/',
         ]);
 

@@ -40,10 +40,10 @@ class SecurityHeadersTest extends TestCase
     public function test_csp_allows_platform_images_without_exposing_the_internal_core(): void
     {
         config([
-            'platform.hosts.platform' => 'platform.stelfaro.com',
-            'platform.hosts.taller' => 'taller.stelfaro.com',
-            'platform.hosts.facturacion' => 'facturacion.stelfaro.com',
-            'platform.hosts.admin' => 'admin.stelfaro.com',
+            'platform.hosts.platform' => 'new.stelfaro.com',
+            'platform.hosts.taller' => 'new.stelfaro.com',
+            'platform.hosts.facturacion' => 'new.stelfaro.com',
+            'platform.hosts.admin' => 'new.stelfaro.com',
             'services.dte_core.base_url' => 'http://127.0.0.1:8181/api/v1',
         ]);
 
@@ -51,10 +51,10 @@ class SecurityHeadersTest extends TestCase
         $contentSecurityPolicy = (string) $response->headers->get('Content-Security-Policy');
 
         $this->assertStringContainsString("img-src 'self' data: blob:", $contentSecurityPolicy);
-        $this->assertStringContainsString('https://platform.stelfaro.com', $contentSecurityPolicy);
-        $this->assertStringContainsString('https://taller.stelfaro.com', $contentSecurityPolicy);
-        $this->assertStringContainsString('https://facturacion.stelfaro.com', $contentSecurityPolicy);
-        $this->assertStringContainsString('https://admin.stelfaro.com', $contentSecurityPolicy);
+        $this->assertStringContainsString('https://new.stelfaro.com', $contentSecurityPolicy);
+        $this->assertStringContainsString('https://new.stelfaro.com', $contentSecurityPolicy);
+        $this->assertStringContainsString('https://new.stelfaro.com', $contentSecurityPolicy);
+        $this->assertStringContainsString('https://new.stelfaro.com', $contentSecurityPolicy);
         $this->assertStringNotContainsString('127.0.0.1:8181', $contentSecurityPolicy);
         $this->assertStringNotContainsString('coredte.stelfaro.com', $contentSecurityPolicy);
     }

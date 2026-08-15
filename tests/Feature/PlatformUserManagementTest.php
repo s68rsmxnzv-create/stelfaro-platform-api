@@ -452,7 +452,7 @@ class PlatformUserManagementTest extends TestCase
         $membership = $companyOwner->memberships()->where('tenant_id', $tenant->id)->firstOrFail();
 
         $this->actingAs($platformOwner)
-            ->postJson("https://platform.stelfaro.com/platform-api/v1/platform/memberships/{$membership->id}/temporary-password")
+            ->postJson("https://new.stelfaro.com/platform-api/v1/platform/memberships/{$membership->id}/temporary-password")
             ->assertOk()
             ->assertJsonPath('user.email', $companyOwner->email)
             ->assertJsonPath('user.must_change_password', true)

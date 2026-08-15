@@ -47,7 +47,7 @@ class PlatformAdminRouteParityTest extends TestCase
 
         foreach ($routes as [$method, $path]) {
             $route = Route::getRoutes()->match(Request::create(
-                'https://platform.stelfaro.com/platform-api/v1'.$path,
+                'https://new.stelfaro.com/platform-api/v1'.$path,
                 $method,
             ));
 

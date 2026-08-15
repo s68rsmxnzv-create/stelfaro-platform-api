@@ -17,30 +17,29 @@ class AuthenticationTest extends TestCase
 
     public function test_login_screen_can_be_rendered(): void
     {
-        $response = $this->get('https://platform.stelfaro.com/login');
+        $response = $this->get('https://new.stelfaro.com/login');
 
         $response->assertStatus(200);
     }
 
-    public function test_legacy_app_origins_redirect_login_to_the_canonical_origin(): void
-    {
-        $this->get('https://taller.stelfaro.com/login')->assertRedirect('https://platform.stelfaro.com/login');
-        $this->get('https://facturacion.stelfaro.com/login')->assertRedirect('https://platform.stelfaro.com/login');
-        $this->get('https://admin.stelfaro.com/login')->assertOk();
-    }
-
     public function test_guest_is_redirected_to_login_on_the_canonical_origin(): void
     {
-        $this->get('https://platform.stelfaro.com/taller/ordenes')
-            ->assertRedirect('https://platform.stelfaro.com/login');
+        $this->get('https://new.stelfaro.com/taller/ordenes')
+            ->assertRedirect('https://new.stelfaro.com/login');
 
-        $this->get('https://platform.stelfaro.com/facturacion/fe')
-            ->assertRedirect('https://platform.stelfaro.com/login');
+        $this->get('https://new.stelfaro.com/facturacion/fe')
+            ->assertRedirect('https://new.stelfaro.com/login');
     }
 
     public function test_platform_sessions_expire_after_45_idle_minutes(): void
     {
         $this->assertSame(45, config('session.lifetime'));
+    }
+
+    public function test_session_cookie_is_isolated_to_the_canonical_host(): void
+    {
+        $this->assertSame('stelfaro-new-session', config('session.cookie'));
+        $this->assertNull(config('session.domain'));
     }
 
     public function test_platform_app_does_not_logout_on_pagehide(): void
@@ -68,7 +67,7 @@ class AuthenticationTest extends TestCase
         $response = $this
             ->actingAs($user)
             ->withSession(['platform_last_activity_at' => now()->subMinutes(46)->timestamp])
-            ->getJson('https://platform.stelfaro.com/api/v1/me');
+            ->getJson('https://new.stelfaro.com/api/v1/me');
 
         $response
             ->assertStatus(419)
@@ -85,13 +84,13 @@ class AuthenticationTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $response = $this->post('https://platform.stelfaro.com/login', [
+        $response = $this->post('https://new.stelfaro.com/login', [
             'email' => $user->email,
             'password' => 'password',
         ]);
 
         $this->assertAuthenticated();
-        $response->assertRedirect('https://platform.stelfaro.com');
+        $response->assertRedirect('https://new.stelfaro.com');
     }
 
     public function test_logout_returns_to_the_current_origin_homepage(): void
@@ -99,8 +98,8 @@ class AuthenticationTest extends TestCase
         $user = User::factory()->create();
 
         $this->actingAs($user)
-            ->post('https://taller.stelfaro.com/logout')
-            ->assertRedirect('https://taller.stelfaro.com/');
+            ->post('https://new.stelfaro.com/logout')
+            ->assertRedirect('https://new.stelfaro.com/');
 
         $this->assertGuest();
     }
@@ -111,7 +110,7 @@ class AuthenticationTest extends TestCase
 
         $response = $this
             ->withHeader('X-Inertia', 'true')
-            ->post('https://platform.stelfaro.com/login', [
+            ->post('https://new.stelfaro.com/login', [
                 'email' => $user->email,
                 'password' => 'password',
             ]);
@@ -119,7 +118,7 @@ class AuthenticationTest extends TestCase
         $this->assertAuthenticated();
         $response
             ->assertStatus(409)
-            ->assertHeader(Header::LOCATION, 'https://platform.stelfaro.com');
+            ->assertHeader(Header::LOCATION, 'https://new.stelfaro.com');
     }
 
     public function test_inertia_login_navigates_to_default_app_subdomain(): void
@@ -127,7 +126,7 @@ class AuthenticationTest extends TestCase
         $taller = PlatformApp::query()->create([
             'key' => 'taller',
             'name' => 'Taller electrónico',
-            'host' => 'taller.stelfaro.com',
+            'host' => 'new.stelfaro.com',
             'default_path' => '/',
         ]);
         $tenant = Tenant::query()->create([
@@ -148,7 +147,7 @@ class AuthenticationTest extends TestCase
 
         $response = $this
             ->withHeader('X-Inertia', 'true')
-            ->post('https://platform.stelfaro.com/login', [
+            ->post('https://new.stelfaro.com/login', [
                 'email' => $user->email,
                 'password' => 'password',
             ]);
@@ -156,13 +155,13 @@ class AuthenticationTest extends TestCase
         $this->assertAuthenticated();
         $response
             ->assertStatus(409)
-            ->assertHeader(Header::LOCATION, 'https://platform.stelfaro.com/taller/');
+            ->assertHeader(Header::LOCATION, 'https://new.stelfaro.com/taller/');
         $this->assertDatabaseHas('internal_notifications', [
             'user_id' => $user->id,
             'tenant_id' => $tenant->id,
             'category' => 'cash',
             'title' => 'Prepara tu caja',
-            'action_url' => 'https://platform.stelfaro.com/taller/caja',
+            'action_url' => 'https://new.stelfaro.com/taller/caja',
         ]);
     }
 
@@ -171,7 +170,7 @@ class AuthenticationTest extends TestCase
         $facturacion = PlatformApp::query()->create([
             'key' => 'facturacion',
             'name' => 'Facturación',
-            'host' => 'facturacion.stelfaro.com',
+            'host' => 'new.stelfaro.com',
             'default_path' => '/',
         ]);
         $tenant = Tenant::query()->create([
@@ -194,7 +193,7 @@ class AuthenticationTest extends TestCase
 
         $response = $this
             ->withHeader('X-Inertia', 'true')
-            ->post('https://platform.stelfaro.com/login', [
+            ->post('https://new.stelfaro.com/login', [
                 'email' => $user->email,
                 'password' => 'password',
             ]);
@@ -202,7 +201,7 @@ class AuthenticationTest extends TestCase
         $this->assertAuthenticated();
         $response
             ->assertStatus(409)
-            ->assertHeader(Header::LOCATION, 'https://platform.stelfaro.com/facturacion/');
+            ->assertHeader(Header::LOCATION, 'https://new.stelfaro.com/facturacion/');
     }
 
     public function test_platform_owner_login_uses_admin_when_no_company_app_exists(): void
@@ -213,7 +212,7 @@ class AuthenticationTest extends TestCase
 
         $response = $this
             ->withHeader('X-Inertia', 'true')
-            ->post('https://platform.stelfaro.com/login', [
+            ->post('https://new.stelfaro.com/login', [
                 'email' => $user->email,
                 'password' => 'password',
             ]);
@@ -221,7 +220,7 @@ class AuthenticationTest extends TestCase
         $this->assertAuthenticated();
         $response
             ->assertStatus(409)
-            ->assertHeader(Header::LOCATION, 'https://platform.stelfaro.com/administracion/');
+            ->assertHeader(Header::LOCATION, 'https://new.stelfaro.com/administracion/');
     }
 
     public function test_temporary_password_user_must_change_password_after_login(): void
@@ -236,7 +235,7 @@ class AuthenticationTest extends TestCase
 
         $response = $this
             ->withHeader('X-Inertia', 'true')
-            ->post('https://platform.stelfaro.com/login', [
+            ->post('https://new.stelfaro.com/login', [
                 'email' => $user->email,
                 'password' => 'Temporal123',
             ]);
@@ -244,12 +243,12 @@ class AuthenticationTest extends TestCase
         $this->assertAuthenticated();
         $response
             ->assertStatus(409)
-            ->assertHeader(Header::LOCATION, 'https://platform.stelfaro.com/change-temporary-password');
+            ->assertHeader(Header::LOCATION, 'https://new.stelfaro.com/change-temporary-password');
 
         $this->flushHeaders()
             ->actingAs($user->fresh())
-            ->get('https://platform.stelfaro.com')
-            ->assertRedirect('https://platform.stelfaro.com/change-temporary-password');
+            ->get('https://new.stelfaro.com')
+            ->assertRedirect('https://new.stelfaro.com/change-temporary-password');
     }
 
     public function test_temporary_password_can_be_changed(): void
@@ -260,12 +259,12 @@ class AuthenticationTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->put('https://platform.stelfaro.com/change-temporary-password', [
+            ->put('https://new.stelfaro.com/change-temporary-password', [
                 'current_password' => 'Temporal123',
                 'password' => 'new-password',
                 'password_confirmation' => 'new-password',
             ])
-            ->assertRedirect('https://platform.stelfaro.com');
+            ->assertRedirect('https://new.stelfaro.com');
 
         $user->refresh();
 
@@ -278,7 +277,7 @@ class AuthenticationTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->post('https://platform.stelfaro.com/login', [
+        $this->post('https://new.stelfaro.com/login', [
             'email' => $user->email,
             'password' => 'wrong-password',
         ]);
@@ -305,10 +304,10 @@ class AuthenticationTest extends TestCase
 
         $user = User::factory()->create();
 
-        $response = $this->actingAs($user)->post('https://platform.stelfaro.com/logout');
+        $response = $this->actingAs($user)->post('https://new.stelfaro.com/logout');
 
         $this->assertGuest();
-        $response->assertRedirect('https://platform.stelfaro.com/');
+        $response->assertRedirect('https://new.stelfaro.com/');
 
         Http::assertSent(fn ($request) => $request->url() === 'https://core.test/api/v1/internal/auth/billing-session/revoke'
             && $request->hasHeader('Authorization', 'Bearer internal-secret')
@@ -330,10 +329,10 @@ class AuthenticationTest extends TestCase
 
         $user = User::factory()->create();
 
-        $response = $this->actingAs($user)->post('https://platform.stelfaro.com/api/v1/logout');
+        $response = $this->actingAs($user)->post('https://new.stelfaro.com/api/v1/logout');
 
         $this->assertGuest();
-        $response->assertRedirect('https://platform.stelfaro.com/');
+        $response->assertRedirect('https://new.stelfaro.com/');
 
         Http::assertSent(fn ($request) => $request->url() === 'https://core.test/api/v1/internal/auth/billing-session/revoke'
             && $request->hasHeader('Authorization', 'Bearer internal-secret')

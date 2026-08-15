@@ -310,7 +310,7 @@ class FiscalSyncTest extends TestCase
         $app = PlatformApp::query()->create([
             'key' => 'facturacion',
             'name' => 'Facturación',
-            'host' => 'facturacion.stelfaro.com',
+            'host' => 'new.stelfaro.com',
             'status' => 'active',
         ]);
         $tenant = Tenant::query()->create([

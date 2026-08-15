@@ -9,7 +9,7 @@ final class PortalUrl
         return sprintf(
             '%s://%s',
             config('platform.portal.scheme', 'https'),
-            config('platform.portal.host', 'platform.stelfaro.com'),
+            config('platform.portal.host', 'new.stelfaro.com'),
         );
     }
 

@@ -49,8 +49,8 @@ GET /api/v1/me
 
 El seeder crea:
 
-- app `taller` -> `taller.stelfaro.com`
-- app `facturacion` -> `facturacion.stelfaro.com`
+- app `taller` -> `new.stelfaro.com`
+- app `facturacion` -> `new.stelfaro.com`
 - tenant demo `servicio-tecnico-el-faro`
 - usuario demo `owner@stelfaro.test`
 

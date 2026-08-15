@@ -26,7 +26,7 @@ class ShortDteQrProxyController extends Controller
         abort_unless($response->status() >= 300 && $response->status() < 400, 404);
         $location = (string) $response->header('Location');
         $host = strtolower((string) parse_url($location, PHP_URL_HOST));
-        abort_unless(in_array($host, ['admin.factura.gob.sv', 'facturacion.stelfaro.com'], true), 404);
+        abort_unless(in_array($host, ['admin.factura.gob.sv', 'new.stelfaro.com'], true), 404);
 
         return redirect()->away($location);
     }

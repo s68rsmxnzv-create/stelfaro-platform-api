@@ -15,7 +15,7 @@ class ExampleTest extends TestCase
      */
     public function test_the_application_shows_the_commercial_homepage_to_guests(): void
     {
-        $response = $this->get('https://platform.stelfaro.com');
+        $response = $this->get('https://new.stelfaro.com');
 
         $response
             ->assertOk()

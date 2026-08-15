@@ -44,7 +44,7 @@ return [
     ],
 
     'notifications' => [
-        'base_url' => env('NOTIFICATIONS_BASE_URL', 'https://admin.stelfaro.com/notifications-api/v1'),
+        'base_url' => env('NOTIFICATIONS_BASE_URL', 'https://new.stelfaro.com/notifications-api/v1'),
         'internal_token' => env('NOTIFICATIONS_INTERNAL_TOKEN'),
     ],
 

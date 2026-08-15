@@ -88,7 +88,7 @@ class WorkshopOrderTest extends TestCase
         $facturacion = PlatformApp::query()->create([
             'key' => 'facturacion',
             'name' => 'Facturación',
-            'host' => 'facturacion.stelfaro.com',
+            'host' => 'new.stelfaro.com',
             'default_path' => '/',
             'status' => 'active',
         ]);
@@ -580,7 +580,7 @@ class WorkshopOrderTest extends TestCase
         $tenant = Tenant::query()->create(['slug' => 'workshop', 'name' => 'Workshop', 'status' => 'active']);
         $taller = PlatformApp::query()->firstOrCreate(
             ['key' => 'taller'],
-            ['name' => 'Taller electrónico', 'host' => 'taller.stelfaro.com', 'default_path' => '/', 'status' => 'active'],
+            ['name' => 'Taller electrónico', 'host' => 'new.stelfaro.com', 'default_path' => '/', 'status' => 'active'],
         );
         $tenant->appAccesses()->create([
             'platform_app_id' => $taller->id,
@@ -589,7 +589,7 @@ class WorkshopOrderTest extends TestCase
         ]);
         $facturacion = PlatformApp::query()->firstOrCreate(
             ['key' => 'facturacion'],
-            ['name' => 'Facturación', 'host' => 'facturacion.stelfaro.com', 'default_path' => '/', 'status' => 'active'],
+            ['name' => 'Facturación', 'host' => 'new.stelfaro.com', 'default_path' => '/', 'status' => 'active'],
         );
         $tenant->appAccesses()->create([
             'platform_app_id' => $facturacion->id,

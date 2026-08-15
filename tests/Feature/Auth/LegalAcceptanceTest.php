@@ -22,12 +22,12 @@ class LegalAcceptanceTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->put('https://platform.stelfaro.com/change-temporary-password', [
+            ->put('https://new.stelfaro.com/change-temporary-password', [
                 'current_password' => 'Temporal123',
                 'password' => 'Nueva-clave-123',
                 'password_confirmation' => 'Nueva-clave-123',
             ])
-            ->assertRedirect('https://platform.stelfaro.com/aceptacion-legal');
+            ->assertRedirect('https://new.stelfaro.com/aceptacion-legal');
 
         $this->assertFalse($user->fresh()->must_change_password);
         $this->assertTrue(Hash::check('Nueva-clave-123', $user->fresh()->password));
@@ -49,7 +49,7 @@ class LegalAcceptanceTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->getJson('https://platform.stelfaro.com/api/v1/me')
+            ->getJson('https://new.stelfaro.com/api/v1/me')
             ->assertOk();
 
         $this->assertDatabaseCount('legal_documents', 0);
@@ -61,11 +61,11 @@ class LegalAcceptanceTest extends TestCase
         [$user] = $this->productionUser();
 
         $this->actingAs($user)
-            ->getJson('https://platform.stelfaro.com/api/v1/me')
+            ->getJson('https://new.stelfaro.com/api/v1/me')
             ->assertStatus(428)
             ->assertJson([
                 'message' => 'Debes aceptar los documentos legales vigentes antes de continuar.',
-                'redirect' => 'https://platform.stelfaro.com/aceptacion-legal',
+                'redirect' => 'https://new.stelfaro.com/aceptacion-legal',
             ]);
     }
 
@@ -74,7 +74,7 @@ class LegalAcceptanceTest extends TestCase
         [$user, $tenant] = $this->productionUser();
 
         $this->actingAs($user)
-            ->get('https://platform.stelfaro.com/aceptacion-legal')
+            ->get('https://new.stelfaro.com/aceptacion-legal')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Auth/AcceptLegalDocuments')
@@ -97,12 +97,12 @@ class LegalAcceptanceTest extends TestCase
         [$user] = $this->productionUser();
 
         $this->actingAs($user)
-            ->from('https://platform.stelfaro.com/aceptacion-legal')
-            ->post('https://platform.stelfaro.com/aceptacion-legal', $this->acceptancePayload([
+            ->from('https://new.stelfaro.com/aceptacion-legal')
+            ->post('https://new.stelfaro.com/aceptacion-legal', $this->acceptancePayload([
                 'current_password' => 'incorrecta',
                 'authority_confirmed' => false,
             ]))
-            ->assertRedirect('https://platform.stelfaro.com/aceptacion-legal')
+            ->assertRedirect('https://new.stelfaro.com/aceptacion-legal')
             ->assertSessionHasErrors(['current_password', 'authority_confirmed']);
 
         $this->assertDatabaseCount('legal_acceptances', 0);
@@ -115,8 +115,8 @@ class LegalAcceptanceTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->post('https://platform.stelfaro.com/aceptacion-legal', $this->acceptancePayload())
-            ->assertRedirect('https://platform.stelfaro.com');
+            ->post('https://new.stelfaro.com/aceptacion-legal', $this->acceptancePayload())
+            ->assertRedirect('https://new.stelfaro.com');
 
         $this->assertDatabaseCount('legal_acceptances', 2);
         $this->assertDatabaseHas('legal_acceptances', [
@@ -142,7 +142,7 @@ class LegalAcceptanceTest extends TestCase
         $this->assertArrayNotHasKey('current_password', $acceptances->first()->getAttributes());
 
         $this->actingAs($user)
-            ->getJson('https://platform.stelfaro.com/api/v1/me')
+            ->getJson('https://new.stelfaro.com/api/v1/me')
             ->assertOk();
     }
 
@@ -151,13 +151,13 @@ class LegalAcceptanceTest extends TestCase
         [$user] = $this->productionUser();
 
         $this->actingAs($user)
-            ->post('https://platform.stelfaro.com/aceptacion-legal', $this->acceptancePayload())
+            ->post('https://new.stelfaro.com/aceptacion-legal', $this->acceptancePayload())
             ->assertRedirect();
 
         config()->set('legal.documents.terms.version', '2026-08-14');
 
         $this->actingAs($user)
-            ->getJson('https://platform.stelfaro.com/api/v1/me')
+            ->getJson('https://new.stelfaro.com/api/v1/me')
             ->assertStatus(428);
 
         $this->assertDatabaseHas('legal_documents', [

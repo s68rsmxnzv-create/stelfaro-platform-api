@@ -17,7 +17,7 @@ class PlatformRedirectTest extends TestCase
         $taller = PlatformApp::query()->create([
             'key' => 'taller',
             'name' => 'Taller electrónico',
-            'host' => 'taller.stelfaro.com',
+            'host' => 'new.stelfaro.com',
             'default_path' => '/',
         ]);
         $tenant = Tenant::query()->create([
@@ -37,8 +37,8 @@ class PlatformRedirectTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->get('https://platform.stelfaro.com/dashboard')
-            ->assertRedirect('https://platform.stelfaro.com/taller/');
+            ->get('https://new.stelfaro.com/dashboard')
+            ->assertRedirect('https://new.stelfaro.com/taller/');
     }
 
     public function test_dashboard_redirects_platform_owner_to_company_default_app_when_assigned(): void
@@ -46,7 +46,7 @@ class PlatformRedirectTest extends TestCase
         $facturacion = PlatformApp::query()->create([
             'key' => 'facturacion',
             'name' => 'Facturación',
-            'host' => 'facturacion.stelfaro.com',
+            'host' => 'new.stelfaro.com',
             'default_path' => '/',
         ]);
         $tenant = Tenant::query()->create([
@@ -68,8 +68,8 @@ class PlatformRedirectTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->get('https://platform.stelfaro.com/dashboard')
-            ->assertRedirect('https://platform.stelfaro.com/facturacion/');
+            ->get('https://new.stelfaro.com/dashboard')
+            ->assertRedirect('https://new.stelfaro.com/facturacion/');
     }
 
     public function test_dashboard_redirects_platform_owner_to_admin_when_no_company_app_exists(): void
@@ -79,14 +79,14 @@ class PlatformRedirectTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->get('https://platform.stelfaro.com/dashboard')
-            ->assertRedirect('https://platform.stelfaro.com/administracion/');
+            ->get('https://new.stelfaro.com/dashboard')
+            ->assertRedirect('https://new.stelfaro.com/administracion/');
     }
 
     public function test_dashboard_forbids_user_when_user_has_no_apps(): void
     {
         $this->actingAs(User::factory()->create())
-            ->get('https://platform.stelfaro.com/dashboard')
+            ->get('https://new.stelfaro.com/dashboard')
             ->assertForbidden();
     }
 }
