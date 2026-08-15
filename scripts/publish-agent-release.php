@@ -95,3 +95,17 @@ printf(
     $definition['latest'],
     $manifest[$platform]['sha256'],
 );
+
+$artisan = dirname(__DIR__).'/artisan';
+$notifyCommand = sprintf(
+    'php %s agent-notifications:generate %s %s 2>&1',
+    escapeshellarg($artisan),
+    escapeshellarg($platform),
+    escapeshellarg($version),
+);
+exec($notifyCommand, $notifyOutput, $notifyStatus);
+if ($notifyStatus !== 0) {
+    fwrite(STDERR, "Aviso: el artefacto se publicó, pero no se pudieron generar las notificaciones internas:\n".implode("\n", $notifyOutput).PHP_EOL);
+} else {
+    echo implode("\n", $notifyOutput).PHP_EOL;
+}
