@@ -10,10 +10,19 @@ use App\Models\InventorySale;
 use App\Models\SalesOrderPayment;
 use App\Models\Tenant;
 use App\Models\WorkshopOrderPayment;
+use App\Services\CoreFiscalScopeClient;
+use App\Services\TenantFiscalLinkResolver;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class CashService
 {
+    public function __construct(
+        private readonly TenantFiscalLinkResolver $fiscalLinkResolver,
+        private readonly CoreFiscalScopeClient $fiscalScopeClient,
+    ) {
+    }
+
     public function activeSession(Tenant $tenant, ?int $userId = null, ?int $registerId = null, ?int $branchId = null): ?CashSession
     {
         return CashSession::query()
@@ -192,6 +201,10 @@ class CashService
 
     public function defaultRegister(Tenant $tenant, array $branch = []): CashRegister
     {
+        if (! isset($branch['core_sucursal_id'])) {
+            $branch = array_merge($branch, $this->resolveMainBranch($tenant));
+        }
+
         $branchId = isset($branch['core_sucursal_id']) ? (int) $branch['core_sucursal_id'] : null;
 
         return CashRegister::query()->firstOrCreate([
@@ -203,6 +216,36 @@ class CashService
             'core_sucursal_name' => $branch['core_sucursal_name'] ?? null,
             'status' => 'active',
         ]);
+    }
+
+    /**
+     * Resuelve la sucursal "casa matriz" (código M001, o la primera activa) del tenant
+     * consultando dte-core, para que una caja abierta sin sucursal explícita quede
+     * asociada a ella en vez de quedar con core_sucursal_id = NULL.
+     *
+     * @return array{core_sucursal_id?: int, core_sucursal_code?: string, core_sucursal_name?: string}
+     */
+    private function resolveMainBranch(Tenant $tenant): array
+    {
+        try {
+            $empresaId = $this->fiscalLinkResolver->coreEmpresaId($tenant);
+            $sucursales = $this->fiscalScopeClient->companyScope($empresaId)['sucursales'] ?? [];
+
+            if ($sucursales === []) {
+                return [];
+            }
+
+            $matriz = collect($sucursales)->first(fn (array $sucursal) => str_starts_with((string) ($sucursal['codigo'] ?? ''), 'M'))
+                ?? $sucursales[0];
+
+            return [
+                'core_sucursal_id' => (int) $matriz['id'],
+                'core_sucursal_code' => $matriz['codigo'] ?? null,
+                'core_sucursal_name' => $matriz['nombre'] ?? null,
+            ];
+        } catch (Throwable) {
+            return [];
+        }
     }
 
     /** @return array{0:CashRegister|null,1:CashSession|null} */
