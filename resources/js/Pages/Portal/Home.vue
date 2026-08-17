@@ -89,9 +89,20 @@ const vReveal = {
     <div class="landing min-h-screen w-full max-w-full overflow-x-clip text-text">
         <div class="landing-texture" aria-hidden="true"></div>
 
-        <header class="public-header fixed inset-x-0 top-0 z-50 border-b border-line bg-app">
-            <div class="mx-auto flex h-[calc(4rem+env(safe-area-inset-top))] max-w-7xl items-center justify-between gap-4 pb-0 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[env(safe-area-inset-top)] sm:h-[calc(5rem+env(safe-area-inset-top))] sm:px-5 sm:pt-[env(safe-area-inset-top)] lg:h-[calc(6rem+env(safe-area-inset-top))] lg:px-8">
-                <a href="/" class="group flex min-w-0 items-center gap-2.5" aria-label="StelFaro, inicio">
+        <svg class="absolute h-0 w-0 overflow-hidden" aria-hidden="true" focusable="false">
+            <defs>
+                <filter id="liquid-glass" x="-15%" y="-40%" width="130%" height="180%" color-interpolation-filters="sRGB">
+                    <feTurbulence type="fractalNoise" baseFrequency="0.004 0.007" numOctaves="2" seed="7" result="noise" />
+                    <feGaussianBlur in="noise" stdDeviation="4" result="softNoise" />
+                    <feDisplacementMap in="SourceGraphic" in2="softNoise" scale="45" xChannelSelector="R" yChannelSelector="G" />
+                </filter>
+            </defs>
+        </svg>
+
+        <header class="public-header header-glass fixed inset-x-0 top-0 z-50 overflow-hidden">
+            <div class="relative z-10 mx-auto flex h-[calc(4rem+env(safe-area-inset-top))] max-w-7xl items-center justify-between gap-4 pb-0 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[env(safe-area-inset-top)] sm:h-[calc(5rem+env(safe-area-inset-top))] sm:px-5 sm:pt-[env(safe-area-inset-top)] lg:h-[calc(6rem+env(safe-area-inset-top))] lg:px-8">
+                <a href="/" class="group relative flex min-w-0 items-center gap-2.5" aria-label="StelFaro, inicio">
+                    <span class="beacon-glow" aria-hidden="true"></span>
                     <img src="/pwa/stelfaro-mark-on-light.svg" alt="" class="h-10 w-9 shrink-0 object-contain sm:h-12 sm:w-11 lg:h-16 lg:w-14" />
                     <span>
                         <strong class="block truncate text-base leading-none tracking-tight text-text sm:text-lg lg:text-xl">StelFaro</strong>
@@ -413,6 +424,110 @@ const vReveal = {
 </template>
 
 <style scoped>
+/*
+ * Reusable "liquid glass" recipe. To apply this material to another
+ * surface: set --glass-bg/--glass-border/--glass-blur/--glass-saturate/
+ * --glass-brightness for that element, then reuse the background,
+ * backdrop-filter and box-shadow declarations below (and the shared
+ * #liquid-glass SVG filter for the refraction @supports layer).
+ */
+.header-glass {
+    --glass-blur: 26px;
+    --glass-saturate: 200%;
+    --glass-brightness: 1.02;
+    --glass-bg: color-mix(in oklab, var(--sf-color-app) 58%, transparent);
+    --glass-border: color-mix(in oklab, color-mix(in oklab, var(--sf-color-app) 60%, white) 16%, transparent);
+
+    background:
+        radial-gradient(130% 240% at 14% -20%, color-mix(in oklab, var(--sf-color-primary) 26%, transparent), transparent 55%),
+        radial-gradient(90% 200% at 88% 0%, color-mix(in oklab, #f59e0b 16%, transparent), transparent 60%),
+        var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate)) brightness(var(--glass-brightness));
+    border-bottom: 1px solid var(--glass-border);
+    box-shadow:
+        inset 0 1px 0 color-mix(in oklab, white 40%, transparent),
+        inset 0 -1px 0 color-mix(in oklab, white 10%, transparent),
+        0 16px 32px -14px color-mix(in oklab, #0f172a 35%, transparent);
+    transform: translateZ(0);
+    will-change: backdrop-filter;
+}
+
+.header-glass::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(120% 180% at 0% 0%, color-mix(in oklab, white 20%, transparent), transparent 42%),
+        radial-gradient(90% 140% at 100% 100%, color-mix(in oklab, white 8%, transparent), transparent 46%);
+    pointer-events: none;
+}
+
+.header-glass::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(100deg, transparent 30%, color-mix(in oklab, white 55%, transparent) 48%, transparent 66%);
+    transform: translateX(-120%);
+    animation: header-sweep 1.3s cubic-bezier(0.4, 0, 0.2, 1) 0.4s 1 forwards;
+    pointer-events: none;
+}
+
+@keyframes header-sweep {
+    to {
+        transform: translateX(120%);
+    }
+}
+
+.beacon-glow {
+    position: absolute;
+    left: -8px;
+    top: 50%;
+    z-index: -1;
+    width: 44px;
+    height: 44px;
+    transform: translateY(-50%);
+    border-radius: 999px;
+    background: radial-gradient(circle, rgb(245 158 11 / 55%), transparent 70%);
+    filter: blur(7px);
+    animation: beacon-pulse 4.5s ease-in-out infinite;
+    pointer-events: none;
+}
+
+@keyframes beacon-pulse {
+    0%,
+    100% {
+        opacity: 0.35;
+    }
+    50% {
+        opacity: 0.85;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .header-glass::after {
+        display: none;
+    }
+
+    .beacon-glow {
+        animation: none;
+        opacity: 0.5;
+    }
+}
+
+@supports (backdrop-filter: url(#liquid-glass)) {
+    .header-glass,
+    .dark .header-glass {
+        backdrop-filter: url(#liquid-glass) blur(var(--glass-blur)) saturate(var(--glass-saturate)) brightness(var(--glass-brightness));
+    }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+    .header-glass {
+        background: var(--sf-color-app);
+        backdrop-filter: none;
+    }
+}
+
 .hero-home img {
     z-index: -2;
 }
@@ -518,6 +633,33 @@ const vReveal = {
 
 .dark .section-textured {
     background-color: color-mix(in srgb, var(--sf-color-app) 38%, transparent);
+}
+
+.dark .header-glass {
+    --glass-brightness: 1.25;
+    --glass-bg: color-mix(in oklab, var(--sf-color-app) 40%, transparent);
+    --glass-border: color-mix(in oklab, color-mix(in oklab, var(--sf-color-app) 40%, white) 10%, transparent);
+
+    background:
+        radial-gradient(130% 240% at 14% -20%, color-mix(in oklab, var(--sf-color-primary) 30%, transparent), transparent 55%),
+        radial-gradient(90% 200% at 88% 0%, color-mix(in oklab, #fbbf24 22%, transparent), transparent 60%),
+        var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate)) brightness(var(--glass-brightness));
+    border-bottom: 1px solid var(--glass-border);
+    box-shadow:
+        inset 0 1px 0 color-mix(in oklab, white 16%, transparent),
+        inset 0 -1px 0 color-mix(in oklab, white 5%, transparent),
+        0 16px 32px -14px color-mix(in oklab, black 55%, transparent);
+}
+
+.dark .header-glass::before {
+    background:
+        radial-gradient(120% 180% at 0% 0%, color-mix(in oklab, white 14%, transparent), transparent 42%),
+        radial-gradient(90% 140% at 100% 100%, color-mix(in oklab, white 6%, transparent), transparent 46%);
+}
+
+.dark .beacon-glow {
+    background: radial-gradient(circle, rgb(251 191 36 / 70%), transparent 70%);
 }
 
 .dark .crosshatch {
