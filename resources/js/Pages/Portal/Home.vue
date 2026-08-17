@@ -12,7 +12,6 @@ const whatsappDemoUrl = `https://wa.me/${whatsappNumber}?text=${encodeURICompone
 
 const platformModules = [
     {
-        number: '01',
         name: 'Facturación',
         title: 'Vender, cobrar y emitir sin romper el ritmo.',
         description: 'La operación comercial y el cumplimiento fiscal viven en el mismo flujo, desde la venta hasta la respuesta de Hacienda.',
@@ -20,7 +19,6 @@ const platformModules = [
         accent: 'primary',
     },
     {
-        number: '02',
         name: 'Taller',
         title: 'Cada equipo conserva su historia completa.',
         description: 'Recepción, fotografías, diagnóstico, aprobación, reparación y cobro conectados a la misma información del negocio.',
@@ -28,7 +26,6 @@ const platformModules = [
         accent: 'success',
     },
     {
-        number: '03',
         name: 'Nuevas operaciones',
         title: 'La plataforma está preparada para crecer contigo.',
         description: 'Nuevos módulos pueden incorporar procesos propios sin duplicar clientes, usuarios, sucursales ni información fiscal.',
@@ -100,19 +97,19 @@ const vReveal = {
         </svg>
 
         <header class="public-header header-glass fixed inset-x-0 top-0 z-50 overflow-hidden">
-            <div class="relative z-10 mx-auto flex h-[calc(4rem+env(safe-area-inset-top))] max-w-7xl items-center justify-between gap-4 pb-0 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[env(safe-area-inset-top)] sm:h-[calc(5rem+env(safe-area-inset-top))] sm:px-5 sm:pt-[env(safe-area-inset-top)] lg:h-[calc(6rem+env(safe-area-inset-top))] lg:px-8">
+            <div class="header-content relative z-10 mx-auto flex h-[calc(4rem+env(safe-area-inset-top))] max-w-7xl items-center justify-between gap-4 pb-0 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[env(safe-area-inset-top)] sm:h-[calc(5rem+env(safe-area-inset-top))] sm:px-5 sm:pt-[env(safe-area-inset-top)] lg:h-[calc(6rem+env(safe-area-inset-top))] lg:px-8">
                 <a href="/" class="group relative flex min-w-0 items-center gap-2.5" aria-label="StelFaro, inicio">
                     <span class="beacon-glow" aria-hidden="true"></span>
                     <img src="/pwa/stelfaro-mark-on-light.svg" alt="" class="h-10 w-9 shrink-0 object-contain sm:h-12 sm:w-11 lg:h-16 lg:w-14" />
                     <span>
-                        <strong class="block truncate text-base leading-none tracking-tight text-text sm:text-lg lg:text-xl">StelFaro</strong>
+                        <strong class="block truncate font-display text-lg leading-none tracking-normal text-white sm:text-xl lg:text-2xl">StelFaro</strong>
                         <span class="mt-1.5 hidden text-[10px] font-semibold uppercase tracking-[0.2em] text-primary lg:block">
                             Tu negocio, más simple
                         </span>
                     </span>
                 </a>
 
-                <nav class="hidden items-center gap-1 text-base font-semibold text-muted min-[860px]:flex" aria-label="Navegación principal">
+                <nav class="hidden items-center gap-1 text-base font-semibold text-white/85 min-[860px]:flex" aria-label="Navegación principal">
                     <a href="#soluciones" class="whitespace-nowrap rounded-lg px-3 py-2.5 transition hover:text-primary lg:px-5">Soluciones</a>
                     <a href="#forma-de-trabajo" class="whitespace-nowrap rounded-lg px-3 py-2.5 transition hover:text-primary lg:px-5">Cómo trabajamos</a>
                     <a href="#conoce-la-app" class="whitespace-nowrap rounded-lg px-3 py-2.5 transition hover:text-primary lg:px-5">Conoce la app</a>
@@ -121,7 +118,7 @@ const vReveal = {
                 <div class="flex shrink-0 items-center gap-2">
                     <button
                         type="button"
-                        class="grid h-10 w-10 place-items-center rounded-lg border border-line text-muted transition hover:bg-surface-muted min-[860px]:hidden"
+                        class="grid h-10 w-10 place-items-center rounded-lg border border-white/25 text-white/85 transition hover:bg-white/10 min-[860px]:hidden"
                         :aria-label="mobileNavOpen ? 'Cerrar menú' : 'Abrir menú'"
                         :aria-expanded="mobileNavOpen"
                         @click="mobileNavOpen = !mobileNavOpen"
@@ -135,7 +132,7 @@ const vReveal = {
                     </button>
                     <button
                         type="button"
-                        class="grid h-10 w-10 place-items-center rounded-lg border border-line text-muted transition hover:bg-surface-muted sm:h-11 sm:w-11"
+                        class="grid h-10 w-10 place-items-center rounded-lg border border-white/25 text-white/85 transition hover:bg-white/10 sm:h-11 sm:w-11"
                         :aria-label="isDark ? 'Activar modo claro' : 'Activar modo oscuro'"
                         @click="applyTheme(!isDark)"
                     >
@@ -147,7 +144,7 @@ const vReveal = {
                             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
                         </svg>
                     </button>
-                    <Link href="/login" class="inline-flex h-10 items-center rounded-lg border border-line px-3 text-sm font-bold text-text transition hover:bg-surface-muted sm:h-11 sm:px-4">
+                    <Link href="/login" class="inline-flex h-10 items-center rounded-lg border border-white/25 px-3 text-sm font-bold text-white transition hover:bg-white/10 sm:h-11 sm:px-4">
                         <span class="sm:hidden">Entrar</span>
                         <span class="hidden sm:inline">Iniciar sesión</span>
                     </Link>
@@ -183,7 +180,7 @@ const vReveal = {
                 <div class="hero-scrim absolute inset-0" aria-hidden="true"></div>
                 <div class="relative z-10 mx-auto max-w-7xl px-4 py-16 sm:px-5 sm:py-24 lg:min-h-[620px] lg:px-8 lg:py-32">
                     <div class="max-w-xl">
-                        <h1 class="text-[2.5rem] font-extrabold leading-[1.08] tracking-[-0.02em] text-white min-[390px]:text-[2.75rem] sm:text-6xl">
+                        <h1 class="font-display text-[2.75rem] font-extrabold leading-[1.05] tracking-normal text-white min-[390px]:text-[3.25rem] sm:text-7xl">
                             Una forma más simple de llevar tu negocio.
                         </h1>
 
@@ -224,7 +221,7 @@ const vReveal = {
                     <div v-reveal class="grid gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
                         <div>
                             <p class="text-sm font-semibold text-primary">Míralo en acción.</p>
-                            <h2 class="mt-3 text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl">
+                            <h2 class="mt-3 font-display text-4xl font-extrabold leading-tight tracking-normal sm:text-5xl">
                                 Un recorrido breve por StelFaro.
                             </h2>
                             <p class="mt-4 max-w-md leading-7 text-muted">
@@ -240,7 +237,7 @@ const vReveal = {
                                         <span class="h-2.5 w-2.5 rounded-full bg-[#ffd166]"></span>
                                         <span class="h-2.5 w-2.5 rounded-full bg-[#4ade80]"></span>
                                     </div>
-                                    <span class="ml-auto text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Conoce StelFaro</span>
+                                    <span class="ml-auto font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-slate-400">Conoce StelFaro</span>
                                 </div>
 
                                 <div class="aspect-video">
@@ -261,7 +258,7 @@ const vReveal = {
                                                     <path d="M8 5v14l11-7Z" />
                                                 </svg>
                                             </span>
-                                            <strong class="mt-5 block text-xl sm:text-2xl">Mira StelFaro en acción</strong>
+                                            <strong class="mt-5 block font-display text-2xl tracking-normal sm:text-3xl">Mira StelFaro en acción</strong>
                                             <span class="mt-2 block text-sm leading-6 text-slate-300">
                                                 Un recorrido breve por facturación, taller y la experiencia desde el móvil.
                                             </span>
@@ -277,8 +274,7 @@ const vReveal = {
             <section class="border-b border-line bg-surface">
                 <div class="mx-auto grid max-w-7xl divide-y divide-line px-5 md:grid-cols-3 md:divide-x md:divide-y-0 lg:px-8">
                     <div v-for="([title, text], index) in principles" :key="title" v-reveal="index * 100" class="py-8 md:px-7 md:first:pl-0 md:last:pr-0">
-                        <span class="text-xs font-black text-primary">0{{ index + 1 }}</span>
-                        <h2 class="mt-3 text-lg font-extrabold">{{ title }}</h2>
+                        <h2 class="font-display text-xl font-extrabold tracking-normal">{{ title }}</h2>
                         <p class="mt-2 text-sm leading-6 text-muted">{{ text }}</p>
                     </div>
                 </div>
@@ -288,7 +284,7 @@ const vReveal = {
                 <div class="mx-auto max-w-7xl px-5 lg:px-8">
                     <div v-reveal class="grid gap-7 lg:grid-cols-[0.7fr_1.3fr] lg:items-end">
                         <p class="text-sm font-semibold text-primary">Una base común para toda la operación.</p>
-                        <h2 class="max-w-3xl text-4xl font-extrabold leading-tight tracking-[-0.025em] sm:text-5xl">
+                        <h2 class="max-w-3xl font-display text-5xl font-extrabold leading-tight tracking-normal sm:text-6xl">
                             La operación cambia. La columna vertebral permanece.
                         </h2>
                     </div>
@@ -296,8 +292,8 @@ const vReveal = {
                     <div v-reveal class="mt-10 overflow-hidden rounded-2xl bg-[var(--sf-color-navbar)] text-white shadow-xl shadow-slate-950/15">
                         <div class="grid gap-7 p-6 sm:p-8 lg:grid-cols-[0.7fr_1.3fr] lg:items-center lg:p-10">
                             <div>
-                                <p class="text-xs font-black uppercase tracking-[0.2em] text-sky-300">Base StelFaro</p>
-                                <h3 class="mt-3 text-2xl font-extrabold leading-tight sm:text-3xl">Todo parte de la misma información.</h3>
+                                <p class="font-mono text-xs font-medium uppercase tracking-[0.2em] text-sky-300">Base StelFaro</p>
+                                <h3 class="mt-3 font-display text-3xl font-extrabold leading-tight tracking-normal sm:text-4xl">Todo parte de la misma información.</h3>
                                 <p class="mt-3 max-w-lg text-sm leading-6 text-slate-300">
                                     Cada módulo trabaja sobre una empresa, una identidad y un historial compartido.
                                 </p>
@@ -324,11 +320,8 @@ const vReveal = {
                             class="flex min-w-0 flex-col border-t-2 pt-6"
                             :class="module.accent === 'success' ? 'border-success' : 'border-primary'"
                         >
-                            <div class="flex items-center justify-between gap-4">
-                                <p class="text-xs font-black uppercase tracking-[0.16em] text-soft">{{ module.name }}</p>
-                                <span class="font-mono text-xs font-black" :class="module.accent === 'success' ? 'text-success' : 'text-primary'">{{ module.number }}</span>
-                            </div>
-                            <h3 class="mt-5 text-2xl font-extrabold leading-tight tracking-tight">{{ module.title }}</h3>
+                            <p class="font-mono text-xs font-medium uppercase tracking-[0.16em] text-soft">{{ module.name }}</p>
+                            <h3 class="mt-5 font-display text-3xl font-extrabold leading-tight tracking-normal">{{ module.title }}</h3>
                             <p class="mt-4 leading-7 text-muted">{{ module.description }}</p>
                             <ul class="mt-7 grid gap-3 border-t border-line pt-6 text-sm font-semibold">
                                 <li v-for="feature in module.features" :key="feature" class="flex items-center gap-3">
@@ -345,7 +338,7 @@ const vReveal = {
                 <div class="mx-auto grid max-w-7xl gap-14 px-5 lg:grid-cols-[0.8fr_0.9fr_1.1fr] lg:items-center lg:px-8">
                     <div v-reveal>
                         <p class="border-l-2 border-sky-300 pl-4 text-sm font-semibold text-slate-300">No te dejamos solo con el sistema.</p>
-                        <h2 class="mt-5 text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">Primero entendemos cómo trabajas.</h2>
+                        <h2 class="mt-5 font-display text-5xl font-extrabold leading-tight tracking-normal sm:text-6xl">Primero entendemos cómo trabajas.</h2>
                         <p class="mt-5 max-w-xl leading-7 text-slate-300">
                             Stelfaro se configura alrededor de tu empresa. Nuestro trabajo no termina cuando entregamos una contraseña.
                         </p>
@@ -374,7 +367,7 @@ const vReveal = {
                 <div v-reveal class="mx-auto grid max-w-7xl overflow-hidden border border-line bg-surface lg:grid-cols-[1.2fr_0.8fr]">
                     <div class="p-7 sm:p-12">
                         <p class="text-sm font-semibold text-primary">Hablemos de tu negocio.</p>
-                        <h2 class="mt-5 max-w-2xl text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">Cuéntanos qué quieres simplificar.</h2>
+                        <h2 class="mt-5 max-w-2xl font-display text-5xl font-extrabold leading-tight tracking-normal sm:text-6xl">Cuéntanos qué quieres simplificar.</h2>
                         <p class="mt-5 max-w-2xl text-lg leading-8 text-muted">
                             Te mostramos el producto con situaciones parecidas a las de tu operación, sin una presentación genérica.
                         </p>
@@ -425,6 +418,19 @@ const vReveal = {
 
 <style scoped>
 /*
+ * The header always sits over the hero photo, not the app's own
+ * light/dark surface, so its text stays a fixed light color regardless
+ * of theme (see the header-content markup) and gets a soft shadow here
+ * as insurance against lighter patches of the photo showing through
+ * the low-opacity glass.
+ */
+.header-content {
+    text-shadow:
+        0 1px 2px rgb(0 0 0 / 55%),
+        0 1px 8px rgb(0 0 0 / 40%);
+}
+
+/*
  * Reusable "liquid glass" recipe. To apply this material to another
  * surface: set --glass-bg/--glass-border/--glass-blur/--glass-saturate/
  * --glass-brightness for that element, then reuse the background,
@@ -435,7 +441,7 @@ const vReveal = {
     --glass-blur: 26px;
     --glass-saturate: 200%;
     --glass-brightness: 1.02;
-    --glass-bg: color-mix(in oklab, var(--sf-color-app) 58%, transparent);
+    --glass-bg: color-mix(in oklab, var(--sf-color-app) 25%, transparent);
     --glass-border: color-mix(in oklab, color-mix(in oklab, var(--sf-color-app) 60%, white) 16%, transparent);
 
     background:
