@@ -51,7 +51,7 @@ return [
     'wompi' => [
         'app_id' => env('WOMPI_APP_ID'),
         'api_secret' => env('WOMPI_API_SECRET'),
-        'allow_unverified_sandbox_webhooks' => env('WOMPI_ALLOW_UNVERIFIED_SANDBOX_WEBHOOKS', true),
+        'allow_unverified_sandbox_webhooks' => env('WOMPI_ALLOW_UNVERIFIED_SANDBOX_WEBHOOKS', false),
         'professional_plan_key' => env('WOMPI_PROFESSIONAL_PLAN_KEY', 'pro'),
         'professional_annual_price_cents' => (int) env('WOMPI_PROFESSIONAL_ANNUAL_PRICE_CENTS', 19900),
         'professional_annual_amount' => env('WOMPI_PROFESSIONAL_ANNUAL_AMOUNT'),

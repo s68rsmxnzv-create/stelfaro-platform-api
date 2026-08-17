@@ -276,7 +276,11 @@ class WompiPaymentProcessor
      */
     private function canAcceptUnverifiedSandboxWebhook(array $payload): bool
     {
-        if (! (bool) config('services.wompi.allow_unverified_sandbox_webhooks', true)) {
+        if (! app()->environment('local', 'testing', 'staging')) {
+            return false;
+        }
+
+        if (! (bool) config('services.wompi.allow_unverified_sandbox_webhooks', false)) {
             return false;
         }
 
