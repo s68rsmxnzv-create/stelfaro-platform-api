@@ -18,6 +18,8 @@ export default {
             ...stelfaroTheme,
             fontFamily: {
                 sans: ['Figtree', ...defaultTheme.fontFamily.sans],
+                display: ['"Big Shoulders Display"', ...defaultTheme.fontFamily.sans],
+                mono: ['"IBM Plex Mono"', ...defaultTheme.fontFamily.mono],
             },
         },
     },
