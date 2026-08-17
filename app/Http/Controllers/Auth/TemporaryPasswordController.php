@@ -38,6 +38,7 @@ class TemporaryPasswordController extends Controller
             'password' => Hash::make($validated['password']),
             'must_change_password' => false,
             'password_changed_at' => now(),
+            'temporary_password_expires_at' => null,
         ])->save();
 
         if ($this->legalAcceptance->pending($request->user()->fresh())) {

@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'phone', 'platform_role', 'password', 'must_change_password', 'password_changed_at'])]
+#[Fillable(['name', 'email', 'phone', 'platform_role', 'password', 'must_change_password', 'password_changed_at', 'temporary_password_expires_at'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -30,6 +30,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'must_change_password' => 'boolean',
             'password_changed_at' => 'datetime',
+            'temporary_password_expires_at' => 'datetime',
         ];
     }
 
@@ -51,5 +52,12 @@ class User extends Authenticatable
     public function tenantRequests(): HasMany
     {
         return $this->hasMany(TenantRequest::class, 'requested_by_user_id');
+    }
+
+    public function hasExpiredTemporaryPassword(): bool
+    {
+        return $this->must_change_password
+            && $this->temporary_password_expires_at !== null
+            && $this->temporary_password_expires_at->isPast();
     }
 }

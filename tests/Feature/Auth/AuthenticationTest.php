@@ -251,6 +251,27 @@ class AuthenticationTest extends TestCase
             ->assertRedirect('https://new.stelfaro.com/change-temporary-password');
     }
 
+    public function test_expired_temporary_password_is_rejected_at_login(): void
+    {
+        auth()->guard('web')->logout();
+
+        $user = User::factory()->create([
+            'password' => Hash::make('Temporal123'),
+            'must_change_password' => true,
+            'temporary_password_expires_at' => now()->subMinute(),
+        ]);
+
+        $response = $this
+            ->withHeader('X-Inertia', 'true')
+            ->post('https://new.stelfaro.com/login', [
+                'email' => $user->email,
+                'password' => 'Temporal123',
+            ]);
+
+        $this->assertGuest();
+        $response->assertSessionHasErrors('email');
+    }
+
     public function test_temporary_password_can_be_changed(): void
     {
         $user = User::factory()->create([

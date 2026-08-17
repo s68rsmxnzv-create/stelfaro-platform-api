@@ -42,6 +42,7 @@ class DirectTenantUserService
                     'email_verified_at' => now(),
                     'password' => $createdPassword,
                     'must_change_password' => true,
+                    'temporary_password_expires_at' => now()->addHours((int) config('auth.temporary_password_ttl_hours', 72)),
                 ]);
                 $created = true;
             }

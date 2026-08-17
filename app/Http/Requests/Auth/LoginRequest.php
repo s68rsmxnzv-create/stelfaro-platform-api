@@ -53,6 +53,16 @@ class LoginRequest extends FormRequest
             ]);
         }
 
+        if (Auth::user()?->hasExpiredTemporaryPassword()) {
+            Auth::logout();
+            RateLimiter::hit($this->throttleKey());
+            $this->recordLoginSecurityEvent('auth.temporary_password_expired', 'warning');
+
+            throw ValidationException::withMessages([
+                'email' => ['Tu contraseña temporal expiró. Solicita a un administrador que genere una nueva.'],
+            ]);
+        }
+
         RateLimiter::clear($this->throttleKey());
     }
 

@@ -57,6 +57,7 @@ class UserProfileController extends Controller
             'password_changed_at' => now(),
             'remember_token' => Str::random(60),
             'must_change_password' => false,
+            'temporary_password_expires_at' => null,
         ])->save();
 
         if (config('session.driver') === 'database') {

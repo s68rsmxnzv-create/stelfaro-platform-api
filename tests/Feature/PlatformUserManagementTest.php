@@ -438,7 +438,7 @@ class PlatformUserManagementTest extends TestCase
             ->assertJsonPath('user.must_change_password', true);
 
         $temporaryPassword = (string) $response->json('temporary_password');
-        $this->assertMatchesRegularExpression('/^Sf-[A-Z0-9]{1,4}-[A-Z0-9]{1,4}-[0-9]{4}$/', $temporaryPassword);
+        $this->assertMatchesRegularExpression('/^Sf-[A-Za-z0-9]{12}$/', $temporaryPassword);
         $this->assertTrue(Hash::check($temporaryPassword, $companyOwner->refresh()->password));
         $this->assertTrue($companyOwner->must_change_password);
         $this->assertNull($companyOwner->password_changed_at);

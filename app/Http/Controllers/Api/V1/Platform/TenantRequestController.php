@@ -44,6 +44,7 @@ class TenantRequestController extends Controller
         abort_unless($tenantRequest->requested_by_user_id === $request->user()->id, 403);
         abort_if(blank($tenantRequest->temporary_password), 404, 'Esta solicitud no tiene una contraseña temporal disponible.');
         abort_if($tenantRequest->fulfilledUser && ! $tenantRequest->fulfilledUser->must_change_password, 410, 'La contraseña temporal ya no está vigente.');
+        abort_if($tenantRequest->fulfilledUser?->hasExpiredTemporaryPassword(), 410, 'La contraseña temporal ya no está vigente.');
 
         $tenantRequest->forceFill(['credentials_revealed_at' => now()])->save();
 

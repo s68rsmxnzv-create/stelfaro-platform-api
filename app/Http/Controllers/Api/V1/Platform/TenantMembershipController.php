@@ -95,11 +95,12 @@ class TenantMembershipController extends Controller
         abort_unless($membership->user !== null, 404, 'La membresia no tiene usuario vinculado.');
 
         $this->revokeFiscalSessions($membership, $billingSessions);
-        $temporaryPassword = $this->temporaryPassword($membership->user->email, $membership->tenant->slug);
+        $temporaryPassword = $this->temporaryPassword();
         $membership->user->forceFill([
             'password' => $temporaryPassword,
             'must_change_password' => true,
             'password_changed_at' => null,
+            'temporary_password_expires_at' => now()->addHours((int) config('auth.temporary_password_ttl_hours', 72)),
         ])->save();
 
         return response()->json([
@@ -133,12 +134,9 @@ class TenantMembershipController extends Controller
         ];
     }
 
-    private function temporaryPassword(string $email, string $tenantSlug): string
+    private function temporaryPassword(): string
     {
-        $prefix = Str::upper(Str::substr((string) preg_replace('/[^A-Za-z0-9]/', '', Str::before($email, '@')), 0, 4)) ?: 'USER';
-        $tenantCode = Str::upper(Str::substr((string) preg_replace('/[^A-Za-z0-9]/', '', $tenantSlug), 0, 4)) ?: 'TEMP';
-
-        return 'Sf-'.$prefix.'-'.$tenantCode.'-'.random_int(1000, 9999);
+        return 'Sf-'.Str::password(12, letters: true, numbers: true, symbols: false);
     }
 
     private function revokeFiscalSessions(UserTenantMembership $membership, CoreBillingSessionBroker $billingSessions): void

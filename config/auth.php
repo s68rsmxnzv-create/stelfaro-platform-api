@@ -114,4 +114,17 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Temporary Password Expiration
+    |--------------------------------------------------------------------------
+    |
+    | Number of hours an admin-issued temporary password (must_change_password)
+    | remains valid. After this window, the credential is rejected at login
+    | and an admin must issue a new one.
+    |
+    */
+
+    'temporary_password_ttl_hours' => (int) env('AUTH_TEMPORARY_PASSWORD_TTL_HOURS', 72),
+
 ];
