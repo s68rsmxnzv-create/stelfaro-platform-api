@@ -38,6 +38,34 @@ class PlatformUserManagementTest extends TestCase
             ->assertJsonFragment(['email' => 'cliente@example.test']);
     }
 
+    public function test_global_users_endpoint_paginates_and_reports_stats_independent_of_the_page(): void
+    {
+        $owner = User::factory()->create(['platform_role' => 'platform_owner', 'name' => 'AAA Owner']);
+        $tenant = Tenant::query()->create(['slug' => 'stats-tenant', 'name' => 'Empresa Stats', 'status' => 'active']);
+
+        User::factory()->count(3)->create()->each(function (User $user) use ($tenant): void {
+            $user->memberships()->create([
+                'tenant_id' => $tenant->id,
+                'role' => 'billing_user',
+                'status' => 'active',
+                'is_default' => true,
+            ]);
+        });
+
+        $response = $this->actingAs($owner)
+            ->getJson('/api/v1/admin/platform/users?per_page=2')
+            ->assertOk();
+
+        $response->assertJsonCount(2, 'data');
+        $response->assertJsonPath('meta.per_page', 2);
+        $response->assertJsonPath('meta.total', 4);
+        $response->assertJsonPath('meta.last_page', 2);
+        // Las estadisticas reflejan TODOS los usuarios/membresias, no solo la pagina actual.
+        $response->assertJsonPath('stats.total_users', 4);
+        $response->assertJsonPath('stats.active_memberships', 3);
+        $response->assertJsonPath('stats.tenant_count', 1);
+    }
+
     public function test_company_admin_cannot_list_global_users(): void
     {
         $companyAdmin = $this->userWithRole('company_admin');

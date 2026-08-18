@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\Platform;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\UserTenantMembership;
 use App\Services\PlatformAccessPolicy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,11 +15,15 @@ class GlobalUserController extends Controller
     {
         abort_unless($policy->canViewGlobalUsers($request->user()), 403);
 
+        $perPage = (int) min(max((int) $request->query('per_page', 25), 1), 100);
+
+        $users = User::query()
+            ->with(['memberships.tenant'])
+            ->orderBy('name')
+            ->paginate($perPage);
+
         return response()->json([
-            'users' => User::query()
-                ->with(['memberships.tenant'])
-                ->orderBy('name')
-                ->get()
+            'data' => collect($users->items())
                 ->map(fn (User $user): array => [
                     'id' => $user->id,
                     'name' => $user->name,
@@ -36,6 +41,17 @@ class GlobalUserController extends Controller
                         ->values(),
                 ])
                 ->values(),
+            'meta' => [
+                'current_page' => $users->currentPage(),
+                'per_page' => $users->perPage(),
+                'total' => $users->total(),
+                'last_page' => $users->lastPage(),
+            ],
+            'stats' => [
+                'total_users' => User::query()->count(),
+                'active_memberships' => UserTenantMembership::query()->where('status', 'active')->count(),
+                'tenant_count' => UserTenantMembership::query()->distinct('tenant_id')->count('tenant_id'),
+            ],
         ]);
     }
 }

@@ -43,6 +43,49 @@ class PlatformAuditLogAccessTest extends TestCase
             ->assertJsonFragment(['source' => 'security', 'action' => 'auth.login_failed']);
     }
 
+    public function test_audit_logs_paginate_correctly_across_both_sources(): void
+    {
+        $owner = User::factory()->create(['platform_role' => 'platform_owner']);
+
+        foreach (range(1, 3) as $index) {
+            PlatformAuditLog::query()->create([
+                'action' => "platform.action.{$index}",
+                'result' => 'success',
+                'status_code' => 200,
+                'created_at' => now()->subMinutes(10 - $index),
+            ]);
+        }
+
+        foreach (range(1, 3) as $index) {
+            SecurityEvent::query()->create([
+                'type' => "security.event.{$index}",
+                'severity' => 'warning',
+                'field' => 'email',
+                'created_at' => now()->subMinutes(5 - $index),
+            ]);
+        }
+
+        // 6 eventos en total (3 de cada fuente), pedimos de a 2.
+        $page1 = $this->actingAs($owner)
+            ->getJson('/api/v1/admin/platform/audit-logs?source=all&per_page=2&page=1')
+            ->assertOk();
+        $page1->assertJsonCount(2, 'data');
+        $page1->assertJsonPath('meta.total', 6);
+        $page1->assertJsonPath('meta.last_page', 3);
+        $page1->assertJsonPath('meta.current_page', 1);
+
+        $page3 = $this->actingAs($owner)
+            ->getJson('/api/v1/admin/platform/audit-logs?source=all&per_page=2&page=3')
+            ->assertOk();
+        $page3->assertJsonCount(2, 'data');
+        $page3->assertJsonPath('meta.current_page', 3);
+
+        // Ninguna fila deberia repetirse entre paginas.
+        $ids1 = collect($page1->json('data'))->pluck('id');
+        $ids3 = collect($page3->json('data'))->pluck('id');
+        $this->assertEmpty($ids1->intersect($ids3));
+    }
+
     public function test_non_platform_admin_cannot_list_audit_logs(): void
     {
         $user = User::factory()->create();

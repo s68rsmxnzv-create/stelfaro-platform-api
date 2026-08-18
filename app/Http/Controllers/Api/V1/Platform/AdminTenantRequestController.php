@@ -26,8 +26,14 @@ class AdminTenantRequestController extends Controller
             'status' => ['nullable', 'string', Rule::in(TenantRequest::STATUSES)],
             'type' => ['nullable', 'string', Rule::in(TenantRequest::TYPES)],
             'q' => ['nullable', 'string', 'max:120'],
+            'id' => ['nullable', 'integer', 'min:1'],
         ]);
         $query = TenantRequest::query()->with(['tenant:id,name,slug', 'requester:id,name,email', 'assignee:id,name,email', 'fulfilledUser:id,name,email,must_change_password'])->latest();
+        if (filled($validated['id'] ?? null)) {
+            // Permite abrir una solicitud puntual (p. ej. desde un enlace de
+            // notificacion) sin importar en que pagina caeria normalmente.
+            $query->where('id', $validated['id']);
+        }
         if (filled($validated['status'] ?? null)) {
             $query->where('status', $validated['status']);
         }
@@ -43,7 +49,23 @@ class AdminTenantRequestController extends Controller
             });
         }
 
-        return response()->json(['data' => $query->limit(200)->get()->map(fn (TenantRequest $item): array => TenantRequestController::payload($item))->values()]);
+        $perPage = (int) min(max((int) $request->query('per_page', 25), 1), 100);
+        $requests = $query->paginate($perPage);
+
+        return response()->json([
+            'data' => collect($requests->items())->map(fn (TenantRequest $item): array => TenantRequestController::payload($item))->values(),
+            'meta' => [
+                'current_page' => $requests->currentPage(),
+                'per_page' => $requests->perPage(),
+                'total' => $requests->total(),
+                'last_page' => $requests->lastPage(),
+            ],
+            'stats' => [
+                'pending' => TenantRequest::query()->whereIn('status', ['pending', 'needs_information'])->count(),
+                'in_review' => TenantRequest::query()->where('status', 'in_review')->count(),
+                'completed' => TenantRequest::query()->where('status', 'completed')->count(),
+            ],
+        ]);
     }
 
     public function createUser(

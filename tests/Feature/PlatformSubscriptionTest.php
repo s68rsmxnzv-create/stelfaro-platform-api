@@ -31,6 +31,44 @@ class PlatformSubscriptionTest extends TestCase
             ->assertJsonPath('subscriptions.0.subscription', null);
     }
 
+    public function test_subscriptions_endpoint_paginates_tenants_and_reports_stats_independent_of_the_page(): void
+    {
+        $owner = User::factory()->create(['platform_role' => 'platform_owner']);
+        $plan = SubscriptionPlan::query()->where('key', 'pro')->firstOrFail();
+
+        foreach (range(1, 3) as $index) {
+            $tenant = Tenant::query()->create(['slug' => "activo-{$index}", 'name' => "Activo {$index}"]);
+            $tenant->subscription()->create([
+                'subscription_plan_id' => $plan->id,
+                'status' => 'active',
+                'billing_cycle' => 'monthly',
+                'price_cents' => $plan->price_cents,
+            ]);
+        }
+
+        $suspended = Tenant::query()->create(['slug' => 'suspendido', 'name' => 'Suspendido']);
+        $suspended->subscription()->create([
+            'subscription_plan_id' => $plan->id,
+            'status' => 'suspended',
+            'billing_cycle' => 'monthly',
+            'price_cents' => $plan->price_cents,
+        ]);
+
+        Tenant::query()->create(['slug' => 'sin-plan', 'name' => 'Sin Plan']);
+
+        $response = $this->actingAs($owner)
+            ->getJson('/api/v1/admin/platform/subscriptions?per_page=2')
+            ->assertOk();
+
+        $response->assertJsonCount(2, 'subscriptions');
+        $response->assertJsonPath('meta.total', 5);
+        $response->assertJsonPath('meta.last_page', 3);
+        // Los stats reflejan TODOS los tenants, no solo la pagina actual.
+        $response->assertJsonPath('stats.active', 3);
+        $response->assertJsonPath('stats.attention', 1);
+        $response->assertJsonPath('stats.unassigned', 1);
+    }
+
     public function test_company_owner_cannot_list_platform_subscriptions(): void
     {
         $tenant = Tenant::query()->create([

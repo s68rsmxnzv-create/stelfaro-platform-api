@@ -19,6 +19,8 @@ class SubscriptionController extends Controller
     {
         $adminAccess->authorize($request->user());
 
+        $perPage = (int) min(max((int) $request->query('per_page', 25), 1), 100);
+
         $plans = SubscriptionPlan::query()
             ->orderByRaw("case when key = 'implementation' then 0 else 1 end")
             ->orderBy('price_cents')
@@ -27,11 +29,22 @@ class SubscriptionController extends Controller
         $tenants = Tenant::query()
             ->with(['subscription.plan', 'appAccesses.app'])
             ->orderBy('name')
-            ->get();
+            ->paginate($perPage);
 
         return response()->json([
             'plans' => $plans->map(fn (SubscriptionPlan $plan): array => $this->planPayload($plan))->values(),
-            'subscriptions' => $tenants->map(fn (Tenant $tenant): array => $this->tenantSubscriptionPayload($tenant))->values(),
+            'subscriptions' => collect($tenants->items())->map(fn (Tenant $tenant): array => $this->tenantSubscriptionPayload($tenant))->values(),
+            'meta' => [
+                'current_page' => $tenants->currentPage(),
+                'per_page' => $tenants->perPage(),
+                'total' => $tenants->total(),
+                'last_page' => $tenants->lastPage(),
+            ],
+            'stats' => [
+                'active' => TenantSubscription::query()->whereIn('status', ['trialing', 'active'])->count(),
+                'attention' => TenantSubscription::query()->whereIn('status', ['past_due', 'suspended'])->count(),
+                'unassigned' => Tenant::query()->doesntHave('subscription')->count(),
+            ],
         ]);
     }
 
