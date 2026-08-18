@@ -5,6 +5,7 @@ namespace App\Http\Controllers\PlatformAdmin;
 use App\Http\Controllers\Controller;
 use App\Services\CoreBillingSessionBroker;
 use App\Services\PlatformAdminAccess;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response as ClientResponse;
 use Illuminate\Http\Request;
@@ -30,11 +31,20 @@ class CoreProxyController extends Controller
 
         $client = Http::acceptJson()
             ->withToken($token)
-            ->timeout(60);
+            ->timeout($this->timeoutFor($path));
 
-        $response = $this->send($client, $request, $baseUrl.'/'.ltrim($path, '/'));
+        try {
+            $response = $this->send($client, $request, $baseUrl.'/'.ltrim($path, '/'));
+        } catch (ConnectionException) {
+            abort(504, 'El core fiscal no respondio a tiempo.');
+        }
 
         return $this->toLaravelResponse($response);
+    }
+
+    private function timeoutFor(string $path): int
+    {
+        return str_ends_with(rtrim($path, '/'), '/logo') ? 8 : 60;
     }
 
     private function send(PendingRequest $client, Request $request, string $url): ClientResponse
