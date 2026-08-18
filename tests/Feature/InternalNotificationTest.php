@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Models\InternalNotification;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\DteStuckDocumentsClient;
+use App\Services\DteStuckNotificationGenerator;
 use App\Services\FiscalCalendarClient;
 use App\Services\TaxDeadlineNotificationGenerator;
 use App\Support\Platform\PlatformRoles;
@@ -16,6 +18,52 @@ use Tests\TestCase;
 class InternalNotificationTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_dte_stuck_generator_notifies_active_tenant_members_without_duplicates(): void
+    {
+        [$user, $tenant] = $this->member();
+        $client = Mockery::mock(DteStuckDocumentsClient::class);
+        $client->shouldReceive('list')->twice()->andReturn([[
+            'id' => 171,
+            'tenant_id' => $tenant->id,
+            'empresa_id' => 1,
+            'empresa_nombre' => 'Servicio Técnico El Faro',
+            'tipo_dte' => '01',
+            'numero_control' => 'DTE-01-M001P001-000000000000171',
+            'error_message' => 'No fue posible reanudar el documento tras 5 intentos.',
+            'stuck_since' => '2026-08-17T23:00:00Z',
+        ]]);
+        $this->app->instance(DteStuckDocumentsClient::class, $client);
+
+        $generator = app(DteStuckNotificationGenerator::class);
+
+        $this->assertSame(1, $generator->generate());
+        $this->assertSame(0, $generator->generate());
+        $this->assertDatabaseHas('internal_notifications', [
+            'user_id' => $user->id,
+            'tenant_id' => $tenant->id,
+            'category' => 'dte_stuck',
+            'source_type' => 'dte_document',
+            'source_id' => '171',
+            'action_url' => '/facturacion?documento_atascado=171',
+        ]);
+    }
+
+    public function test_dte_stuck_generator_ignores_documents_without_a_resolvable_tenant(): void
+    {
+        $client = Mockery::mock(DteStuckDocumentsClient::class);
+        $client->shouldReceive('list')->once()->andReturn([[
+            'id' => 55,
+            'tenant_id' => null,
+            'numero_control' => 'DTE-01-M001P001-000000000000055',
+        ]]);
+        $this->app->instance(DteStuckDocumentsClient::class, $client);
+
+        $generator = app(DteStuckNotificationGenerator::class);
+
+        $this->assertSame(0, $generator->generate());
+        $this->assertDatabaseCount('internal_notifications', 0);
+    }
 
     public function test_generator_creates_one_tax_reminder_per_active_member_without_duplicates(): void
     {

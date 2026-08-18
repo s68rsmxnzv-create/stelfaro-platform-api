@@ -22,6 +22,10 @@ Schedule::command('follow-up-notes:remind')
     ->everyMinute()
     ->withoutOverlapping();
 
+Schedule::command('dte-stuck-notifications:generate')
+    ->everyFiveMinutes()
+    ->withoutOverlapping();
+
 Schedule::call(fn () => app(CashAutomationService::class)->process())
     ->name('cash-sessions:automate')
     ->everyMinute()
