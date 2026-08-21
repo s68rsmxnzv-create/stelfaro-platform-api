@@ -176,7 +176,7 @@ class UserInvitationService
 
     private function ensureInvitableRole(string $role): void
     {
-        if (! in_array($role, [PlatformRoles::COMPANY_ADMIN, PlatformRoles::BILLING_ADMIN, PlatformRoles::BILLING_USER, PlatformRoles::VIEWER], true)) {
+        if (! in_array($role, [PlatformRoles::COMPANY_ADMIN, PlatformRoles::BILLING_ADMIN, PlatformRoles::BILLING_USER, PlatformRoles::VIEWER, PlatformRoles::ACCOUNTANT, PlatformRoles::SELLER], true)) {
             throw ValidationException::withMessages([
                 'role' => ['El rol no puede ser invitado.'],
             ]);

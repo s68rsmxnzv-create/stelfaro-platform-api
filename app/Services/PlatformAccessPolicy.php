@@ -84,6 +84,7 @@ class PlatformAccessPolicy
                 PlatformRoles::COMPANY_ADMIN,
                 PlatformRoles::BILLING_ADMIN,
                 PlatformRoles::BILLING_USER,
+                PlatformRoles::SELLER,
             ], true);
     }
 

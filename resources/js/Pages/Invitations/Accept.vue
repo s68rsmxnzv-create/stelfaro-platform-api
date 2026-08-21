@@ -27,7 +27,9 @@ const roleLabel = computed(() => ({
     company_admin: 'Admin empresa',
     billing_admin: 'Admin facturacion',
     billing_user: 'Cajero',
-    viewer: 'Contador / lectura',
+    seller: 'Vendedor',
+    viewer: 'Solo lectura',
+    accountant: 'Contador',
 }[props.invitation?.role] ?? props.invitation?.role ?? 'Rol pendiente'));
 const loginHref = computed(() => `/login?redirect=${encodeURIComponent(`/invitations/${props.token}`)}`);
 

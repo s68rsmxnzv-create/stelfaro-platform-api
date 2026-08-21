@@ -20,6 +20,10 @@ final class PlatformRoles
 
     public const VIEWER = 'viewer';
 
+    public const ACCOUNTANT = 'accountant';
+
+    public const SELLER = 'seller';
+
     public const FISCAL_ADMIN = 'admin_fiscal';
 
     public const FISCAL_COMPANY_ADMIN = 'company_admin';
@@ -62,6 +66,8 @@ final class PlatformRoles
             self::BILLING_ADMIN,
             self::BILLING_USER,
             self::VIEWER,
+            self::ACCOUNTANT,
+            self::SELLER,
         ];
     }
 
@@ -108,7 +114,7 @@ final class PlatformRoles
     {
         return match ($role) {
             self::OWNER, self::COMPANY_ADMIN, self::BILLING_ADMIN => self::FISCAL_COMPANY_ADMIN,
-            self::VIEWER => self::FISCAL_VIEWER,
+            self::VIEWER, self::ACCOUNTANT => self::FISCAL_VIEWER,
             default => self::FISCAL_BILLING_USER,
         };
     }
