@@ -47,6 +47,28 @@ class AccountantContactTest extends TestCase
         $this->assertDatabaseMissing('accountant_contacts', ['id' => $contactId]);
     }
 
+    public function test_company_owner_cannot_exceed_five_accountant_contacts(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+
+        for ($i = 1; $i <= 5; $i++) {
+            $this->actingAs($owner)
+                ->postJson("/api/v1/platform/tenants/{$tenant->id}/accountant-contacts", [
+                    'name' => "Contador {$i}",
+                    'email' => "contador{$i}@example.test",
+                ])
+                ->assertCreated();
+        }
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/accountant-contacts", [
+                'name' => 'Contador Extra',
+                'email' => 'contador-extra@example.test',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('name');
+    }
+
     public function test_billing_user_cannot_manage_accountant_contacts(): void
     {
         [$billingUser, $tenant] = $this->userWithTenantRole('billing_user');

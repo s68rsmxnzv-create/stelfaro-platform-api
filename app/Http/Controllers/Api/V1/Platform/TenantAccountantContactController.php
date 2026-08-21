@@ -8,9 +8,11 @@ use App\Models\Tenant;
 use App\Services\PlatformAccessPolicy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class TenantAccountantContactController extends Controller
 {
+    private const MAX_CONTACTS_PER_TENANT = 5;
     public function index(Request $request, Tenant $tenant, PlatformAccessPolicy $policy): JsonResponse
     {
         abort_unless($policy->canViewTenantUsers($request->user(), $tenant), 403);
@@ -27,6 +29,12 @@ class TenantAccountantContactController extends Controller
     public function store(Request $request, Tenant $tenant, PlatformAccessPolicy $policy): JsonResponse
     {
         abort_unless($policy->canManageTenantCatalog($request->user(), $tenant), 403);
+
+        if ($tenant->accountantContacts()->count() >= self::MAX_CONTACTS_PER_TENANT) {
+            throw ValidationException::withMessages([
+                'name' => ["Ya tienes el máximo de ".self::MAX_CONTACTS_PER_TENANT." contactos frecuentes. Elimina uno para agregar otro."],
+            ]);
+        }
 
         $validated = $request->validate([
             'core_empresa_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
