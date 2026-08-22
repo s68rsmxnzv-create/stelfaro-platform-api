@@ -40,6 +40,8 @@ class TenantAccountantContactController extends Controller
             'core_empresa_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email:rfc', 'max:255'],
+            'cc' => ['sometimes', 'nullable', 'array', 'max:5'],
+            'cc.*' => ['email:rfc', 'max:255'],
             'phone' => ['sometimes', 'nullable', 'string', 'max:40'],
             'notes' => ['sometimes', 'nullable', 'string', 'max:1000'],
         ]);
@@ -61,6 +63,8 @@ class TenantAccountantContactController extends Controller
             'core_empresa_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
             'name' => ['sometimes', 'string', 'max:255'],
             'email' => ['sometimes', 'email:rfc', 'max:255'],
+            'cc' => ['sometimes', 'nullable', 'array', 'max:5'],
+            'cc.*' => ['email:rfc', 'max:255'],
             'phone' => ['sometimes', 'nullable', 'string', 'max:40'],
             'notes' => ['sometimes', 'nullable', 'string', 'max:1000'],
         ]);
@@ -91,6 +95,7 @@ class TenantAccountantContactController extends Controller
             'core_empresa_id' => $contact->core_empresa_id,
             'name' => $contact->name,
             'email' => $contact->email,
+            'cc' => $contact->cc ?? [],
             'phone' => $contact->phone,
             'notes' => $contact->notes,
             'created_at' => optional($contact->created_at)->toISOString(),

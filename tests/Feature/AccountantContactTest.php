@@ -47,6 +47,36 @@ class AccountantContactTest extends TestCase
         $this->assertDatabaseMissing('accountant_contacts', ['id' => $contactId]);
     }
 
+    public function test_company_owner_can_save_and_update_cc_emails(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+
+        $created = $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/accountant-contacts", [
+                'name' => 'Contador Externo',
+                'email' => 'contador@example.test',
+                'cc' => ['copia1@example.test', 'copia2@example.test'],
+            ])
+            ->assertCreated()
+            ->assertJsonPath('contact.cc.0', 'copia1@example.test')
+            ->assertJsonPath('contact.cc.1', 'copia2@example.test');
+
+        $contactId = $created->json('contact.id');
+
+        $this->actingAs($owner)
+            ->getJson("/api/v1/platform/tenants/{$tenant->id}/accountant-contacts")
+            ->assertOk()
+            ->assertJsonPath('contacts.0.cc.0', 'copia1@example.test');
+
+        $this->actingAs($owner)
+            ->patchJson("/api/v1/platform/tenants/{$tenant->id}/accountant-contacts/{$contactId}", [
+                'cc' => ['nuevo-cc@example.test'],
+            ])
+            ->assertOk()
+            ->assertJsonPath('contact.cc.0', 'nuevo-cc@example.test')
+            ->assertJsonCount(1, 'contact.cc');
+    }
+
     public function test_company_owner_cannot_exceed_five_accountant_contacts(): void
     {
         [$owner, $tenant] = $this->userWithTenantRole('owner');

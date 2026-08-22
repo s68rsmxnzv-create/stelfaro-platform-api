@@ -7,10 +7,14 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['tenant_id', 'core_empresa_id', 'name', 'email', 'phone', 'notes', 'created_by'])]
+#[Fillable(['tenant_id', 'core_empresa_id', 'name', 'email', 'cc', 'phone', 'notes', 'created_by'])]
 class AccountantContact extends Model
 {
     use HasFactory;
+
+    protected $casts = [
+        'cc' => 'array',
+    ];
 
     public function tenant(): BelongsTo
     {
