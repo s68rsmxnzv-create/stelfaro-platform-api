@@ -46,6 +46,11 @@ class Tenant extends Model
         return $this->hasOne(TenantSubscription::class);
     }
 
+    public function accountantContacts(): HasMany
+    {
+        return $this->hasMany(AccountantContact::class);
+    }
+
     public function wompiPaymentEvents(): HasMany
     {
         return $this->hasMany(WompiPaymentEvent::class);

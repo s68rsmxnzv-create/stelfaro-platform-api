@@ -82,6 +82,8 @@ class TenantUserController extends Controller
                 PlatformRoles::BILLING_ADMIN,
                 PlatformRoles::BILLING_USER,
                 PlatformRoles::VIEWER,
+                PlatformRoles::ACCOUNTANT,
+                PlatformRoles::SELLER,
             ])],
         ]);
 
@@ -118,6 +120,8 @@ class TenantUserController extends Controller
                 PlatformRoles::BILLING_ADMIN,
                 PlatformRoles::BILLING_USER,
                 PlatformRoles::VIEWER,
+                PlatformRoles::ACCOUNTANT,
+                PlatformRoles::SELLER,
             ])],
         ]);
 

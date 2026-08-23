@@ -27,6 +27,8 @@ class TenantMembershipController extends Controller
                 PlatformRoles::BILLING_ADMIN,
                 PlatformRoles::BILLING_USER,
                 PlatformRoles::VIEWER,
+                PlatformRoles::ACCOUNTANT,
+                PlatformRoles::SELLER,
             ])],
         ]);
 

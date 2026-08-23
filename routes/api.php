@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AndroidPrintAgentController;
 use App\Http\Controllers\Api\V1\Platform\AdminTenantRequestController;
 use App\Http\Controllers\Api\V1\Platform\AndroidPrintController;
+use App\Http\Controllers\Api\V1\Platform\TenantAccountantContactController;
 use App\Http\Controllers\Api\V1\Platform\CashRegisterController;
 use App\Http\Controllers\Api\V1\Platform\CashSettingsController;
 use App\Http\Controllers\Api\V1\Platform\CatalogCategoryController;
@@ -234,6 +235,10 @@ Route::prefix('v1')->group(function (): void {
         Route::get('platform/tenants/{tenant}/subscription', [SubscriptionController::class, 'showForTenant']);
         Route::get('platform/tenants/by-core-empresa/{coreEmpresaId}/subscription', [SubscriptionController::class, 'showForTenantByCoreEmpresa']);
         Route::get('platform/tenants/{tenant}/fiscal-scope', [TenantFiscalAssignmentController::class, 'scope']);
+        Route::get('platform/tenants/{tenant}/accountant-contacts', [TenantAccountantContactController::class, 'index']);
+        Route::post('platform/tenants/{tenant}/accountant-contacts', [TenantAccountantContactController::class, 'store']);
+        Route::patch('platform/tenants/{tenant}/accountant-contacts/{contact}', [TenantAccountantContactController::class, 'update']);
+        Route::delete('platform/tenants/{tenant}/accountant-contacts/{contact}', [TenantAccountantContactController::class, 'destroy']);
         Route::post('platform/tenants/{tenant}/users', [TenantUserController::class, 'store']);
         Route::post('platform/tenants/{tenant}/invitations', [TenantUserController::class, 'invite']);
         Route::post('platform/invitations/{token}/accept', [TenantInvitationController::class, 'accept']);

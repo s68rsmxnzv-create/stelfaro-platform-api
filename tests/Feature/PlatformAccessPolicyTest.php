@@ -102,19 +102,35 @@ class PlatformAccessPolicyTest extends TestCase
         [$companyAdmin] = $this->userWithTenantRole('company_admin', $tenant);
         [$billingAdmin] = $this->userWithTenantRole('billing_admin', $tenant);
         [$billingUser] = $this->userWithTenantRole('billing_user', $tenant);
+        [$seller] = $this->userWithTenantRole('seller', $tenant);
         [$viewer] = $this->userWithTenantRole('viewer', $tenant);
+        [$accountant] = $this->userWithTenantRole('accountant', $tenant);
 
         $this->assertTrue($policy->canOperateTenant($owner, $tenant));
         $this->assertTrue($policy->canOperateTenant($companyAdmin, $tenant));
         $this->assertTrue($policy->canOperateTenant($billingAdmin, $tenant));
         $this->assertTrue($policy->canOperateTenant($billingUser, $tenant));
+        $this->assertTrue($policy->canOperateTenant($seller, $tenant));
         $this->assertFalse($policy->canOperateTenant($viewer, $tenant));
+        $this->assertFalse($policy->canOperateTenant($accountant, $tenant));
 
         $billingUser->memberships()
             ->where('tenant_id', $tenant->id)
             ->update(['status' => 'suspended']);
 
         $this->assertFalse($policy->canOperateTenant($billingUser, $tenant));
+    }
+
+    public function test_seller_and_accountant_cannot_administer_company_users(): void
+    {
+        $policy = app(PlatformAccessPolicy::class);
+        [$seller, $tenant] = $this->userWithTenantRole('seller');
+        [$accountant] = $this->userWithTenantRole('accountant', $tenant);
+
+        $this->assertFalse($policy->canInviteTenantUsers($seller, $tenant));
+        $this->assertFalse($policy->canChangeTenantMemberRole($seller, $tenant));
+        $this->assertFalse($policy->canInviteTenantUsers($accountant, $tenant));
+        $this->assertFalse($policy->canChangeTenantMemberRole($accountant, $tenant));
     }
 
     public function test_tenant_app_access_requires_active_membership_and_active_assignment(): void
@@ -172,6 +188,8 @@ class PlatformAccessPolicyTest extends TestCase
         [$owner, $tenant] = $this->userWithTenantRole('owner');
         [$billingUser] = $this->userWithTenantRole('billing_user', $tenant);
         [$viewer] = $this->userWithTenantRole('viewer', $tenant);
+        [$seller] = $this->userWithTenantRole('seller', $tenant);
+        [$accountant] = $this->userWithTenantRole('accountant', $tenant);
 
         $this->assertSame('company_admin', $policy->fiscalRoleFor(
             $owner->memberships()->where('tenant_id', $tenant->id)->firstOrFail()
@@ -181,6 +199,12 @@ class PlatformAccessPolicyTest extends TestCase
         ));
         $this->assertSame('viewer', $policy->fiscalRoleFor(
             $viewer->memberships()->where('tenant_id', $tenant->id)->firstOrFail()
+        ));
+        $this->assertSame('billing_user', $policy->fiscalRoleFor(
+            $seller->memberships()->where('tenant_id', $tenant->id)->firstOrFail()
+        ));
+        $this->assertSame('viewer', $policy->fiscalRoleFor(
+            $accountant->memberships()->where('tenant_id', $tenant->id)->firstOrFail()
         ));
     }
 

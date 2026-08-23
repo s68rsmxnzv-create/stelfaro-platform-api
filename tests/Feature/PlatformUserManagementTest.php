@@ -124,6 +124,28 @@ class PlatformUserManagementTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_company_owner_can_invite_seller_and_accountant(): void
+    {
+        $this->fakeNotifications();
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/invitations", [
+                'email' => 'vendedor@example.test',
+                'role' => 'seller',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('invitation.role', 'seller');
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/invitations", [
+                'email' => 'contador@example.test',
+                'role' => 'accountant',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('invitation.role', 'accountant');
+    }
+
     public function test_billing_user_cannot_invite_users(): void
     {
         [$billingUser, $tenant] = $this->userWithTenantRole('billing_user');
@@ -558,6 +580,28 @@ class PlatformUserManagementTest extends TestCase
 
         Http::assertSent(fn ($request): bool => $request->url() === 'https://core.test/api/v1/internal/auth/billing-session/revoke'
             && $request['platform_user_ids'] === [$member->id]);
+    }
+
+    public function test_company_owner_can_change_member_role_to_seller_or_accountant(): void
+    {
+        $this->fakeFiscalRevocation();
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        [$member] = $this->userWithTenantRole('billing_user', $tenant);
+        $membership = $member->memberships()->where('tenant_id', $tenant->id)->firstOrFail();
+
+        $this->actingAs($owner)
+            ->patchJson("/api/v1/platform/memberships/{$membership->id}/role", [
+                'role' => 'seller',
+            ])
+            ->assertOk()
+            ->assertJsonPath('membership.role', 'seller');
+
+        $this->actingAs($owner)
+            ->patchJson("/api/v1/platform/memberships/{$membership->id}/role", [
+                'role' => 'accountant',
+            ])
+            ->assertOk()
+            ->assertJsonPath('membership.role', 'accountant');
     }
 
     public function test_company_owner_can_view_tenant_fiscal_scope(): void
