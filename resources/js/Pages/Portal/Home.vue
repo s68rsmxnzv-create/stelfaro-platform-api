@@ -1,6 +1,8 @@
 <script setup>
 import { Head, Link } from '@inertiajs/vue3';
 import { onMounted, ref } from 'vue';
+import LiquidGlass from '@/components/glass/LiquidGlass.vue';
+import LiquidGlassDefs from '@/components/glass/LiquidGlassDefs.vue';
 
 const themeStorageKey = 'stelfaro:theme';
 const isDark = ref(false);
@@ -30,9 +32,15 @@ const platformModules = [
         title: 'La plataforma está preparada para crecer contigo.',
         description: 'Nuevos módulos pueden incorporar procesos propios sin duplicar clientes, usuarios, sucursales ni información fiscal.',
         features: ['Una identidad empresarial', 'Permisos compartidos', 'Datos conectados', 'Nuevos verticales'],
-        accent: 'primary',
+        accent: 'beacon',
     },
 ];
+
+const accentStyles = {
+    primary: { border: 'border-[var(--sf-color-primary)]', text: 'text-[var(--sf-color-primary)]', dot: 'bg-[var(--sf-color-primary)]' },
+    success: { border: 'border-success', text: 'text-success', dot: 'bg-success' },
+    beacon: { border: 'border-[var(--landing-beacon)]', text: 'text-[var(--landing-beacon)]', dot: 'bg-[var(--landing-beacon)]' },
+};
 
 const principles = [
     ['Pensado para trabajar', 'Las acciones frecuentes están primero; la información secundaria aparece cuando hace falta.'],
@@ -86,17 +94,17 @@ const vReveal = {
     <div class="landing min-h-screen w-full max-w-full overflow-x-clip text-text">
         <div class="landing-texture" aria-hidden="true"></div>
 
-        <svg class="absolute h-0 w-0 overflow-hidden" aria-hidden="true" focusable="false">
-            <defs>
-                <filter id="liquid-glass" x="-15%" y="-40%" width="130%" height="180%" color-interpolation-filters="sRGB">
-                    <feTurbulence type="fractalNoise" baseFrequency="0.004 0.007" numOctaves="2" seed="7" result="noise" />
-                    <feGaussianBlur in="noise" stdDeviation="4" result="softNoise" />
-                    <feDisplacementMap in="SourceGraphic" in2="softNoise" scale="45" xChannelSelector="R" yChannelSelector="G" />
-                </filter>
-            </defs>
-        </svg>
+        <LiquidGlassDefs />
 
-        <header class="public-header header-glass fixed inset-x-0 top-0 z-50 overflow-hidden">
+        <LiquidGlass
+            as="header"
+            variant="bar"
+            :blur="20"
+            :saturate="140"
+            :brightness="isDark ? 1.25 : 1.02"
+            sweep
+            class="public-header landing-header-glass fixed inset-x-0 top-0 z-50 overflow-hidden"
+        >
             <div class="header-content relative z-10 mx-auto flex h-[calc(4rem+env(safe-area-inset-top))] max-w-7xl items-center justify-between gap-4 pb-0 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[env(safe-area-inset-top)] sm:h-[calc(5rem+env(safe-area-inset-top))] sm:px-5 sm:pt-[env(safe-area-inset-top)] lg:h-[calc(6rem+env(safe-area-inset-top))] lg:px-8">
                 <a href="/" class="group relative flex min-w-0 items-center gap-2.5" aria-label="StelFaro, inicio">
                     <span class="beacon-glow" aria-hidden="true"></span>
@@ -172,12 +180,13 @@ const vReveal = {
                 <a href="#forma-de-trabajo" class="block py-2.5 text-base font-semibold text-text" @click="mobileNavOpen = false">Cómo trabajamos</a>
                 <a href="#conoce-la-app" class="block py-2.5 text-base font-semibold text-text" @click="mobileNavOpen = false">Conoce la app</a>
             </nav>
-        </header>
+        </LiquidGlass>
 
         <main class="min-w-0">
             <section class="hero-home relative isolate overflow-hidden pt-[calc(4rem+env(safe-area-inset-top))] sm:pt-[calc(5rem+env(safe-area-inset-top))] lg:pt-[calc(6rem+env(safe-area-inset-top))]">
                 <img src="/images/hero-negocio.webp" alt="" class="absolute inset-0 h-full w-full object-cover object-[68%_center]" aria-hidden="true" />
                 <div class="hero-scrim absolute inset-0" aria-hidden="true"></div>
+                <div class="hero-beam absolute inset-0" aria-hidden="true"></div>
                 <div class="relative z-10 mx-auto max-w-7xl px-4 py-16 sm:px-5 sm:py-24 lg:min-h-[620px] lg:px-8 lg:py-32">
                     <div class="max-w-xl">
                         <h1 class="font-display text-[2.75rem] font-extrabold leading-[1.05] tracking-normal text-white min-[390px]:text-[3.25rem] sm:text-7xl">
@@ -201,15 +210,15 @@ const vReveal = {
                                 </svg>
                                 Solicitar demostración
                             </a>
-                            <a href="#soluciones" class="inline-flex h-12 items-center justify-center rounded-lg border border-white/25 px-6 text-sm font-bold text-white transition hover:bg-white/10">
+                            <a href="#soluciones" class="inline-flex h-12 items-center justify-center rounded-lg border border-[var(--landing-beacon)]/50 px-6 text-sm font-bold text-white transition hover:border-[var(--landing-beacon)] hover:bg-[var(--landing-beacon)]/10">
                                 Ver soluciones
                             </a>
                         </div>
 
                         <ul class="mt-7 grid gap-2 text-sm text-slate-200 sm:grid-cols-2">
-                            <li class="flex items-center gap-2"><span class="text-sky-300">✓</span> Configuración acompañada</li>
+                            <li class="flex items-center gap-2"><span class="text-[var(--landing-beacon)]">✓</span> Configuración acompañada</li>
                             <li class="flex items-center gap-2"><span class="text-sky-300">✓</span> Instalable como aplicación</li>
-                            <li class="flex items-center gap-2"><span class="text-sky-300">✓</span> Acceso seguro por usuario</li>
+                            <li class="flex items-center gap-2"><span class="text-[var(--landing-beacon)]">✓</span> Acceso seguro por usuario</li>
                             <li class="flex items-center gap-2"><span class="text-sky-300">✓</span> Diseñado para El Salvador</li>
                         </ul>
                     </div>
@@ -289,10 +298,10 @@ const vReveal = {
                         </h2>
                     </div>
 
-                    <div v-reveal class="mt-10 overflow-hidden rounded-2xl bg-[var(--sf-color-navbar)] text-white shadow-xl shadow-slate-950/15">
+                    <div v-reveal class="base-card relative mt-10 overflow-hidden rounded-2xl bg-[var(--sf-color-navbar)] text-white shadow-xl shadow-slate-950/15">
                         <div class="grid gap-7 p-6 sm:p-8 lg:grid-cols-[0.7fr_1.3fr] lg:items-center lg:p-10">
                             <div>
-                                <p class="font-mono text-xs font-medium uppercase tracking-[0.2em] text-sky-300">Base StelFaro</p>
+                                <p class="font-mono text-xs font-medium uppercase tracking-[0.2em] text-[var(--landing-beacon-soft)]">Base StelFaro</p>
                                 <h3 class="mt-3 font-display text-3xl font-extrabold leading-tight tracking-normal sm:text-4xl">Todo parte de la misma información.</h3>
                                 <p class="mt-3 max-w-lg text-sm leading-6 text-slate-300">
                                     Cada módulo trabaja sobre una empresa, una identidad y un historial compartido.
@@ -312,20 +321,21 @@ const vReveal = {
                         </div>
                     </div>
 
-                    <div class="relative mt-12 grid gap-10 lg:grid-cols-3 lg:gap-12">
+                    <div class="spine relative mt-12 grid gap-10 lg:grid-cols-3 lg:gap-12">
                         <article
                             v-for="(module, index) in platformModules"
                             :key="module.name"
                             v-reveal="index * 100"
-                            class="flex min-w-0 flex-col border-t-2 pt-6"
-                            :class="module.accent === 'success' ? 'border-success' : 'border-primary'"
+                            class="spine-node relative flex min-w-0 flex-col border-t-2 pt-6"
+                            :class="accentStyles[module.accent].border"
                         >
+                            <span class="spine-dot absolute -top-[5px] left-0 h-2 w-2 rounded-full" :class="accentStyles[module.accent].dot" aria-hidden="true"></span>
                             <p class="font-mono text-xs font-medium uppercase tracking-[0.16em] text-soft">{{ module.name }}</p>
                             <h3 class="mt-5 font-display text-3xl font-extrabold leading-tight tracking-normal">{{ module.title }}</h3>
                             <p class="mt-4 leading-7 text-muted">{{ module.description }}</p>
                             <ul class="mt-7 grid gap-3 border-t border-line pt-6 text-sm font-semibold">
                                 <li v-for="feature in module.features" :key="feature" class="flex items-center gap-3">
-                                    <span :class="module.accent === 'success' ? 'text-success' : 'text-primary'">✓</span>
+                                    <span :class="accentStyles[module.accent].text">✓</span>
                                     {{ feature }}
                                 </li>
                             </ul>
@@ -347,7 +357,7 @@ const vReveal = {
                     <div v-reveal class="hidden flex-col overflow-hidden rounded-2xl bg-white/5 lg:flex">
                         <div class="work-photo relative isolate aspect-[16/9] w-full overflow-hidden">
                             <img src="/images/equipo-trabajo.webp" alt="" class="absolute inset-0 h-full w-full object-cover object-[100%_15%]" aria-hidden="true" />
-                            <div class="work-photo-scrim absolute inset-0" aria-hidden="true"></div>
+                            <div class="work-photo-scrim work-photo-scrim-warm absolute inset-0" aria-hidden="true"></div>
                         </div>
                         <p class="border-t border-white/10 px-5 py-4 text-sm font-semibold leading-6 text-slate-100">
                             Configuramos contigo, no solo para ti.
@@ -356,7 +366,7 @@ const vReveal = {
 
                     <ol class="border-t border-white/15">
                         <li v-for="(step, index) in ['Conocemos tu operación y tus prioridades', 'Configuramos empresa, sucursales y facturación', 'Preparamos a tu equipo con casos reales', 'Te acompañamos durante la puesta en marcha']" :key="step" v-reveal="index * 90" class="grid grid-cols-[3rem_1fr] gap-4 border-b border-white/15 py-5">
-                            <span class="font-mono text-sm text-sky-300">{{ String(index + 1).padStart(2, '0') }}</span>
+                            <span class="font-mono text-sm text-[var(--landing-beacon)]">{{ String(index + 1).padStart(2, '0') }}</span>
                             <strong class="text-lg">{{ step }}</strong>
                         </li>
                     </ol>
@@ -431,57 +441,21 @@ const vReveal = {
 }
 
 /*
- * Reusable "liquid glass" recipe. To apply this material to another
- * surface: set --glass-bg/--glass-border/--glass-blur/--glass-saturate/
- * --glass-brightness for that element, then reuse the background,
- * backdrop-filter and box-shadow declarations below (and the shared
- * #liquid-glass SVG filter for the refraction @supports layer).
+ * StelFaro-specific tint layered on top of the generic .liquid-glass
+ * material (components/glass/LiquidGlass.vue) — blur/backdrop-filter/
+ * box-shadow/highlights live there; this class only adds the brand
+ * gradients and the app-background-based bg/border/opaque-fallback tones,
+ * matching what plain .liquid-glass would use for a generic surface.
  */
-.header-glass {
-    --glass-blur: 26px;
-    --glass-saturate: 200%;
-    --glass-brightness: 1.02;
-    --glass-bg: color-mix(in oklab, var(--sf-color-app) 25%, transparent);
+.landing-header-glass {
+    --glass-bg: color-mix(in oklab, var(--sf-color-app) 8%, transparent);
+    --glass-bg-opaque: var(--sf-color-app);
     --glass-border: color-mix(in oklab, color-mix(in oklab, var(--sf-color-app) 60%, white) 16%, transparent);
 
     background:
-        radial-gradient(130% 240% at 14% -20%, color-mix(in oklab, var(--sf-color-primary) 26%, transparent), transparent 55%),
-        radial-gradient(90% 200% at 88% 0%, color-mix(in oklab, #f59e0b 16%, transparent), transparent 60%),
+        radial-gradient(130% 240% at 14% -20%, color-mix(in oklab, var(--sf-color-primary) 10%, transparent), transparent 55%),
+        radial-gradient(90% 200% at 88% 0%, color-mix(in oklab, #f59e0b 6%, transparent), transparent 60%),
         var(--glass-bg);
-    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate)) brightness(var(--glass-brightness));
-    border-bottom: 1px solid var(--glass-border);
-    box-shadow:
-        inset 0 1px 0 color-mix(in oklab, white 40%, transparent),
-        inset 0 -1px 0 color-mix(in oklab, white 10%, transparent),
-        0 16px 32px -14px color-mix(in oklab, #0f172a 35%, transparent);
-    transform: translateZ(0);
-    will-change: backdrop-filter;
-}
-
-.header-glass::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background:
-        radial-gradient(120% 180% at 0% 0%, color-mix(in oklab, white 20%, transparent), transparent 42%),
-        radial-gradient(90% 140% at 100% 100%, color-mix(in oklab, white 8%, transparent), transparent 46%);
-    pointer-events: none;
-}
-
-.header-glass::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(100deg, transparent 30%, color-mix(in oklab, white 55%, transparent) 48%, transparent 66%);
-    transform: translateX(-120%);
-    animation: header-sweep 1.3s cubic-bezier(0.4, 0, 0.2, 1) 0.4s 1 forwards;
-    pointer-events: none;
-}
-
-@keyframes header-sweep {
-    to {
-        transform: translateX(120%);
-    }
 }
 
 .beacon-glow {
@@ -510,28 +484,20 @@ const vReveal = {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .header-glass::after {
-        display: none;
-    }
-
     .beacon-glow {
         animation: none;
         opacity: 0.5;
     }
 }
 
-@supports (backdrop-filter: url(#liquid-glass)) {
-    .header-glass,
-    .dark .header-glass {
-        backdrop-filter: url(#liquid-glass) blur(var(--glass-blur)) saturate(var(--glass-saturate)) brightness(var(--glass-brightness));
-    }
+.landing {
+    --landing-beacon: #f59e0b;
+    --landing-beacon-soft: #ffd58a;
 }
 
-@media (prefers-reduced-transparency: reduce) {
-    .header-glass {
-        background: var(--sf-color-app);
-        backdrop-filter: none;
-    }
+.dark .landing {
+    --landing-beacon: #fbbf24;
+    --landing-beacon-soft: #ffe4ad;
 }
 
 .hero-home img {
@@ -540,7 +506,29 @@ const vReveal = {
 
 .hero-scrim {
     z-index: -1;
-    background: linear-gradient(90deg, rgb(7 22 47 / 96%) 0%, rgb(7 22 47 / 88%) 32%, rgb(7 22 47 / 45%) 62%, rgb(7 22 47 / 5%) 100%);
+    background: linear-gradient(100deg, rgb(20 23 28 / 94%) 0%, rgb(20 23 28 / 82%) 34%, rgb(20 23 28 / 38%) 64%, rgb(20 23 28 / 4%) 100%);
+}
+
+.hero-beam {
+    z-index: -1;
+    background: radial-gradient(60% 55% at 8% 88%, color-mix(in oklab, var(--landing-beacon, #f59e0b) 32%, transparent), transparent 70%);
+    mix-blend-mode: screen;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .hero-beam {
+        animation: beam-breathe 7s ease-in-out infinite;
+    }
+}
+
+@keyframes beam-breathe {
+    0%,
+    100% {
+        opacity: 0.75;
+    }
+    50% {
+        opacity: 1;
+    }
 }
 
 .demo-placeholder {
@@ -576,6 +564,45 @@ const vReveal = {
 
 .section-textured {
     background-color: color-mix(in srgb, var(--sf-color-app) 74%, transparent);
+    background-image:
+        radial-gradient(52% 60% at 88% -6%, color-mix(in oklab, var(--landing-beacon, #f59e0b) 28%, transparent), transparent 68%),
+        radial-gradient(60% 55% at 4% 108%, color-mix(in oklab, var(--sf-color-primary) 24%, transparent), transparent 70%);
+}
+
+.base-card {
+    background-image: radial-gradient(70% 130% at 100% 0%, color-mix(in oklab, var(--landing-beacon, #f59e0b) 22%, transparent), transparent 60%);
+}
+
+.spine {
+    isolation: isolate;
+}
+
+.spine::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 2px;
+    z-index: -1;
+    background: linear-gradient(
+        90deg,
+        color-mix(in oklab, var(--sf-color-primary) 55%, transparent),
+        color-mix(in oklab, var(--sf-color-success) 55%, transparent),
+        color-mix(in oklab, var(--landing-beacon, #f59e0b) 55%, transparent)
+    );
+    opacity: 0.4;
+    display: none;
+}
+
+@media (min-width: 1024px) {
+    .spine::before {
+        display: block;
+    }
+}
+
+.spine-dot {
+    box-shadow: 0 0 0 3px var(--sf-color-app);
 }
 
 .crosshatch {
@@ -616,6 +643,12 @@ const vReveal = {
     background: linear-gradient(0deg, rgb(7 22 47 / 55%) 0%, rgb(7 22 47 / 0%) 45%);
 }
 
+.work-photo-scrim-warm {
+    background:
+        radial-gradient(60% 90% at 100% 100%, color-mix(in oklab, var(--landing-beacon, #f59e0b) 30%, transparent), transparent 70%),
+        linear-gradient(0deg, rgb(7 22 47 / 55%) 0%, rgb(7 22 47 / 0%) 45%);
+}
+
 @media (prefers-reduced-motion: reduce) {
     :global(html) {
         scroll-behavior: auto;
@@ -639,29 +672,20 @@ const vReveal = {
 
 .dark .section-textured {
     background-color: color-mix(in srgb, var(--sf-color-app) 38%, transparent);
+    background-image:
+        radial-gradient(52% 60% at 88% -6%, color-mix(in oklab, var(--landing-beacon, #fbbf24) 20%, transparent), transparent 68%),
+        radial-gradient(60% 55% at 4% 108%, color-mix(in oklab, var(--sf-color-primary) 22%, transparent), transparent 70%);
 }
 
-.dark .header-glass {
-    --glass-brightness: 1.25;
-    --glass-bg: color-mix(in oklab, var(--sf-color-app) 40%, transparent);
+.dark .landing-header-glass {
+    --glass-bg: color-mix(in oklab, var(--sf-color-app) 13%, transparent);
+    --glass-bg-opaque: var(--sf-color-app);
     --glass-border: color-mix(in oklab, color-mix(in oklab, var(--sf-color-app) 40%, white) 10%, transparent);
 
     background:
-        radial-gradient(130% 240% at 14% -20%, color-mix(in oklab, var(--sf-color-primary) 30%, transparent), transparent 55%),
-        radial-gradient(90% 200% at 88% 0%, color-mix(in oklab, #fbbf24 22%, transparent), transparent 60%),
+        radial-gradient(130% 240% at 14% -20%, color-mix(in oklab, var(--sf-color-primary) 12%, transparent), transparent 55%),
+        radial-gradient(90% 200% at 88% 0%, color-mix(in oklab, #fbbf24 8%, transparent), transparent 60%),
         var(--glass-bg);
-    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate)) brightness(var(--glass-brightness));
-    border-bottom: 1px solid var(--glass-border);
-    box-shadow:
-        inset 0 1px 0 color-mix(in oklab, white 16%, transparent),
-        inset 0 -1px 0 color-mix(in oklab, white 5%, transparent),
-        0 16px 32px -14px color-mix(in oklab, black 55%, transparent);
-}
-
-.dark .header-glass::before {
-    background:
-        radial-gradient(120% 180% at 0% 0%, color-mix(in oklab, white 14%, transparent), transparent 42%),
-        radial-gradient(90% 140% at 100% 100%, color-mix(in oklab, white 6%, transparent), transparent 46%);
 }
 
 .dark .beacon-glow {
