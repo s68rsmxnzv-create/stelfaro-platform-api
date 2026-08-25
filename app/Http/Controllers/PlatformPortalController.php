@@ -137,6 +137,18 @@ class PlatformPortalController extends Controller
         ]);
     }
 
+    public function tallerIvaBooks(): Response
+    {
+        return $this->renderBillingModule([
+            'app' => [
+                'id' => 'taller',
+                'name' => 'Libros de IVA',
+                'description' => 'Libros contables formales preparados desde la informacion fiscal aceptada.',
+            ],
+            'module' => 'iva-books',
+        ]);
+    }
+
     public function tallerReception(): Response
     {
         return $this->renderBillingModule($this->workshopProps('workshop-reception'));
@@ -246,6 +258,18 @@ class PlatformPortalController extends Controller
                 'description' => 'Anexos fiscales generados desde documentos aceptados.',
             ],
             'module' => 'annexes',
+        ]);
+    }
+
+    public function facturacionIvaBooks(): Response
+    {
+        return $this->renderBillingModule([
+            'app' => [
+                'id' => 'facturacion',
+                'name' => 'Libros de IVA',
+                'description' => 'Libros contables formales preparados desde la informacion fiscal aceptada.',
+            ],
+            'module' => 'iva-books',
         ]);
     }
 

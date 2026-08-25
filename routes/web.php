@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\V1\Platform\TenantPurgeController;
 use App\Http\Controllers\Api\V1\Platform\TenantUserController;
 use App\Http\Controllers\Api\V1\PlatformSessionController;
 use App\Http\Controllers\CoreBillingSessionController;
+use App\Http\Controllers\IvaBooksPdfController;
 use App\Http\Controllers\PlatformAdmin\CoreSessionController;
 use App\Http\Controllers\PlatformAdmin\NotificationProxyController;
 use App\Http\Controllers\PlatformAdmin\TenantAppOnboardingController;
@@ -91,6 +92,8 @@ Route::domain(config('platform.portal.host'))
         Route::get('/ordenes-trabajo/cotizaciones/{quotationId}/editar', [PlatformPortalController::class, 'tallerQuoteBuilder'])->whereNumber('quotationId')->name('apps.taller.quote-builder.edit');
         Route::get('/pendientes', [PlatformPortalController::class, 'tallerFollowUps'])->name('apps.taller.follow-ups');
         Route::get('/anexos', [PlatformPortalController::class, 'tallerAnnexes'])->name('apps.taller.annexes');
+        Route::get('/libros-iva/pdf', IvaBooksPdfController::class)->name('apps.taller.iva-books.pdf');
+        Route::get('/libros-iva', [PlatformPortalController::class, 'tallerIvaBooks'])->name('apps.taller.iva-books');
         Route::get('/facturacion/{documentSlug?}', [PlatformPortalController::class, 'tallerBilling'])->name('apps.taller.billing');
         Route::get('/comprobantes/{artifactSlug?}', [PlatformPortalController::class, 'tallerArtifacts'])->name('apps.taller.artifacts');
         Route::get('/auditoria', [PlatformPortalController::class, 'tallerAudit'])->name('apps.taller.audit');
@@ -124,6 +127,8 @@ Route::domain(config('platform.portal.host'))
         Route::get('/ordenes-trabajo/cotizaciones/{quotationId}/editar', [PlatformPortalController::class, 'facturacionQuoteBuilder'])->whereNumber('quotationId')->name('apps.facturacion.quote-builder.edit');
         Route::get('/pendientes', [PlatformPortalController::class, 'facturacionFollowUps'])->name('apps.facturacion.follow-ups');
         Route::get('/anexos', [PlatformPortalController::class, 'facturacionAnnexes'])->name('apps.facturacion.annexes');
+        Route::get('/libros-iva/pdf', IvaBooksPdfController::class)->name('apps.facturacion.iva-books.pdf');
+        Route::get('/libros-iva', [PlatformPortalController::class, 'facturacionIvaBooks'])->name('apps.facturacion.iva-books');
         Route::get('/{documentSlug}', [PlatformPortalController::class, 'facturacionBilling'])
             ->whereIn('documentSlug', ['fe', 'ccf', 'se', 'nc', 'nd'])
             ->name('apps.facturacion.billing');

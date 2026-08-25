@@ -162,6 +162,29 @@ class InertiaPlatformPagesTest extends TestCase
             );
     }
 
+    public function test_iva_books_placeholder_is_available_in_billing_and_workshop_apps(): void
+    {
+        $portalHost = config('platform.portal.host');
+
+        $this->actingAs($this->userWithApp('facturacion'))
+            ->get("https://{$portalHost}/facturacion/libros-iva")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Apps/Taller/BillingWorkspace')
+                ->where('app.id', 'facturacion')
+                ->where('module', 'iva-books')
+            );
+
+        $this->actingAs($this->userWithApp('taller'))
+            ->get("https://{$portalHost}/taller/libros-iva")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Apps/Taller/BillingWorkspace')
+                ->where('app.id', 'taller')
+                ->where('module', 'iva-books')
+            );
+    }
+
     public function test_taller_billing_page_renders_workspace(): void
     {
         config([
