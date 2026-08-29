@@ -1,7 +1,7 @@
 # Filtro de sucursal para soporte (company_admin / owner) — Diseño
 
 **Fecha:** 2026-08-29
-**Estado:** Aprobado, listo para implementación
+**Estado:** Implementado (2026-08-29) — `dte-core@cd5ba48`, `stelfaro-platform@87a5472`
 **Repos afectados:** `dte-core`, `stelfaro-platform` (`packages/api-client`, `packages/billing`)
 **Rama de trabajo en cada repo:** `integration`
 **Relacionado:** [2026-08-29-permisos-cajero-v2-config-inventario-design.md](2026-08-29-permisos-cajero-v2-config-inventario-design.md) — la "consola de soporte" que quedó como follow-up; esto la resuelve reutilizando Comprobantes / Respuestas / Eventos MH.
