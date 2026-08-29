@@ -1,7 +1,22 @@
 # Permisos Cajero v2 — Configuración e Inventario — Diseño
 
 **Fecha:** 2026-08-29
-**Estado:** Implementado (2026-08-29) — `stelfaro-platform-api@1c3d19c`, `stelfaro-platform@451519a`
+**Estado:** Implementado (2026-08-29) — `stelfaro-platform-api@1c3d19c`, `stelfaro-platform@451519a` + ajuste post-revisión (ver más abajo)
+
+## Ajuste post-revisión — 2026-08-29
+
+- **Catálogo fuera del cajero.** `CatalogPage` es una pantalla de gestión
+  (columna "Costo / margen", edición masiva de precios, análisis de margen) sin
+  modo de solo lectura. Se quita `catalog` de `moduleAccess.cashier`
+  (`['billing', 'customers', 'inventory', 'artifacts']`). El cajero ve productos
+  en el buscador del facturador y stock en `StockLookupPage`. El strip de costo
+  en `catalog/items` se mantiene (defensa en profundidad: el buscador del
+  facturador usa ese endpoint). Un explorador de catálogo de solo lectura para
+  el cajero, si se necesita, es una vista dedicada aparte (follow-up).
+- **Comprobantes → Eventos MH usa la pantalla compartida.** Antes, el cajero
+  que abría esa pestaña recibía el 403 de dte-core como banner de error rojo.
+  Ahora `BillingAppPage` trata `artifacts` + subtipo `events` + rol `cashier`
+  como acceso vedado → renderiza `BillingAccessDeniedPage`, igual que el resto.
 **Repos afectados:** `stelfaro-platform-api`, `stelfaro-platform` (`packages/billing`)
 **Rama de trabajo en cada repo:** `integration`
 **Depende de:** [2026-08-28-rol-cajero-y-vista-pos-design.md](2026-08-28-rol-cajero-y-vista-pos-design.md) (endurecimiento base + nota de revisión 2026-08-29)
