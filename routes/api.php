@@ -223,6 +223,7 @@ Route::prefix('v1')->group(function (): void {
         Route::get('platform/tenants/{tenant}/inventory/reports/margin', [InventoryReportController::class, 'margin']);
         Route::get('platform/tenants/{tenant}/inventory/reports/summary', [InventoryReportController::class, 'summary']);
         Route::get('platform/tenants/{tenant}/inventory/reports/stock-alerts', [InventoryReportController::class, 'stockAlerts']);
+        Route::get('platform/tenants/{tenant}/inventory/stock-by-branch', [InventoryReportController::class, 'stockByBranch']);
         Route::get('platform/tenants/{tenant}/inventory/reports/purchase-annex', [InventoryReportController::class, 'purchaseAnnex']);
         Route::get('platform/tenants/{tenant}/inventory/reports/purchase-annex/official', [InventoryReportController::class, 'purchaseAnnexOfficial']);
         Route::get('platform/tenants/{tenant}/inventory/reports/purchase-annex/csv', [InventoryReportController::class, 'purchaseAnnexCsv']);

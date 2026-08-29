@@ -61,9 +61,10 @@ class CatalogItemController extends Controller
         }
 
         $items = $query->paginate((int) min(max((int) $request->query('per_page', 50), 1), 100));
+        $showCosts = $policy->canViewInventoryCosts($request->user(), $tenant);
 
         return response()->json([
-            'data' => $items->getCollection()->map(fn (CatalogItem $item): array => $this->payload($item))->values(),
+            'data' => $items->getCollection()->map(fn (CatalogItem $item): array => $this->payload($item, $showCosts))->values(),
             'meta' => [
                 'current_page' => $items->currentPage(),
                 'per_page' => $items->perPage(),
@@ -284,7 +285,7 @@ class CatalogItemController extends Controller
         return substr($segment !== '' ? $segment : 'ITEM', 0, 8);
     }
 
-    private function payload(CatalogItem $item): array
+    private function payload(CatalogItem $item, bool $showCosts = true): array
     {
         return [
             'id' => $item->id,
@@ -307,8 +308,8 @@ class CatalogItemController extends Controller
             'controls_inventory' => (bool) $item->controls_inventory,
             'base_price' => (float) $item->base_price,
             'base_price_includes_tax' => (bool) $item->base_price_includes_tax,
-            'reference_cost' => $item->reference_cost !== null ? (float) $item->reference_cost : null,
-            'cost_source' => $item->cost_source,
+            'reference_cost' => $showCosts && $item->reference_cost !== null ? (float) $item->reference_cost : null,
+            'cost_source' => $showCosts ? $item->cost_source : 'none',
             'stock_quantity' => (float) $item->stock_quantity,
             'branch_stock_quantity' => isset($item->branch_stock_quantity) ? (float) $item->branch_stock_quantity : null,
             'min_stock_quantity' => (float) $item->min_stock_quantity,

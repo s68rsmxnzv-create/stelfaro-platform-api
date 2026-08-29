@@ -70,6 +70,26 @@ class PlatformAccessPolicy
             || $this->hasTenantUserAdminRole($user, $tenant);
     }
 
+    /**
+     * Ver costos de inventario (costo de referencia, valor de inventario, margen).
+     * El cajero (billing_user), vendedor y solo-consulta quedan excluidos.
+     */
+    public function canViewInventoryCosts(?User $user, Tenant|int $tenant): bool
+    {
+        if ($this->hasGlobalAdminRole($user)) {
+            return true;
+        }
+
+        $membership = $this->activeMembershipFor($user, $tenant);
+
+        return $membership !== null
+            && in_array($membership->role, [
+                PlatformRoles::OWNER,
+                PlatformRoles::COMPANY_ADMIN,
+                PlatformRoles::BILLING_ADMIN,
+            ], true);
+    }
+
     public function canOperateTenant(?User $user, Tenant|int $tenant): bool
     {
         if ($this->hasGlobalAdminRole($user)) {

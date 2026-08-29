@@ -24,7 +24,7 @@ class InventoryReportController extends Controller
 
     public function sales(Request $request, Tenant $tenant, PlatformAccessPolicy $policy): JsonResponse
     {
-        abort_unless($policy->canViewTenantCatalog($request->user(), $tenant), 403);
+        abort_unless($policy->canViewInventoryCosts($request->user(), $tenant), 403);
 
         $from = $request->query('from');
         $to = $request->query('to');
@@ -66,7 +66,7 @@ class InventoryReportController extends Controller
 
     public function kardex(Request $request, Tenant $tenant, PlatformAccessPolicy $policy): JsonResponse
     {
-        abort_unless($policy->canViewTenantCatalog($request->user(), $tenant), 403);
+        abort_unless($policy->canViewInventoryCosts($request->user(), $tenant), 403);
 
         $query = InventoryMovement::query()
             ->where('tenant_id', $tenant->id)
@@ -82,7 +82,7 @@ class InventoryReportController extends Controller
 
     public function margin(Request $request, Tenant $tenant, PlatformAccessPolicy $policy): JsonResponse
     {
-        abort_unless($policy->canViewTenantCatalog($request->user(), $tenant), 403);
+        abort_unless($policy->canViewInventoryCosts($request->user(), $tenant), 403);
 
         $rows = $this->marginRows($request, $tenant);
 
@@ -92,6 +92,7 @@ class InventoryReportController extends Controller
     public function summary(Request $request, Tenant $tenant, PlatformAccessPolicy $policy): JsonResponse
     {
         abort_unless($policy->canViewTenantCatalog($request->user(), $tenant), 403);
+        $showCosts = $policy->canViewInventoryCosts($request->user(), $tenant);
 
         $branchId = $request->filled('core_sucursal_id') ? (int) $request->query('core_sucursal_id') : null;
         $lotBalances = InventoryLot::query()
@@ -132,11 +133,14 @@ class InventoryReportController extends Controller
 
             $units += $stock;
             $inventoryValue += $value;
-            $stockByItem[] = [
+            $entry = [
                 'catalog_item_id' => $product->id,
                 'stock_quantity' => $stock,
-                'stock_value' => $value,
             ];
+            if ($showCosts) {
+                $entry['stock_value'] = $value;
+            }
+            $stockByItem[] = $entry;
         }
 
         $lots = InventoryLot::query()
@@ -146,10 +150,9 @@ class InventoryReportController extends Controller
             ->where('tenant_id', $tenant->id)
             ->when($branchId, fn ($query) => $query->where('core_sucursal_id', $branchId));
 
-        return response()->json(['data' => [
+        $data = [
             'products' => $products->count(),
             'units' => round($units, 3),
-            'inventory_value' => round($inventoryValue, 2),
             'lots' => (clone $lots)->count(),
             'available_lots' => (clone $lots)->where('available_quantity', '>', 0)->count(),
             'movements' => $movements->count(),
@@ -157,7 +160,61 @@ class InventoryReportController extends Controller
             'below_minimum' => $belowMinimum,
             'out_of_stock' => $outOfStock,
             'stock_by_item' => $stockByItem,
-        ]]);
+        ];
+        if ($showCosts) {
+            $data['inventory_value'] = round($inventoryValue, 2);
+        }
+
+        return response()->json(['data' => $data]);
+    }
+
+    /**
+     * Existencias por sucursal, sin ningún dato de costo. Alimenta la vista de
+     * solo lectura del cajero.
+     */
+    public function stockByBranch(Request $request, Tenant $tenant, PlatformAccessPolicy $policy): JsonResponse
+    {
+        abort_unless($policy->canViewTenantCatalog($request->user(), $tenant), 403);
+
+        $balances = InventoryLot::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('available_quantity', '>', 0)
+            ->groupBy('catalog_item_id', 'core_sucursal_id', 'core_sucursal_code', 'core_sucursal_name')
+            ->selectRaw('catalog_item_id, core_sucursal_id, core_sucursal_code, core_sucursal_name, SUM(available_quantity) as quantity')
+            ->get()
+            ->groupBy('catalog_item_id');
+
+        $items = CatalogItem::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('controls_inventory', true)
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get(['id', 'sku', 'name', 'unit_name'])
+            ->map(function (CatalogItem $item) use ($balances): array {
+                $rows = $balances->get($item->id, collect());
+                $byBranch = $rows
+                    ->map(fn ($row): array => [
+                        'sucursal_id' => (int) $row->core_sucursal_id,
+                        'codigo' => $row->core_sucursal_code,
+                        'nombre' => $row->core_sucursal_name,
+                        'quantity' => round((float) $row->quantity, 3),
+                    ])
+                    ->sortBy('nombre')
+                    ->values()
+                    ->all();
+
+                return [
+                    'catalog_item_id' => $item->id,
+                    'name' => $item->name,
+                    'sku' => $item->sku,
+                    'unit_name' => $item->unit_name,
+                    'total' => round((float) $rows->sum('quantity'), 3),
+                    'by_branch' => $byBranch,
+                ];
+            })
+            ->values();
+
+        return response()->json(['data' => ['items' => $items]]);
     }
 
     public function stockAlerts(Request $request, Tenant $tenant, PlatformAccessPolicy $policy): JsonResponse
@@ -196,7 +253,7 @@ class InventoryReportController extends Controller
 
     public function purchaseAnnex(Request $request, Tenant $tenant, PlatformAccessPolicy $policy): JsonResponse
     {
-        abort_unless($policy->canViewTenantCatalog($request->user(), $tenant), 403);
+        abort_unless($policy->canViewInventoryCosts($request->user(), $tenant), 403);
 
         $from = $request->query('from');
         $to = $request->query('to');
@@ -242,7 +299,7 @@ class InventoryReportController extends Controller
 
     public function purchaseAnnexOfficial(Request $request, Tenant $tenant, PlatformAccessPolicy $policy, InventoryPurchaseAnnexExportService $annex): JsonResponse
     {
-        abort_unless($policy->canViewTenantCatalog($request->user(), $tenant), 403);
+        abort_unless($policy->canViewInventoryCosts($request->user(), $tenant), 403);
 
         return response()->json($annex->build(
             $tenant,
@@ -253,7 +310,7 @@ class InventoryReportController extends Controller
 
     public function purchaseAnnexCsv(Request $request, Tenant $tenant, PlatformAccessPolicy $policy, InventoryPurchaseAnnexExportService $annex): Response
     {
-        abort_unless($policy->canViewTenantCatalog($request->user(), $tenant), 403);
+        abort_unless($policy->canViewInventoryCosts($request->user(), $tenant), 403);
 
         $filename = sprintf(
             'compras_%s_%s.csv',
@@ -269,7 +326,7 @@ class InventoryReportController extends Controller
 
     public function pdf(Request $request, Tenant $tenant, string $report, PlatformAccessPolicy $policy, BrowsershotPdfRenderer $pdfRenderer): Response
     {
-        abort_unless($policy->canViewTenantCatalog($request->user(), $tenant), 403);
+        abort_unless($policy->canViewInventoryCosts($request->user(), $tenant), 403);
 
         $definition = $this->reportDefinition($request, $tenant, $report);
         abort_if($definition === null, 404);
@@ -295,7 +352,7 @@ class InventoryReportController extends Controller
 
     public function countSheetPdf(Request $request, Tenant $tenant, PlatformAccessPolicy $policy, BrowsershotPdfRenderer $pdfRenderer): Response
     {
-        abort_unless($policy->canViewTenantCatalog($request->user(), $tenant), 403);
+        abort_unless($policy->canViewInventoryCosts($request->user(), $tenant), 403);
 
         $rows = $this->countSheetRows($request, $tenant)->all();
         $html = view('inventory.reports.pdf', [
