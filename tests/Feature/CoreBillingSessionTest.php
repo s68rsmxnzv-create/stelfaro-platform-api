@@ -150,6 +150,8 @@ class CoreBillingSessionTest extends TestCase
             ->assertOk();
 
         Http::assertSent(fn ($request) => $request->url() === 'https://core.test/api/v1/internal/auth/billing-session'
+            && $request['role'] === 'cashier'
+            && $request['empresas'][0]['role'] === 'cashier'
             && $request['empresas'][0]['sucursales'] === [10]
             && $request['empresas'][0]['puntos_venta'] === [20]
             && $request['empresas'][0]['default_sucursal_id'] === 10

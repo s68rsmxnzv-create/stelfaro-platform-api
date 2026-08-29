@@ -194,7 +194,7 @@ class PlatformAccessPolicyTest extends TestCase
         $this->assertSame('company_admin', $policy->fiscalRoleFor(
             $owner->memberships()->where('tenant_id', $tenant->id)->firstOrFail()
         ));
-        $this->assertSame('billing_user', $policy->fiscalRoleFor(
+        $this->assertSame('cashier', $policy->fiscalRoleFor(
             $billingUser->memberships()->where('tenant_id', $tenant->id)->firstOrFail()
         ));
         $this->assertSame('viewer', $policy->fiscalRoleFor(

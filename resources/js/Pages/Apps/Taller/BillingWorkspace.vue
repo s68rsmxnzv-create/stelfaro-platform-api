@@ -121,6 +121,7 @@ const navigate = ({ event, href }) => {
             :extra-nav-items="extraNavItems"
             :can-access-platform-admin="canAccessPlatformAdmin"
             :module="module"
+            :fiscal-role="coreSession?.user?.role"
             :platform-admin-url="platformAdminUrl"
             :platform-session="platformSession"
             platform-base-url="/api/v1"

@@ -6,6 +6,7 @@ use App\Models\PlatformApp;
 use App\Services\CoreBillingSessionBroker;
 use App\Services\PlatformAdminAccess;
 use App\Services\PlatformSessionResolver;
+use App\Support\Platform\PlatformRoles;
 use App\Support\Platform\PortalUrl;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -164,8 +165,15 @@ class PlatformPortalController extends Controller
         return $this->renderBillingModule($this->workshopProps('workshop-orders'));
     }
 
-    public function facturacion(): Response
+    public function facturacion(): Response|RedirectResponse
     {
+        // El cajero no tiene acceso al dashboard fiscal; su punto de entrada es
+        // el facturador. El resto del endurecimiento vive en la API (dte-core)
+        // y en el gating de UI por rol fiscal.
+        if ($this->isCashier()) {
+            return redirect()->to(PortalUrl::app('facturacion', '/fe'));
+        }
+
         return $this->renderBillingModule([
             'app' => [
                 'id' => 'facturacion',
@@ -174,6 +182,15 @@ class PlatformPortalController extends Controller
             ],
             'module' => 'dashboard',
         ]);
+    }
+
+    private function isCashier(): bool
+    {
+        return request()->user()?->memberships()
+            ->where('status', 'active')
+            ->orderByDesc('is_default')
+            ->orderBy('id')
+            ->value('role') === PlatformRoles::BILLING_USER;
     }
 
     public function facturacionBilling(?string $documentSlug = null): Response

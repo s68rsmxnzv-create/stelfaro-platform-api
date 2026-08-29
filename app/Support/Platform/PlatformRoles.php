@@ -30,6 +30,8 @@ final class PlatformRoles
 
     public const FISCAL_BILLING_USER = 'billing_user';
 
+    public const FISCAL_CASHIER = 'cashier';
+
     public const FISCAL_VIEWER = 'viewer';
 
     /**
@@ -115,6 +117,7 @@ final class PlatformRoles
         return match ($role) {
             self::OWNER, self::COMPANY_ADMIN, self::BILLING_ADMIN => self::FISCAL_COMPANY_ADMIN,
             self::VIEWER, self::ACCOUNTANT => self::FISCAL_VIEWER,
+            self::BILLING_USER => self::FISCAL_CASHIER,
             default => self::FISCAL_BILLING_USER,
         };
     }
