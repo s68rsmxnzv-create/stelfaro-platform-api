@@ -1,7 +1,7 @@
 # Permisos Cajero v2 — Configuración e Inventario — Diseño
 
 **Fecha:** 2026-08-29
-**Estado:** Aprobado, listo para implementación
+**Estado:** Implementado (2026-08-29) — `stelfaro-platform-api@1c3d19c`, `stelfaro-platform@451519a`
 **Repos afectados:** `stelfaro-platform-api`, `stelfaro-platform` (`packages/billing`)
 **Rama de trabajo en cada repo:** `integration`
 **Depende de:** [2026-08-28-rol-cajero-y-vista-pos-design.md](2026-08-28-rol-cajero-y-vista-pos-design.md) (endurecimiento base + nota de revisión 2026-08-29)
