@@ -9,8 +9,10 @@ use App\Models\Tenant;
 use App\Services\Cash\CashService;
 use App\Services\PlatformAccessPolicy;
 use App\Services\PlatformAuditLogger;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class CashSettingsController extends Controller
 {
@@ -32,9 +34,16 @@ class CashSettingsController extends Controller
             'close_grace_minutes' => ['required', 'integer', 'min:0', 'max:180'], 'working_days' => ['required', 'array', 'min:1'], 'working_days.*' => ['integer', 'between:1,7'],
             'non_working_dates' => ['nullable', 'array'], 'non_working_dates.*' => ['date_format:Y-m-d'], 'use_official_holidays' => ['required', 'boolean'], 'allow_non_cash_when_closed' => ['required', 'boolean'], 'active' => ['required', 'boolean'],
         ]);
-        $register = CashRegister::query()->where('tenant_id', $tenant->id)->where('core_sucursal_id', $data['core_sucursal_id'])->first()
-            ?? $cash->defaultRegister($tenant, $data);
-        $register->forceFill(['core_sucursal_id' => $data['core_sucursal_id'], 'core_sucursal_code' => $data['core_sucursal_code'], 'core_sucursal_name' => $data['core_sucursal_name'], 'name' => $data['name'], 'status' => $data['active'] ? 'active' : 'inactive'])->save();
+        try {
+            // Ordenación determinista: si la sucursal arrastra cajas inactivas históricas,
+            // preferimos la activa para no chocar con el índice único parcial por sucursal.
+            $register = CashRegister::query()->where('tenant_id', $tenant->id)->where('core_sucursal_id', $data['core_sucursal_id'])
+                ->orderByRaw("CASE WHEN status = 'active' THEN 0 ELSE 1 END")->oldest('id')->first()
+                ?? $cash->defaultRegister($tenant, $data);
+            $register->forceFill(['core_sucursal_id' => $data['core_sucursal_id'], 'core_sucursal_code' => $data['core_sucursal_code'], 'core_sucursal_name' => $data['core_sucursal_name'], 'name' => $data['name'], 'status' => $data['active'] ? 'active' : 'inactive'])->save();
+        } catch (UniqueConstraintViolationException) {
+            throw ValidationException::withMessages(['core_sucursal_id' => 'Ya existe una caja activa en esta sucursal.']);
+        }
         CashRegisterSetting::query()->updateOrCreate(['cash_register_id' => $register->id], [...$data, 'tenant_id' => $tenant->id, 'updated_by' => $request->user()->id]);
         $audit->record($request, 'cash.settings.updated', ['cash_register_id' => $register->id, 'core_sucursal_id' => $register->core_sucursal_id]);
 
@@ -51,7 +60,11 @@ class CashSettingsController extends Controller
             'close_grace_minutes' => ['required', 'integer', 'min:0', 'max:180'], 'working_days' => ['required', 'array', 'min:1'], 'working_days.*' => ['integer', 'between:1,7'], 'non_working_dates' => ['nullable', 'array'], 'non_working_dates.*' => ['date_format:Y-m-d'],
             'use_official_holidays' => ['required', 'boolean'], 'allow_non_cash_when_closed' => ['required', 'boolean'], 'active' => ['required', 'boolean'],
         ]);
-        $cashRegister->forceFill(['name' => $data['name'], 'status' => $data['active'] ? 'active' : 'inactive'])->save();
+        try {
+            $cashRegister->forceFill(['name' => $data['name'], 'status' => $data['active'] ? 'active' : 'inactive'])->save();
+        } catch (UniqueConstraintViolationException) {
+            throw ValidationException::withMessages(['core_sucursal_id' => 'Ya existe una caja activa en esta sucursal.']);
+        }
         CashRegisterSetting::query()->updateOrCreate(['cash_register_id' => $cashRegister->id], [...$data, 'tenant_id' => $tenant->id, 'updated_by' => $request->user()->id]);
         $audit->record($request, 'cash.settings.updated', ['cash_register_id' => $cashRegister->id]);
 

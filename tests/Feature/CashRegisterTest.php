@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\CashExpense;
+use App\Models\CashMovement;
 use App\Models\CashRegister;
 use App\Models\CashRegisterSetting;
 use App\Models\CashSession;
@@ -15,7 +16,9 @@ use App\Models\WorkshopCustomer;
 use App\Models\WorkshopDevice;
 use App\Models\WorkshopOrder;
 use App\Services\Cash\CashAutomationService;
+use App\Services\Cash\CashService;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -203,8 +206,8 @@ class CashRegisterTest extends TestCase
     {
         [, $tenant] = $this->member();
 
-        $first = app(\App\Services\Cash\CashService::class)->defaultRegister($tenant, ['core_sucursal_id' => 3, 'name' => 'Caja A']);
-        $second = app(\App\Services\Cash\CashService::class)->defaultRegister($tenant, ['core_sucursal_id' => 3, 'name' => 'Caja B']);
+        $first = app(CashService::class)->defaultRegister($tenant, ['core_sucursal_id' => 3, 'name' => 'Caja A']);
+        $second = app(CashService::class)->defaultRegister($tenant, ['core_sucursal_id' => 3, 'name' => 'Caja B']);
 
         $this->assertSame($first->id, $second->id);
         $this->assertDatabaseCount('cash_registers', 1);
@@ -299,6 +302,133 @@ class CashRegisterTest extends TestCase
         [$cashier, $tenant] = $this->cashierMember(assignedSucursalId: 1);
 
         $this->actingAs($cashier)->getJson("/api/v1/platform/tenants/{$tenant->id}/cash/consolidated")->assertForbidden();
+    }
+
+    public function test_cashier_cannot_read_another_branchs_cash_data_through_the_overview(): void
+    {
+        [$user, $tenant] = $this->cashierMember(assignedSucursalId: 5);
+        $mine = CashRegister::query()->create(['tenant_id' => $tenant->id, 'core_sucursal_id' => 5, 'core_sucursal_code' => 'S005', 'core_sucursal_name' => 'Mi sucursal', 'name' => 'Caja mía', 'status' => 'active']);
+        $other = CashRegister::query()->create(['tenant_id' => $tenant->id, 'core_sucursal_id' => 9, 'core_sucursal_code' => 'S009', 'core_sucursal_name' => 'Otra sucursal', 'name' => 'Caja ajena', 'status' => 'active']);
+        $otherSession = CashSession::query()->create(['tenant_id' => $tenant->id, 'cash_register_id' => $other->id, 'opening_balance' => 500, 'business_date' => today(), 'opening_source' => 'manual', 'count_status' => 'pending', 'status' => 'open', 'opened_at' => now()]);
+        CashSession::query()->create(['tenant_id' => $tenant->id, 'cash_register_id' => $other->id, 'opening_balance' => 10, 'business_date' => today()->subDay(), 'opening_source' => 'manual', 'count_status' => 'pending_count', 'status' => 'closed_unverified', 'expected_balance' => 10, 'opened_at' => now()->subDay()]);
+        CashMovement::query()->create(['tenant_id' => $tenant->id, 'cash_register_id' => $other->id, 'cash_session_id' => $otherSession->id, 'direction' => 'in', 'kind' => 'manual_income', 'method' => 'cash', 'amount' => 777, 'description' => 'Ingreso ajeno', 'idempotency_key' => 'ajeno-overview', 'created_by' => $user->id, 'occurred_at' => now()]);
+        $base = "/api/v1/platform/tenants/{$tenant->id}/cash";
+
+        // Sin filtro explícito: nada de la otra sucursal (movimientos, resumen, cortes, sesión activa).
+        $this->actingAs($user)->getJson($base)->assertOk()
+            ->assertJsonCount(0, 'data')
+            ->assertJsonPath('summary.inflows', 0)
+            ->assertJsonCount(0, 'pending_counts')
+            ->assertJsonPath('active_session', null);
+        // Con filtro explícito a una caja ajena: 403.
+        $this->actingAs($user)->getJson($base.'?cash_register_id='.$other->id)->assertForbidden();
+        // Su propia caja sigue siendo consultable.
+        $this->actingAs($user)->getJson($base.'?cash_register_id='.$mine->id)->assertOk()->assertJsonCount(0, 'data');
+    }
+
+    public function test_cashier_overview_never_shows_an_open_session_from_another_branch(): void
+    {
+        [$user, $tenant] = $this->cashierMember(assignedSucursalId: 5);
+        CashRegister::query()->create(['tenant_id' => $tenant->id, 'core_sucursal_id' => 5, 'core_sucursal_code' => 'S005', 'core_sucursal_name' => 'Mi sucursal', 'name' => 'Caja mía', 'status' => 'active']);
+        $other = CashRegister::query()->create(['tenant_id' => $tenant->id, 'core_sucursal_id' => 9, 'core_sucursal_code' => 'S009', 'core_sucursal_name' => 'Otra sucursal', 'name' => 'Caja ajena', 'status' => 'active']);
+        CashSession::query()->create(['tenant_id' => $tenant->id, 'cash_register_id' => $other->id, 'opened_by' => $user->id, 'opening_balance' => 500, 'business_date' => today(), 'opening_source' => 'manual', 'count_status' => 'pending', 'status' => 'open', 'opened_at' => now()]);
+
+        $this->actingAs($user)->getJson("/api/v1/platform/tenants/{$tenant->id}/cash")->assertOk()->assertJsonPath('active_session', null);
+    }
+
+    public function test_a_cash_register_cannot_hold_two_open_sessions(): void
+    {
+        [$user, $tenant] = $this->member();
+        $register = CashRegister::query()->create(['tenant_id' => $tenant->id, 'core_sucursal_id' => 4, 'core_sucursal_code' => 'S004', 'core_sucursal_name' => 'Sucursal', 'name' => 'Caja', 'status' => 'active']);
+        $attributes = ['tenant_id' => $tenant->id, 'cash_register_id' => $register->id, 'opened_by' => $user->id, 'opening_balance' => 0, 'business_date' => today(), 'opening_source' => 'manual', 'count_status' => 'pending', 'status' => 'open', 'opened_at' => now()];
+        CashSession::query()->create($attributes);
+
+        $this->expectException(QueryException::class);
+        CashSession::query()->create([...$attributes, 'business_date' => today()->addDay()]);
+    }
+
+    public function test_a_session_cannot_be_opened_on_an_inactive_cash_register(): void
+    {
+        [$user, $tenant] = $this->member();
+        $register = CashRegister::query()->create(['tenant_id' => $tenant->id, 'core_sucursal_id' => 6, 'core_sucursal_code' => 'S006', 'core_sucursal_name' => 'Sucursal cerrada', 'name' => 'Caja desactivada', 'status' => 'inactive']);
+
+        $this->actingAs($user)->postJson("/api/v1/platform/tenants/{$tenant->id}/cash/sessions", ['opening_balance' => 10, 'cash_register_id' => $register->id])
+            ->assertStatus(422)->assertJsonValidationErrors('cash_register');
+        $this->assertDatabaseCount('cash_sessions', 0);
+    }
+
+    public function test_cash_settings_upsert_reports_a_validation_error_instead_of_failing_on_a_duplicate_active_branch(): void
+    {
+        [$user, $tenant] = $this->member();
+        CashRegister::query()->create(['tenant_id' => $tenant->id, 'core_sucursal_id' => 5, 'core_sucursal_code' => 'S005', 'core_sucursal_name' => 'Centro', 'name' => 'Caja activa', 'status' => 'active']);
+        CashRegister::query()->create(['tenant_id' => $tenant->id, 'core_sucursal_id' => 5, 'core_sucursal_code' => 'S005', 'core_sucursal_name' => 'Centro', 'name' => 'Caja histórica', 'status' => 'inactive']);
+        $payload = [
+            'core_sucursal_id' => 5, 'core_sucursal_code' => 'S005', 'core_sucursal_name' => 'Centro', 'name' => 'Caja Centro',
+            'timezone' => 'America/El_Salvador', 'default_opening_balance' => 0, 'carry_forward_balance' => true,
+            'auto_open_enabled' => false, 'auto_close_enabled' => false, 'close_grace_minutes' => 10,
+            'working_days' => [1, 2, 3, 4, 5], 'non_working_dates' => [], 'use_official_holidays' => false,
+            'allow_non_cash_when_closed' => true, 'active' => true,
+        ];
+
+        // Resuelve de forma determinista la caja YA activa, así que activar es idempotente.
+        $this->actingAs($user)->postJson("/api/v1/platform/tenants/{$tenant->id}/cash/settings", $payload)
+            ->assertOk()->assertJsonPath('data.name', 'Caja Centro');
+        $this->assertDatabaseHas('cash_registers', ['name' => 'Caja histórica', 'status' => 'inactive']);
+    }
+
+    public function test_reactivating_a_second_cash_register_of_the_same_branch_fails_with_a_validation_error(): void
+    {
+        [$user, $tenant] = $this->member();
+        CashRegister::query()->create(['tenant_id' => $tenant->id, 'core_sucursal_id' => 5, 'core_sucursal_code' => 'S005', 'core_sucursal_name' => 'Centro', 'name' => 'Caja activa', 'status' => 'active']);
+        $inactive = CashRegister::query()->create(['tenant_id' => $tenant->id, 'core_sucursal_id' => 5, 'core_sucursal_code' => 'S005', 'core_sucursal_name' => 'Centro', 'name' => 'Caja histórica', 'status' => 'inactive']);
+
+        $this->actingAs($user)->putJson("/api/v1/platform/tenants/{$tenant->id}/cash/settings/{$inactive->id}", [
+            'name' => 'Caja histórica', 'timezone' => 'America/El_Salvador', 'default_opening_balance' => 0, 'carry_forward_balance' => true,
+            'auto_open_enabled' => false, 'auto_close_enabled' => false, 'close_grace_minutes' => 10,
+            'working_days' => [1, 2, 3, 4, 5], 'non_working_dates' => [], 'use_official_holidays' => false,
+            'allow_non_cash_when_closed' => true, 'active' => true,
+        ])->assertStatus(422)->assertJsonValidationErrors('core_sucursal_id');
+        $this->assertDatabaseHas('cash_registers', ['id' => $inactive->id, 'status' => 'inactive']);
+    }
+
+    public function test_cashier_can_close_the_cash_register_of_their_own_branch(): void
+    {
+        [$user, $tenant] = $this->cashierMember(assignedSucursalId: 5);
+        $base = "/api/v1/platform/tenants/{$tenant->id}/cash";
+        $session = $this->actingAs($user)->postJson($base.'/sessions', ['opening_balance' => 40])->assertCreated()->json('data');
+
+        $this->actingAs($user)->postJson($base."/sessions/{$session['id']}/close", ['declared_balance' => 40])
+            ->assertOk()->assertJsonPath('data.difference', 0);
+    }
+
+    public function test_cashier_can_reverse_a_movement_of_their_branch_but_not_of_another(): void
+    {
+        [$user, $tenant] = $this->cashierMember(assignedSucursalId: 5);
+        $base = "/api/v1/platform/tenants/{$tenant->id}/cash";
+        $this->actingAs($user)->postJson($base.'/sessions', ['opening_balance' => 0])->assertCreated();
+        $mine = $this->postJson($base.'/movements', ['direction' => 'in', 'kind' => 'manual_income', 'method' => 'cash', 'amount' => 15, 'description' => 'Aporte', 'idempotency_key' => 'mine-1'])->assertCreated()->json('data');
+
+        $this->postJson($base."/movements/{$mine['id']}/reverse", ['reason' => 'Error de digitación'])
+            ->assertOk()->assertJsonPath('data.direction', 'out')->assertJsonPath('data.amount', 15);
+
+        $other = CashRegister::query()->create(['tenant_id' => $tenant->id, 'core_sucursal_id' => 9, 'core_sucursal_code' => 'S009', 'core_sucursal_name' => 'Otra sucursal', 'name' => 'Caja ajena', 'status' => 'active']);
+        $alien = CashMovement::query()->create(['tenant_id' => $tenant->id, 'cash_register_id' => $other->id, 'direction' => 'in', 'kind' => 'manual_income', 'method' => 'cash', 'amount' => 99, 'description' => 'Ingreso ajeno', 'idempotency_key' => 'alien-1', 'created_by' => $user->id, 'occurred_at' => now()]);
+
+        $this->postJson($base."/movements/{$alien->id}/reverse", ['reason' => 'Intento ajeno'])->assertForbidden();
+    }
+
+    public function test_cashier_completes_the_open_move_close_cycle_on_their_own_branch(): void
+    {
+        [$user, $tenant] = $this->cashierMember(assignedSucursalId: 5);
+        $base = "/api/v1/platform/tenants/{$tenant->id}/cash";
+
+        $session = $this->actingAs($user)->postJson($base.'/sessions', ['opening_balance' => 100])->assertCreated()->json('data');
+        $this->assertSame(5, $session['register']['branch_id']);
+        $this->postJson($base.'/movements', ['direction' => 'in', 'kind' => 'manual_income', 'method' => 'cash', 'amount' => 20, 'description' => 'Venta mostrador', 'idempotency_key' => 'ciclo-1'])->assertCreated();
+
+        $this->getJson($base)->assertOk()->assertJsonPath('active_session.id', $session['id'])->assertJsonPath('active_session.expected', 120);
+        $this->postJson($base."/sessions/{$session['id']}/close", ['declared_balance' => 120])->assertOk()->assertJsonPath('data.difference', 0);
+        $this->assertDatabaseHas('cash_sessions', ['id' => $session['id'], 'status' => 'closed']);
     }
 
     private function member(): array

@@ -10,10 +10,12 @@ use App\Models\CashSession;
 use App\Models\InventoryPurchase;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Models\UserTenantMembership;
 use App\Services\Cash\CashService;
 use App\Services\PlatformAccessPolicy;
 use App\Services\PlatformAuditLogger;
 use App\Support\Platform\PlatformRoles;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -33,21 +35,38 @@ class CashRegisterController extends Controller
             'page' => ['nullable', 'integer', 'min:1'], 'per_page' => ['nullable', 'integer', 'min:5', 'max:100'],
             'cash_register_id' => ['nullable', Rule::exists('cash_registers', 'id')->where('tenant_id', $tenant->id)],
         ]);
+        $selectedRegisterId = isset($data['cash_register_id']) ? (int) $data['cash_register_id'] : null;
+
+        // Un cajero (billing_user) solo puede ver el movimiento, el resumen, los cortes
+        // pendientes y la sesión activa de las cajas de su(s) sucursal(es) asignada(s);
+        // el resto de roles conserva la vista completa del tenant.
+        $membership = $policy->activeMembershipFor($request->user(), $tenant);
+        $isCashier = $membership?->role === PlatformRoles::BILLING_USER;
+        $branchIds = $isCashier ? $membership->fiscalAssignments()->where('status', 'active')->pluck('core_sucursal_id') : null;
+        $allowedRegisterIds = $isCashier ? $tenant->cashRegisters()->whereIn('core_sucursal_id', $branchIds)->pluck('id') : null;
+        if ($allowedRegisterIds !== null && $selectedRegisterId !== null) {
+            abort_unless($allowedRegisterIds->contains($selectedRegisterId), 403);
+        }
+
         $query = CashMovement::query()->where('tenant_id', $tenant->id)->with(['expense.supplier', 'order.device.customer']);
-        $query->when($data['cash_register_id'] ?? null, fn ($q, $registerId) => $q->where('cash_register_id', $registerId));
+        if ($allowedRegisterIds !== null) {
+            $query->whereIn('cash_register_id', $allowedRegisterIds);
+        }
+        $query->when($selectedRegisterId, fn ($q, $registerId) => $q->where('cash_register_id', $registerId));
         $query->when($data['date_from'] ?? null, fn ($q, $date) => $q->whereDate('occurred_at', '>=', $date));
         $query->when($data['date_to'] ?? null, fn ($q, $date) => $q->whereDate('occurred_at', '<=', $date));
         $query->when($data['method'] ?? null, fn ($q, $method) => $q->where('method', $method));
         $query->when($data['direction'] ?? null, fn ($q, $direction) => $q->where('direction', $direction));
         $summaryQuery = clone $query;
         $movements = $query->latest('occurred_at')->paginate((int) ($data['per_page'] ?? 20));
-        $selectedRegisterId = isset($data['cash_register_id']) ? (int) $data['cash_register_id'] : null;
-        $session = $cash->activeSession($tenant, $request->user()?->id, $selectedRegisterId);
+        $cashierBranchId = $isCashier && $selectedRegisterId === null ? $this->assignedBranchId($membership) : null;
+        $session = $isCashier && $selectedRegisterId === null && $cashierBranchId === null
+            ? null // Cajero sin asignación fiscal activa: no hay caja propia que mostrar.
+            : $cash->activeSession($tenant, $request->user()?->id, $selectedRegisterId, $cashierBranchId);
 
-        $membership = $policy->activeMembershipFor($request->user(), $tenant);
         $registersQuery = $tenant->cashRegisters()->where('status', 'active')->with('setting');
-        if ($membership?->role === PlatformRoles::BILLING_USER) {
-            $registersQuery->whereIn('core_sucursal_id', $membership->fiscalAssignments()->where('status', 'active')->pluck('core_sucursal_id'));
+        if ($branchIds !== null) {
+            $registersQuery->whereIn('core_sucursal_id', $branchIds);
         }
 
         return response()->json([
@@ -58,6 +77,7 @@ class CashRegisterController extends Controller
             ])->values(),
             'active_session' => $session ? $this->sessionPayload($session->load('register'), $cash) : null,
             'pending_counts' => CashSession::query()->where('tenant_id', $tenant->id)->where('status', 'closed_unverified')
+                ->when($allowedRegisterIds !== null, fn ($query) => $query->whereIn('cash_register_id', $allowedRegisterIds ?? []))
                 ->when($selectedRegisterId, fn ($query) => $query->where('cash_register_id', $selectedRegisterId))
                 ->with('register')->oldest('business_date')->get()->map(fn (CashSession $pending) => $this->sessionPayload($pending, $cash))->values(),
             'summary' => [
@@ -68,6 +88,14 @@ class CashRegisterController extends Controller
             'data' => collect($movements->items())->map(fn (CashMovement $movement) => $this->movementPayload($movement))->values(),
             'meta' => ['current_page' => $movements->currentPage(), 'last_page' => $movements->lastPage(), 'total' => $movements->total()],
         ]);
+    }
+
+    /** Sucursal de la asignación fiscal activa (preferente) de una membresía de cajero. */
+    private function assignedBranchId(?UserTenantMembership $membership): ?int
+    {
+        $assignment = $membership?->fiscalAssignments()->where('status', 'active')->orderByDesc('is_default')->first();
+
+        return $assignment?->core_sucursal_id !== null ? (int) $assignment->core_sucursal_id : null;
     }
 
     public function consolidated(Request $request, Tenant $tenant, PlatformAccessPolicy $policy, CashService $cash): JsonResponse
@@ -96,6 +124,9 @@ class CashRegisterController extends Controller
                 ? CashRegister::query()->where('tenant_id', $tenant->id)->findOrFail($data['cash_register_id'])
                 : $cash->defaultRegister($tenant, $this->branchForOpening($data, $policy, $request->user(), $tenant));
             abort_unless($policy->canOperateCashRegister($request->user(), $tenant, $register), 403);
+            if ($register->status !== 'active') {
+                throw ValidationException::withMessages(['cash_register' => 'Esta caja está inactiva.']);
+            }
             $locked = $register->sessions()->where('status', 'open')->lockForUpdate()->first();
             if ($locked) {
                 throw ValidationException::withMessages(['cash_register' => 'Esta caja ya tiene una sesión abierta.']);
@@ -107,12 +138,18 @@ class CashRegisterController extends Controller
                 throw ValidationException::withMessages(['cash_register' => 'Esta caja ya tiene una sesión para hoy.']);
             }
 
-            return CashSession::query()->create([
-                'tenant_id' => $tenant->id, 'cash_register_id' => $register->id,
-                'opened_by' => $request->user()->id, 'opening_balance' => $data['opening_balance'],
-                'business_date' => $businessDate, 'opening_source' => 'manual', 'count_status' => 'pending',
-                'status' => 'open', 'opening_notes' => $data['notes'] ?? null, 'opened_at' => now(),
-            ])->load('register');
+            try {
+                return CashSession::query()->create([
+                    'tenant_id' => $tenant->id, 'cash_register_id' => $register->id,
+                    'opened_by' => $request->user()->id, 'opening_balance' => $data['opening_balance'],
+                    'business_date' => $businessDate, 'opening_source' => 'manual', 'count_status' => 'pending',
+                    'status' => 'open', 'opening_notes' => $data['notes'] ?? null, 'opened_at' => now(),
+                ])->load('register');
+            } catch (UniqueConstraintViolationException) {
+                // Carrera contra otra apertura simultánea: el índice parcial único sobre
+                // (cash_register_id) WHERE status = 'open' es la última línea de defensa.
+                throw ValidationException::withMessages(['cash_register' => 'Esta caja ya tiene una sesión abierta.']);
+            }
         });
         $audit->record($request, 'cash.session.opened', ['cash_session_id' => $session->id]);
 
