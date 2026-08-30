@@ -480,6 +480,39 @@ class CashRegisterTest extends TestCase
         $this->assertSame('2026-08-06', $consolidated->first()['recent_closures'][0]['business_date']);
     }
 
+    public function test_history_ordering_is_stable_when_closures_share_a_business_date(): void
+    {
+        [$user, $tenant] = $this->member();
+        $registerA = CashRegister::query()->create(['tenant_id' => $tenant->id, 'core_sucursal_id' => 1, 'core_sucursal_code' => 'M001', 'core_sucursal_name' => 'Casa matriz', 'name' => 'Caja matriz', 'status' => 'active']);
+        $registerB = CashRegister::query()->create(['tenant_id' => $tenant->id, 'core_sucursal_id' => 2, 'core_sucursal_code' => 'S002', 'core_sucursal_name' => 'Sucursal 2', 'name' => 'Caja 2', 'status' => 'active']);
+        $sessionA = CashSession::query()->create(['tenant_id' => $tenant->id, 'cash_register_id' => $registerA->id, 'opened_by' => $user->id, 'closed_by' => $user->id, 'opening_balance' => 10, 'expected_balance' => 20, 'declared_balance' => 20, 'difference' => 0, 'business_date' => '2026-08-15', 'opening_source' => 'manual', 'count_status' => 'counted', 'status' => 'closed', 'opened_at' => now(), 'closed_at' => now()]);
+        $sessionB = CashSession::query()->create(['tenant_id' => $tenant->id, 'cash_register_id' => $registerB->id, 'opened_by' => $user->id, 'closed_by' => $user->id, 'opening_balance' => 10, 'expected_balance' => 30, 'declared_balance' => 30, 'difference' => 0, 'business_date' => '2026-08-15', 'opening_source' => 'manual', 'count_status' => 'counted', 'status' => 'closed', 'opened_at' => now(), 'closed_at' => now()]);
+
+        // Filler closures on a later business_date, on distinct registers (the
+        // register+business_date pair is unique), so pagination with per_page=5
+        // (the endpoint's minimum) lands the tied A/B rows right at the page
+        // boundary — exactly where a missing tiebreaker would duplicate/skip one.
+        // Created after A and B, so their ids are higher: with the id-desc
+        // tiebreaker they still sort ahead of A/B (later business_date wins),
+        // but among the tied A/B pair the tiebreaker forces B (higher id,
+        // created after A) ahead of A. Without the tiebreaker, ties fall back
+        // to insertion order, putting A ahead of B instead — deterministically
+        // flipping which row lands on which page.
+        foreach (range(3, 6) as $index) {
+            $fillerRegister = CashRegister::query()->create(['tenant_id' => $tenant->id, 'core_sucursal_id' => $index, 'core_sucursal_code' => 'F00'.$index, 'core_sucursal_name' => 'Sucursal filler '.$index, 'name' => 'Caja filler '.$index, 'status' => 'active']);
+            CashSession::query()->create(['tenant_id' => $tenant->id, 'cash_register_id' => $fillerRegister->id, 'opened_by' => $user->id, 'closed_by' => $user->id, 'opening_balance' => 10, 'expected_balance' => 20, 'declared_balance' => 20, 'difference' => 0, 'business_date' => '2026-08-20', 'opening_source' => 'manual', 'count_status' => 'counted', 'status' => 'closed', 'opened_at' => now(), 'closed_at' => now()]);
+        }
+
+        $page1 = $this->actingAs($user)->getJson("/api/v1/platform/tenants/{$tenant->id}/cash/history?per_page=5&page=1")->assertOk()->json('data');
+        $page2 = $this->getJson("/api/v1/platform/tenants/{$tenant->id}/cash/history?per_page=5&page=2")->assertOk()->json('data');
+
+        $ids = array_merge(array_column($page1, 'id'), array_column($page2, 'id'));
+        $this->assertCount(6, $ids);
+        $this->assertEqualsCanonicalizing($ids, array_unique($ids));
+        $this->assertSame($sessionB->id, $page1[4]['id'], 'la fila más reciente del empate (B) debe quedar en la página 1');
+        $this->assertSame($sessionA->id, $page2[0]['id'], 'la fila más antigua del empate (A) debe quedar en la página 2');
+    }
+
     private function member(): array
     {
         $app = PlatformApp::query()->create(['key' => 'facturacion', 'name' => 'Facturación', 'host' => 'new.stelfaro.com', 'default_path' => '/', 'status' => 'active']);

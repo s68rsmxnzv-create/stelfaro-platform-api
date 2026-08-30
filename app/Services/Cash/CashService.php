@@ -215,6 +215,7 @@ class CashService
                     ->where('cash_register_id', $register->id)
                     ->whereIn('status', ['closed', 'closed_unverified'])
                     ->latest('business_date')
+                    ->orderByDesc('closed_at')
                     ->limit(5)
                     ->get(['id', 'business_date', 'declared_balance', 'difference', 'status'])
                     ->map(fn (CashSession $closure) => [
@@ -269,6 +270,7 @@ class CashService
             ->when($filters['date_to'] ?? null, fn ($query, $date) => $query->whereDate('business_date', '<=', $date))
             ->with(['register', 'openedBy', 'closedBy'])
             ->latest('business_date')
+            ->orderByDesc('id')
             ->paginate((int) ($filters['per_page'] ?? 20), ['*'], 'page', (int) ($filters['page'] ?? 1));
     }
 
