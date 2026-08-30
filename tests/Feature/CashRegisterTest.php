@@ -27,7 +27,7 @@ class CashRegisterTest extends TestCase
     {
         [$user, $tenant] = $this->member();
         $base = "/api/v1/platform/tenants/{$tenant->id}/cash";
-        $session = $this->actingAs($user)->postJson($base.'/sessions', ['opening_balance' => 100, 'name' => 'Caja principal'])
+        $session = $this->actingAs($user)->postJson($base.'/sessions', ['opening_balance' => 100, 'name' => 'Caja principal', 'core_sucursal_id' => 1, 'core_sucursal_code' => 'M001', 'core_sucursal_name' => 'Casa matriz'])
             ->assertCreated()->json('data');
 
         $movement = $this->postJson($base.'/movements', ['direction' => 'out', 'kind' => 'supplier_purchase', 'method' => 'cash', 'amount' => 25, 'description' => 'Pantalla de repuesto', 'expense_category' => 'replacement', 'destination' => 'direct_order', 'idempotency_key' => 'expense-1'])
@@ -43,7 +43,7 @@ class CashRegisterTest extends TestCase
     {
         [$user, $tenant] = $this->member();
         $base = "/api/v1/platform/tenants/{$tenant->id}/cash";
-        $this->actingAs($user)->postJson($base.'/sessions', ['opening_balance' => 0])->assertCreated();
+        $this->actingAs($user)->postJson($base.'/sessions', ['opening_balance' => 0, 'core_sucursal_id' => 1, 'core_sucursal_code' => 'M001', 'core_sucursal_name' => 'Casa matriz'])->assertCreated();
         $expense = $this->postJson($base.'/movements', ['direction' => 'out', 'kind' => 'supplier_purchase', 'method' => 'cash', 'amount' => 30, 'description' => 'Repuesto', 'idempotency_key' => 'expense-2'])->assertCreated()->json('data.expense');
         $purchase = InventoryPurchase::query()->create(['tenant_id' => $tenant->id, 'purchase_number' => 1, 'document_type' => '03', 'purchase_date' => today(), 'subtotal' => 26.55, 'tax_amount' => 3.45, 'total' => 30, 'status' => 'received']);
 
@@ -55,7 +55,7 @@ class CashRegisterTest extends TestCase
     {
         [$user, $tenant] = $this->member();
         $base = "/api/v1/platform/tenants/{$tenant->id}/cash";
-        $session = $this->actingAs($user)->postJson($base.'/sessions', ['opening_balance' => 100, 'name' => 'Caja principal'])->assertCreated()->json('data');
+        $session = $this->actingAs($user)->postJson($base.'/sessions', ['opening_balance' => 100, 'name' => 'Caja principal', 'core_sucursal_id' => 1, 'core_sucursal_code' => 'M001', 'core_sucursal_name' => 'Casa matriz'])->assertCreated()->json('data');
 
         $this->postJson($base.'/movements', ['direction' => 'in', 'kind' => 'manual_income', 'method' => 'transfer', 'amount' => 50, 'description' => 'Cobro por transferencia', 'cash_register_id' => $session['register']['id'], 'idempotency_key' => 'transfer-1'])
             ->assertCreated();
@@ -82,7 +82,7 @@ class CashRegisterTest extends TestCase
     {
         [$user, $tenant] = $this->member();
         $base = "/api/v1/platform/tenants/{$tenant->id}/cash";
-        $session = $this->actingAs($user)->postJson($base.'/sessions', ['opening_balance' => 20, 'name' => 'Caja principal'])->assertCreated()->json('data');
+        $session = $this->actingAs($user)->postJson($base.'/sessions', ['opening_balance' => 20, 'name' => 'Caja principal', 'core_sucursal_id' => 1, 'core_sucursal_code' => 'M001', 'core_sucursal_name' => 'Casa matriz'])->assertCreated()->json('data');
         $sale = InventorySale::query()->create(['tenant_id' => $tenant->id, 'source_type' => 'dte', 'source_id' => '182', 'source_number' => 'DTE-01-M001P001-000000000000182', 'sale_date' => today(), 'operation_kind' => 'sale', 'fiscal_document_type' => '01', 'reporting_sign' => 1, 'net_amount' => 100, 'tax_amount' => 13, 'total_amount' => 113, 'status' => 'active', 'metadata' => ['payment_status' => 'receivable', 'outstanding_amount' => 113, 'customer_name' => 'Cliente crédito']]);
         $url = $base."/sales/{$sale->id}/payments";
 
@@ -188,6 +188,26 @@ class CashRegisterTest extends TestCase
         $this->assertSame(0, $second['cutoff']);
         $this->assertDatabaseHas('cash_sessions', ['cash_register_id' => $register->id, 'status' => 'closed_unverified', 'count_status' => 'pending_count', 'expected_balance' => 25]);
         CarbonImmutable::setTestNow();
+    }
+
+    public function test_opening_a_session_without_a_resolvable_branch_fails_with_a_clear_error(): void
+    {
+        [$user, $tenant] = $this->member();
+
+        $this->actingAs($user)->postJson("/api/v1/platform/tenants/{$tenant->id}/cash/sessions", ['opening_balance' => 50])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('cash_register');
+    }
+
+    public function test_default_register_is_identified_by_branch_not_by_name(): void
+    {
+        [, $tenant] = $this->member();
+
+        $first = app(\App\Services\Cash\CashService::class)->defaultRegister($tenant, ['core_sucursal_id' => 3, 'name' => 'Caja A']);
+        $second = app(\App\Services\Cash\CashService::class)->defaultRegister($tenant, ['core_sucursal_id' => 3, 'name' => 'Caja B']);
+
+        $this->assertSame($first->id, $second->id);
+        $this->assertDatabaseCount('cash_registers', 1);
     }
 
     private function member(): array

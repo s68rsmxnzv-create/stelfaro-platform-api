@@ -205,13 +205,17 @@ class CashService
             $branch = array_merge($branch, $this->resolveMainBranch($tenant));
         }
 
-        $branchId = isset($branch['core_sucursal_id']) ? (int) $branch['core_sucursal_id'] : null;
+        if (! isset($branch['core_sucursal_id'])) {
+            throw ValidationException::withMessages([
+                'cash_register' => 'No pudimos determinar la sucursal para esta caja. Indica una sucursal o configura la sucursal matriz en dte-core.',
+            ]);
+        }
 
         return CashRegister::query()->firstOrCreate([
             'tenant_id' => $tenant->id,
-            'core_sucursal_id' => $branchId,
-            'name' => trim((string) ($branch['name'] ?? 'Caja principal')),
+            'core_sucursal_id' => (int) $branch['core_sucursal_id'],
         ], [
+            'name' => trim((string) ($branch['name'] ?? 'Caja principal')),
             'core_sucursal_code' => $branch['core_sucursal_code'] ?? null,
             'core_sucursal_name' => $branch['core_sucursal_name'] ?? null,
             'status' => 'active',

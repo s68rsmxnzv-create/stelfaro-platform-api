@@ -33,7 +33,6 @@ class CashSettingsController extends Controller
             'non_working_dates' => ['nullable', 'array'], 'non_working_dates.*' => ['date_format:Y-m-d'], 'use_official_holidays' => ['required', 'boolean'], 'allow_non_cash_when_closed' => ['required', 'boolean'], 'active' => ['required', 'boolean'],
         ]);
         $register = CashRegister::query()->where('tenant_id', $tenant->id)->where('core_sucursal_id', $data['core_sucursal_id'])->first()
-            ?? CashRegister::query()->where('tenant_id', $tenant->id)->whereNull('core_sucursal_id')->whereDoesntHave('setting')->oldest()->first()
             ?? $cash->defaultRegister($tenant, $data);
         $register->forceFill(['core_sucursal_id' => $data['core_sucursal_id'], 'core_sucursal_code' => $data['core_sucursal_code'], 'core_sucursal_name' => $data['core_sucursal_name'], 'name' => $data['name'], 'status' => $data['active'] ? 'active' : 'inactive'])->save();
         CashRegisterSetting::query()->updateOrCreate(['cash_register_id' => $register->id], [...$data, 'tenant_id' => $tenant->id, 'updated_by' => $request->user()->id]);
