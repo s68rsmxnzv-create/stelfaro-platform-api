@@ -466,6 +466,20 @@ class CashRegisterTest extends TestCase
         $this->getJson("/api/v1/platform/tenants/{$tenant->id}/cash/history")->assertOk()->assertJsonCount(0, 'data');
     }
 
+    public function test_consolidated_includes_up_to_five_recent_closures_per_branch(): void
+    {
+        [$user, $tenant] = $this->member();
+        $register = CashRegister::query()->create(['tenant_id' => $tenant->id, 'core_sucursal_id' => 1, 'core_sucursal_code' => 'M001', 'core_sucursal_name' => 'Casa matriz', 'name' => 'Caja matriz', 'status' => 'active']);
+        foreach (range(1, 6) as $day) {
+            CashSession::query()->create(['tenant_id' => $tenant->id, 'cash_register_id' => $register->id, 'opened_by' => $user->id, 'closed_by' => $user->id, 'opening_balance' => 10, 'expected_balance' => 20, 'declared_balance' => 20, 'difference' => 0, 'business_date' => sprintf('2026-08-%02d', $day), 'opening_source' => 'manual', 'count_status' => 'counted', 'status' => 'closed', 'opened_at' => now(), 'closed_at' => now()]);
+        }
+
+        $consolidated = app(\App\Services\Cash\CashService::class)->consolidated($tenant);
+
+        $this->assertCount(5, $consolidated->first()['recent_closures']);
+        $this->assertSame('2026-08-06', $consolidated->first()['recent_closures'][0]['business_date']);
+    }
+
     private function member(): array
     {
         $app = PlatformApp::query()->create(['key' => 'facturacion', 'name' => 'Facturación', 'host' => 'new.stelfaro.com', 'default_path' => '/', 'status' => 'active']);

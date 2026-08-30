@@ -200,7 +200,7 @@ class CashService
         ];
     }
 
-    /** @return Collection<int, array{branch_id:int, branch_code:?string, branch_name:?string, register_id:int, status:string, opened_by:?string, opened_at:?string, balance:?float}> */
+    /** @return Collection<int, array{branch_id:int, branch_code:?string, branch_name:?string, register_id:int, status:string, opened_by:?string, opened_at:?string, balance:?float, recent_closures:array}> */
     public function consolidated(Tenant $tenant): Collection
     {
         return CashRegister::query()
@@ -211,6 +211,21 @@ class CashService
             ->orderBy('name')
             ->get()
             ->map(function (CashRegister $register): array {
+                $recentClosures = CashSession::query()
+                    ->where('cash_register_id', $register->id)
+                    ->whereIn('status', ['closed', 'closed_unverified'])
+                    ->latest('business_date')
+                    ->limit(5)
+                    ->get(['id', 'business_date', 'declared_balance', 'difference', 'status'])
+                    ->map(fn (CashSession $closure) => [
+                        'id' => $closure->id,
+                        'business_date' => $closure->business_date?->toDateString(),
+                        'declared_balance' => $closure->declared_balance !== null ? (float) $closure->declared_balance : null,
+                        'difference' => $closure->difference !== null ? (float) $closure->difference : null,
+                        'status' => $closure->status,
+                    ])
+                    ->values();
+
                 $session = $register->sessions->first();
                 if ($session) {
                     return [
@@ -222,6 +237,7 @@ class CashService
                         'opened_by' => $session->openedBy?->name,
                         'opened_at' => $session->opened_at?->toISOString(),
                         'balance' => $this->sessionTotals($session)['expected'],
+                        'recent_closures' => $recentClosures,
                     ];
                 }
 
@@ -236,6 +252,7 @@ class CashService
                     'opened_by' => null,
                     'opened_at' => null,
                     'balance' => $lastClosed?->declared_balance !== null ? (float) $lastClosed->declared_balance : null,
+                    'recent_closures' => $recentClosures,
                 ];
             });
     }
