@@ -136,6 +136,7 @@ class InventoryPurchaseImportService
         $description = $this->cleanLineDescription($rawDescription);
         $supplierCode = $this->lineCode($line, $rawDescription);
         $item = $this->matchItem($tenant, $description);
+        $isFuel = $this->isFuelLine($line);
 
         return [
             'description' => $description,
@@ -144,7 +145,8 @@ class InventoryPurchaseImportService
             'subtotal' => round($this->lineSubtotal($line), 2),
             'unit_code' => (string) (Arr::get($line, 'uniMedida') ?: '59'),
             'supplier_code' => $supplierCode,
-            'no_inventory' => $this->inferNoInventory($description) || ($item && ! $item->controls_inventory),
+            'is_fuel' => $isFuel,
+            'no_inventory' => $isFuel || $this->inferNoInventory($description) || ($item && ! $item->controls_inventory),
             'matched_catalog_item' => $item ? [
                 'id' => $item->id,
                 'sku' => $item->sku,
@@ -212,18 +214,15 @@ class InventoryPurchaseImportService
 
     private function fuelCharges(array $dte): ?array
     {
-        $body = Arr::get($dte, 'cuerpoDocumento', []);
-        $gallons = collect(is_array($body) ? $body : [])->sum(fn ($line): float => $this->gallons($line));
-        if ($gallons <= 0) {
-            return null;
-        }
-
         $fovial = 0.0;
         $cotrans = 0.0;
         foreach ((array) Arr::get($dte, 'resumen.tributos', []) as $tax) {
             $code = strtoupper(trim((string) Arr::get($tax, 'codigo')));
             $description = $this->normalizeText((string) Arr::get($tax, 'descripcion'));
             $value = (float) Arr::get($tax, 'valor', 0);
+            if ($value <= 0) {
+                continue;
+            }
             if ($code === 'D1' || str_contains($description, 'FOVIAL')) {
                 $fovial += $value;
             } elseif ($code === 'C8' || str_contains($description, 'COTRANS')) {
@@ -235,11 +234,58 @@ class InventoryPurchaseImportService
             return null;
         }
 
+        $body = Arr::get($dte, 'cuerpoDocumento', []);
+        $units = $this->fuelUnits(is_array($body) ? $body : []);
+        if ($units <= 0) {
+            return null;
+        }
+
         return [
-            'gallons' => round($gallons, 3),
-            'fovial_per_unit' => round($fovial / $gallons, 4),
-            'cotrans_per_unit' => round($cotrans / $gallons, 4),
+            'gallons' => round($units, 3),
+            'fovial_per_unit' => round($fovial / $units, 4),
+            'cotrans_per_unit' => round($cotrans / $units, 4),
         ];
+    }
+
+    /**
+     * Base de unidades para prorratear FOVIAL/COTRANS: cantidad de las lineas
+     * afectas a esos tributos (los DTE de gasolinera usan uniMedida 99 y
+     * descripciones como "DIESEL"/"GASOLINA", que la heuristica de galones no
+     * reconoce). Fallbacks: heuristica de galones -> suma de todas las cantidades.
+     *
+     * @param  array<int, mixed>  $body
+     */
+    private function fuelUnits(array $body): float
+    {
+        $taxed = 0.0;
+        $all = 0.0;
+        foreach ($body as $line) {
+            if (! is_array($line)) {
+                continue;
+            }
+
+            $quantity = (float) Arr::get($line, 'cantidad', 0);
+            if ($quantity <= 0) {
+                continue;
+            }
+
+            $all += $quantity;
+            $tributos = array_map(
+                static fn ($code): string => strtoupper(trim((string) $code)),
+                (array) Arr::get($line, 'tributos', [])
+            );
+            if (in_array('D1', $tributos, true) || in_array('C8', $tributos, true)) {
+                $taxed += $quantity;
+            }
+        }
+
+        if ($taxed > 0) {
+            return $taxed;
+        }
+
+        $gallons = (float) collect($body)->sum(fn ($line): float => $this->gallons($line));
+
+        return $gallons > 0 ? $gallons : $all;
     }
 
     private function taxPerceived(array $dte): float
@@ -328,6 +374,22 @@ class InventoryPurchaseImportService
         };
     }
 
+    /**
+     * Combustible (gasolina/diesel): la linea lleva FOVIAL (D1) y COTRANS (C8)
+     * en sus tributos. Es un consumible, por lo que no ingresa a inventario.
+     *
+     * @param  array<string, mixed>  $line
+     */
+    private function isFuelLine(array $line): bool
+    {
+        $tributos = array_map(
+            static fn ($code): string => strtoupper(trim((string) $code)),
+            (array) Arr::get($line, 'tributos', [])
+        );
+
+        return in_array('D1', $tributos, true) && in_array('C8', $tributos, true);
+    }
+
     private function inferNoInventory(string $description): bool
     {
         $text = $this->normalizeText($description);
@@ -402,5 +464,4 @@ class InventoryPurchaseImportService
     {
         return trim((string) preg_replace('/[^A-Z0-9]+/', ' ', strtoupper(Str::ascii($value))));
     }
-
 }

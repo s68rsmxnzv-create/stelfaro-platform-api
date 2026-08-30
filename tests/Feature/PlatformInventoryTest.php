@@ -329,6 +329,60 @@ class PlatformInventoryTest extends TestCase
             ->assertJsonPath('data.lines.0.matched_catalog_item.id', $item->id);
     }
 
+    public function test_dte_json_import_detects_fuel_charges_when_unit_is_99_and_description_is_diesel(): void
+    {
+        [$owner, $tenant] = $this->userWithTenantRole('owner');
+        $item = $this->inventoryItem($tenant, 'DIE-001');
+        $item->forceFill(['name' => 'DIESEL', 'unit_code' => '99'])->save();
+
+        $payload = [
+            'identificacion' => [
+                'tipoDte' => '03',
+                'codigoGeneracion' => 'FUEL-PUMA-1',
+                'numeroControl' => 'DTE-03-M001P003-000000000023544',
+                'fecEmi' => '2026-08-28',
+            ],
+            'emisor' => ['nit' => '13152512681011', 'nrc' => '901679', 'nombre' => 'ESTACION PUMA'],
+            'cuerpoDocumento' => [[
+                'numItem' => 1,
+                'descripcion' => 'DIESEL',
+                'cantidad' => 4.3764,
+                'uniMedida' => 99,
+                'precioUni' => 3.7788,
+                'ventaGravada' => 16.5375,
+                'tributos' => ['20', 'D1', 'C8'],
+            ]],
+            'resumen' => [
+                'condicionOperacion' => 1,
+                'totalNoSuj' => 0,
+                'totalExenta' => 0,
+                'totalGravada' => 16.54,
+                'subTotalVentas' => 16.54,
+                'tributos' => [
+                    ['codigo' => '20', 'descripcion' => 'Impuesto al Valor Agregado 13%', 'valor' => 2.15],
+                    ['codigo' => 'D1', 'descripcion' => 'FOVIAL ($0.20 Ctvs. por galón)', 'valor' => 0.88],
+                    ['codigo' => 'C8', 'descripcion' => 'COTRANS ($0.10 Ctvs. por galón)', 'valor' => 0.44],
+                ],
+                'montoTotalOperacion' => 20,
+                'totalPagar' => 20,
+            ],
+        ];
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/platform/tenants/{$tenant->id}/inventory/purchases/import-dte-json", [
+                'payload' => $payload,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.document.apply_fuel_charges', true)
+            ->assertJsonPath('data.document.subtotal', 16.54)
+            ->assertJsonPath('data.document.tax_amount', 2.15)
+            ->assertJsonPath('data.document.fovial_per_unit', 0.2011)
+            ->assertJsonPath('data.document.cotrans_per_unit', 0.1005)
+            ->assertJsonPath('data.lines.0.is_fuel', true)
+            ->assertJsonPath('data.lines.0.no_inventory', true)
+            ->assertJsonPath('data.lines.0.matched_catalog_item.id', $item->id);
+    }
+
     public function test_dte_json_import_rejects_an_existing_document_during_preview(): void
     {
         [$owner, $tenant] = $this->userWithTenantRole('owner');
