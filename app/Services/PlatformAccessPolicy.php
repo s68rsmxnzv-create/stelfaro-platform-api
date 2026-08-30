@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\CashRegister;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Models\UserTenantMembership;
@@ -106,6 +107,42 @@ class PlatformAccessPolicy
                 PlatformRoles::BILLING_USER,
                 PlatformRoles::SELLER,
             ], true);
+    }
+
+    public function canOperateCashRegister(?User $user, Tenant|int $tenant, CashRegister $register): bool
+    {
+        if ($this->hasGlobalAdminRole($user)) {
+            return true;
+        }
+
+        $membership = $this->activeMembershipFor($user, $tenant);
+
+        if ($membership === null) {
+            return false;
+        }
+
+        if ($membership->role === PlatformRoles::BILLING_USER) {
+            return $membership->fiscalAssignments()
+                ->where('status', 'active')
+                ->where('core_sucursal_id', $register->core_sucursal_id)
+                ->exists();
+        }
+
+        return in_array($membership->role, [
+            PlatformRoles::OWNER,
+            PlatformRoles::COMPANY_ADMIN,
+            PlatformRoles::BILLING_ADMIN,
+            PlatformRoles::SELLER,
+        ], true);
+    }
+
+    public function canViewCashConsolidated(?User $user, Tenant|int $tenant): bool
+    {
+        if ($this->hasGlobalAdminRole($user)) {
+            return true;
+        }
+
+        return $this->hasTenantUserAdminRole($user, $tenant);
     }
 
     public function canInviteTenantUsers(?User $user, Tenant|int $tenant): bool
@@ -224,7 +261,7 @@ class PlatformAccessPolicy
             && PlatformRoles::isTenantUserAdminRole($membership->role);
     }
 
-    private function activeMembershipFor(?User $user, Tenant|int $tenant): ?UserTenantMembership
+    public function activeMembershipFor(?User $user, Tenant|int $tenant): ?UserTenantMembership
     {
         if (! $user) {
             return null;

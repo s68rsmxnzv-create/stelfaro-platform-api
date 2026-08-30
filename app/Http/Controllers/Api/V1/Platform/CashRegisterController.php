@@ -9,9 +9,11 @@ use App\Models\CashRegister;
 use App\Models\CashSession;
 use App\Models\InventoryPurchase;
 use App\Models\Tenant;
+use App\Models\User;
 use App\Services\Cash\CashService;
 use App\Services\PlatformAccessPolicy;
 use App\Services\PlatformAuditLogger;
+use App\Support\Platform\PlatformRoles;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -42,8 +44,14 @@ class CashRegisterController extends Controller
         $selectedRegisterId = isset($data['cash_register_id']) ? (int) $data['cash_register_id'] : null;
         $session = $cash->activeSession($tenant, $request->user()?->id, $selectedRegisterId);
 
+        $membership = $policy->activeMembershipFor($request->user(), $tenant);
+        $registersQuery = $tenant->cashRegisters()->where('status', 'active')->with('setting');
+        if ($membership?->role === PlatformRoles::BILLING_USER) {
+            $registersQuery->whereIn('core_sucursal_id', $membership->fiscalAssignments()->where('status', 'active')->pluck('core_sucursal_id'));
+        }
+
         return response()->json([
-            'registers' => $tenant->cashRegisters()->where('status', 'active')->with('setting')->orderBy('core_sucursal_name')->orderBy('name')->get()->map(fn (CashRegister $register) => [
+            'registers' => $registersQuery->orderBy('core_sucursal_name')->orderBy('name')->get()->map(fn (CashRegister $register) => [
                 'id' => $register->id, 'name' => $register->name, 'status' => $register->status,
                 'branch_id' => $register->core_sucursal_id, 'branch_code' => $register->core_sucursal_code, 'branch_name' => $register->core_sucursal_name,
                 'configured' => $register->setting !== null,
@@ -72,10 +80,11 @@ class CashRegisterController extends Controller
             'cash_register_id' => ['nullable', Rule::exists('cash_registers', 'id')->where('tenant_id', $tenant->id)],
         ]);
 
-        $session = DB::transaction(function () use ($tenant, $request, $cash, $data): CashSession {
+        $session = DB::transaction(function () use ($tenant, $request, $cash, $data, $policy): CashSession {
             $register = isset($data['cash_register_id'])
                 ? CashRegister::query()->where('tenant_id', $tenant->id)->findOrFail($data['cash_register_id'])
-                : $cash->defaultRegister($tenant, $data);
+                : $cash->defaultRegister($tenant, $this->branchForOpening($data, $policy, $request->user(), $tenant));
+            abort_unless($policy->canOperateCashRegister($request->user(), $tenant, $register), 403);
             $locked = $register->sessions()->where('status', 'open')->lockForUpdate()->first();
             if ($locked) {
                 throw ValidationException::withMessages(['cash_register' => 'Esta caja ya tiene una sesión abierta.']);
@@ -99,10 +108,37 @@ class CashRegisterController extends Controller
         return response()->json(['data' => $this->sessionPayload($session, $cash)], 201);
     }
 
+    /**
+     * Si no viene una sucursal explícita en la petición y quien abre es un cajero
+     * (billing_user), usa la sucursal de su asignación fiscal activa en vez de caer
+     * en la sucursal matriz del tenant — un cajero siempre abre su propia caja.
+     *
+     * @return array<string, mixed>
+     */
+    private function branchForOpening(array $data, PlatformAccessPolicy $policy, ?User $user, Tenant $tenant): array
+    {
+        if (isset($data['core_sucursal_id'])) {
+            return $data;
+        }
+
+        $membership = $policy->activeMembershipFor($user, $tenant);
+        if ($membership?->role !== PlatformRoles::BILLING_USER) {
+            return $data;
+        }
+
+        $assignment = $membership->fiscalAssignments()->where('status', 'active')->orderByDesc('is_default')->first();
+        if ($assignment === null) {
+            return $data;
+        }
+
+        return [...$data, 'core_sucursal_id' => $assignment->core_sucursal_id];
+    }
+
     public function close(Request $request, Tenant $tenant, CashSession $cashSession, PlatformAccessPolicy $policy, CashService $cash, PlatformAuditLogger $audit): JsonResponse
     {
         abort_unless($cashSession->tenant_id === $tenant->id, 404);
         abort_unless($policy->canOperateTenant($request->user(), $tenant), 403);
+        abort_unless($policy->canOperateCashRegister($request->user(), $tenant, $cashSession->register), 403);
         $data = $request->validate(['declared_balance' => ['required', 'numeric', 'min:0', 'max:999999999999.99'], 'notes' => ['nullable', 'string', 'max:1000']]);
         $session = DB::transaction(function () use ($cashSession, $cash, $data, $request): CashSession {
             $locked = CashSession::query()->whereKey($cashSession->id)->lockForUpdate()->firstOrFail();
@@ -140,17 +176,21 @@ class CashRegisterController extends Controller
         if (in_array($data['kind'], ['expense', 'supplier_purchase', 'withdrawal'], true) && $data['direction'] !== 'out') {
             throw ValidationException::withMessages(['direction' => 'Este tipo de movimiento debe ser una salida.']);
         }
-        $movement = DB::transaction(function () use ($tenant, $request, $cash, $data): CashMovement {
+        $movement = DB::transaction(function () use ($tenant, $request, $cash, $data, $policy): CashMovement {
             $registerId = isset($data['cash_register_id']) ? (int) $data['cash_register_id'] : null;
             $session = $cash->activeSession($tenant, $request->user()->id, $registerId);
             if ($data['method'] === 'cash' && ! $session) {
                 throw ValidationException::withMessages(['method' => 'Abre una caja antes de registrar efectivo.']);
             }
+            $register = $session?->register;
             if ($data['method'] !== 'cash' && $registerId) {
                 $register = CashRegister::query()->where('tenant_id', $tenant->id)->with('setting')->findOrFail($registerId);
                 if ($register->setting && ! $register->setting->allow_non_cash_when_closed && ! $cash->activeSession($tenant, $request->user()->id, $registerId)) {
                     throw ValidationException::withMessages(['method' => 'Esta caja debe estar abierta para registrar cualquier forma de pago.']);
                 }
+            }
+            if ($register) {
+                abort_unless($policy->canOperateCashRegister($request->user(), $tenant, $register), 403);
             }
             $expense = null;
             if ($data['direction'] === 'out' && in_array($data['kind'], ['expense', 'supplier_purchase'], true)) {
@@ -176,6 +216,9 @@ class CashRegisterController extends Controller
     {
         abort_unless($cashMovement->tenant_id === $tenant->id, 404);
         abort_unless($policy->canOperateTenant($request->user(), $tenant), 403);
+        if ($cashMovement->cash_register_id) {
+            abort_unless($policy->canOperateCashRegister($request->user(), $tenant, $cashMovement->register), 403);
+        }
         $data = $request->validate(['reason' => ['required', 'string', 'max:500']]);
         $reversal = DB::transaction(function () use ($cashMovement, $request, $tenant, $data): CashMovement {
             $locked = CashMovement::query()->whereKey($cashMovement->id)->lockForUpdate()->firstOrFail();

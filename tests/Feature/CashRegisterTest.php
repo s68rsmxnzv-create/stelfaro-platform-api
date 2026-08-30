@@ -210,6 +210,71 @@ class CashRegisterTest extends TestCase
         $this->assertDatabaseCount('cash_registers', 1);
     }
 
+    public function test_cashier_can_only_open_the_cash_register_of_their_assigned_branch(): void
+    {
+        [$user, $tenant] = $this->cashierMember(assignedSucursalId: 5);
+        $base = "/api/v1/platform/tenants/{$tenant->id}/cash";
+
+        $this->actingAs($user)->postJson($base.'/sessions', ['opening_balance' => 50, 'core_sucursal_id' => 9, 'core_sucursal_code' => 'S009', 'core_sucursal_name' => 'Otra sucursal'])
+            ->assertForbidden();
+
+        $this->actingAs($user)->postJson($base.'/sessions', ['opening_balance' => 50, 'core_sucursal_id' => 5, 'core_sucursal_code' => 'S005', 'core_sucursal_name' => 'Mi sucursal'])
+            ->assertCreated();
+    }
+
+    public function test_cashier_opening_a_session_without_specifying_a_branch_uses_their_assigned_branch(): void
+    {
+        [$user, $tenant] = $this->cashierMember(assignedSucursalId: 5);
+        $base = "/api/v1/platform/tenants/{$tenant->id}/cash";
+
+        $session = $this->actingAs($user)->postJson($base.'/sessions', ['opening_balance' => 50])
+            ->assertCreated()->json('data');
+
+        $this->assertSame(5, $session['register']['branch_id']);
+    }
+
+    public function test_cashier_cannot_close_a_cash_register_of_another_branch(): void
+    {
+        [$user, $tenant] = $this->cashierMember(assignedSucursalId: 5);
+        $register = CashRegister::query()->create(['tenant_id' => $tenant->id, 'core_sucursal_id' => 9, 'core_sucursal_code' => 'S009', 'core_sucursal_name' => 'Otra sucursal', 'name' => 'Caja otra sucursal', 'status' => 'active']);
+        $session = CashSession::query()->create(['tenant_id' => $tenant->id, 'cash_register_id' => $register->id, 'opening_balance' => 0, 'business_date' => today(), 'opening_source' => 'manual', 'count_status' => 'pending', 'status' => 'open', 'opened_at' => now()]);
+
+        $this->actingAs($user)->postJson("/api/v1/platform/tenants/{$tenant->id}/cash/sessions/{$session->id}/close", ['declared_balance' => 0])
+            ->assertForbidden();
+    }
+
+    public function test_cashier_cannot_register_a_movement_against_another_branchs_cash_register(): void
+    {
+        [$user, $tenant] = $this->cashierMember(assignedSucursalId: 5);
+        $register = CashRegister::query()->create(['tenant_id' => $tenant->id, 'core_sucursal_id' => 9, 'core_sucursal_code' => 'S009', 'core_sucursal_name' => 'Otra sucursal', 'name' => 'Caja otra sucursal', 'status' => 'active']);
+        CashSession::query()->create(['tenant_id' => $tenant->id, 'cash_register_id' => $register->id, 'opening_balance' => 0, 'business_date' => today(), 'opening_source' => 'manual', 'count_status' => 'pending', 'status' => 'open', 'opened_at' => now()]);
+
+        $this->actingAs($user)->postJson("/api/v1/platform/tenants/{$tenant->id}/cash/movements", [
+            'direction' => 'in', 'kind' => 'manual_income', 'method' => 'cash', 'amount' => 10,
+            'description' => 'Intento ajeno', 'idempotency_key' => 'ajeno-1', 'cash_register_id' => $register->id,
+        ])->assertForbidden();
+    }
+
+    public function test_cashier_without_a_fiscal_assignment_cannot_operate_any_cash_register(): void
+    {
+        [$user, $tenant] = $this->cashierMember(assignedSucursalId: null);
+
+        $this->actingAs($user)->postJson("/api/v1/platform/tenants/{$tenant->id}/cash/sessions", ['opening_balance' => 50, 'core_sucursal_id' => 1, 'core_sucursal_code' => 'M001', 'core_sucursal_name' => 'Casa matriz'])
+            ->assertForbidden();
+    }
+
+    public function test_cashier_only_sees_the_cash_register_of_their_assigned_branch_in_the_overview(): void
+    {
+        [$user, $tenant] = $this->cashierMember(assignedSucursalId: 5);
+        CashRegister::query()->create(['tenant_id' => $tenant->id, 'core_sucursal_id' => 5, 'core_sucursal_code' => 'S005', 'core_sucursal_name' => 'Mi sucursal', 'name' => 'Caja mía', 'status' => 'active']);
+        CashRegister::query()->create(['tenant_id' => $tenant->id, 'core_sucursal_id' => 9, 'core_sucursal_code' => 'S009', 'core_sucursal_name' => 'Otra sucursal', 'name' => 'Caja ajena', 'status' => 'active']);
+
+        $this->actingAs($user)->getJson("/api/v1/platform/tenants/{$tenant->id}/cash")
+            ->assertOk()
+            ->assertJsonCount(1, 'registers')
+            ->assertJsonPath('registers.0.branch_id', 5);
+    }
+
     private function member(): array
     {
         $app = PlatformApp::query()->create(['key' => 'facturacion', 'name' => 'Facturación', 'host' => 'new.stelfaro.com', 'default_path' => '/', 'status' => 'active']);
@@ -217,6 +282,20 @@ class CashRegisterTest extends TestCase
         $tenant->appAccesses()->create(['platform_app_id' => $app->id, 'status' => 'active', 'is_default' => true]);
         $user = User::factory()->create(['email_verified_at' => now(), 'must_change_password' => false]);
         $user->memberships()->create(['tenant_id' => $tenant->id, 'role' => 'company_admin', 'status' => 'active', 'is_default' => true]);
+
+        return [$user, $tenant];
+    }
+
+    private function cashierMember(?int $assignedSucursalId): array
+    {
+        $app = PlatformApp::query()->create(['key' => 'facturacion', 'name' => 'Facturación', 'host' => 'new.stelfaro.com', 'default_path' => '/', 'status' => 'active']);
+        $tenant = Tenant::query()->create(['slug' => 'cash-cashier-company', 'name' => 'Cash Cashier Company', 'status' => 'active', 'primary_app_id' => $app->id]);
+        $tenant->appAccesses()->create(['platform_app_id' => $app->id, 'status' => 'active', 'is_default' => true]);
+        $user = User::factory()->create(['email_verified_at' => now(), 'must_change_password' => false]);
+        $membership = $user->memberships()->create(['tenant_id' => $tenant->id, 'role' => 'billing_user', 'status' => 'active', 'is_default' => true]);
+        if ($assignedSucursalId !== null) {
+            $membership->fiscalAssignments()->create(['core_empresa_id' => 900, 'core_sucursal_id' => $assignedSucursalId, 'core_punto_venta_id' => 1, 'is_default' => true, 'status' => 'active']);
+        }
 
         return [$user, $tenant];
     }
