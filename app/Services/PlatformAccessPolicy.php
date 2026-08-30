@@ -7,6 +7,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Models\UserTenantMembership;
 use App\Support\Platform\PlatformRoles;
+use Illuminate\Support\Collection;
 
 class PlatformAccessPolicy
 {
@@ -134,6 +135,32 @@ class PlatformAccessPolicy
             PlatformRoles::BILLING_ADMIN,
             PlatformRoles::SELLER,
         ], true);
+    }
+
+    /**
+     * IDs de cash_registers que esta membresía puede ver/operar, o null si no hay
+     * restricción (todas las cajas del tenant). Hoy solo el cajero (billing_user)
+     * queda acotado a la(s) sucursal(es) de su asignación fiscal activa.
+     */
+    public function allowedCashRegisterIds(?User $user, Tenant|int $tenant): ?Collection
+    {
+        if ($this->hasGlobalAdminRole($user)) {
+            return null;
+        }
+
+        $membership = $this->activeMembershipFor($user, $tenant);
+        if ($membership === null) {
+            return collect();
+        }
+
+        if ($membership->role !== PlatformRoles::BILLING_USER) {
+            return null;
+        }
+
+        $tenantId = $tenant instanceof Tenant ? $tenant->id : $tenant;
+        $branchIds = $membership->fiscalAssignments()->where('status', 'active')->pluck('core_sucursal_id');
+
+        return CashRegister::query()->where('tenant_id', $tenantId)->whereIn('core_sucursal_id', $branchIds)->pluck('id');
     }
 
     public function canViewCashConsolidated(?User $user, Tenant|int $tenant): bool

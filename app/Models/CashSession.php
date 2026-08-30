@@ -25,6 +25,11 @@ class CashSession extends Model
         return $this->belongsTo(User::class, 'opened_by');
     }
 
+    public function closedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'closed_by');
+    }
+
     public function movements(): HasMany
     {
         return $this->hasMany(CashMovement::class);

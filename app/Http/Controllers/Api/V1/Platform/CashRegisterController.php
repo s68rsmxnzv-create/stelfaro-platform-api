@@ -42,8 +42,7 @@ class CashRegisterController extends Controller
         // el resto de roles conserva la vista completa del tenant.
         $membership = $policy->activeMembershipFor($request->user(), $tenant);
         $isCashier = $membership?->role === PlatformRoles::BILLING_USER;
-        $branchIds = $isCashier ? $membership->fiscalAssignments()->where('status', 'active')->pluck('core_sucursal_id') : null;
-        $allowedRegisterIds = $isCashier ? $tenant->cashRegisters()->whereIn('core_sucursal_id', $branchIds)->pluck('id') : null;
+        $allowedRegisterIds = $policy->allowedCashRegisterIds($request->user(), $tenant);
         if ($allowedRegisterIds !== null && $selectedRegisterId !== null) {
             abort_unless($allowedRegisterIds->contains($selectedRegisterId), 403);
         }
@@ -65,8 +64,8 @@ class CashRegisterController extends Controller
             : $cash->activeSession($tenant, $request->user()?->id, $selectedRegisterId, $cashierBranchId);
 
         $registersQuery = $tenant->cashRegisters()->where('status', 'active')->with('setting');
-        if ($branchIds !== null) {
-            $registersQuery->whereIn('core_sucursal_id', $branchIds);
+        if ($allowedRegisterIds !== null) {
+            $registersQuery->whereIn('id', $allowedRegisterIds);
         }
 
         return response()->json([
