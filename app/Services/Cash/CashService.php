@@ -12,6 +12,7 @@ use App\Models\Tenant;
 use App\Models\WorkshopOrderPayment;
 use App\Services\CoreFiscalScopeClient;
 use App\Services\TenantFiscalLinkResolver;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -197,6 +198,46 @@ class CashService
             'outflows' => round($outflows, 2),
             'expected' => round((float) $session->opening_balance + $inflows - $outflows, 2),
         ];
+    }
+
+    /** @return Collection<int, array{branch_id:int, branch_code:?string, branch_name:?string, register_id:int, status:string, opened_by:?string, opened_at:?string, balance:?float}> */
+    public function consolidated(Tenant $tenant): Collection
+    {
+        return CashRegister::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('status', 'active')
+            ->with(['sessions' => fn ($query) => $query->where('status', 'open')->latest('opened_at')->limit(1)->with('openedBy')])
+            ->orderBy('core_sucursal_name')
+            ->orderBy('name')
+            ->get()
+            ->map(function (CashRegister $register): array {
+                $session = $register->sessions->first();
+                if ($session) {
+                    return [
+                        'branch_id' => $register->core_sucursal_id,
+                        'branch_code' => $register->core_sucursal_code,
+                        'branch_name' => $register->core_sucursal_name,
+                        'register_id' => $register->id,
+                        'status' => 'open',
+                        'opened_by' => $session->openedBy?->name,
+                        'opened_at' => $session->opened_at?->toISOString(),
+                        'balance' => $this->sessionTotals($session)['expected'],
+                    ];
+                }
+
+                $lastClosed = CashSession::query()->where('cash_register_id', $register->id)->where('status', 'closed')->latest('closed_at')->first();
+
+                return [
+                    'branch_id' => $register->core_sucursal_id,
+                    'branch_code' => $register->core_sucursal_code,
+                    'branch_name' => $register->core_sucursal_name,
+                    'register_id' => $register->id,
+                    'status' => 'closed',
+                    'opened_by' => null,
+                    'opened_at' => null,
+                    'balance' => $lastClosed?->declared_balance !== null ? (float) $lastClosed->declared_balance : null,
+                ];
+            });
     }
 
     public function defaultRegister(Tenant $tenant, array $branch = []): CashRegister

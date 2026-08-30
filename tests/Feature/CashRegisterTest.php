@@ -275,6 +275,32 @@ class CashRegisterTest extends TestCase
             ->assertJsonPath('registers.0.branch_id', 5);
     }
 
+    public function test_owner_sees_consolidated_cash_status_by_branch(): void
+    {
+        [$user, $tenant] = $this->member();
+        $matriz = CashRegister::query()->create(['tenant_id' => $tenant->id, 'core_sucursal_id' => 1, 'core_sucursal_code' => 'M001', 'core_sucursal_name' => 'Casa matriz', 'name' => 'Caja matriz', 'status' => 'active']);
+        CashSession::query()->create(['tenant_id' => $tenant->id, 'cash_register_id' => $matriz->id, 'opened_by' => $user->id, 'opening_balance' => 50, 'business_date' => today(), 'opening_source' => 'manual', 'count_status' => 'pending', 'status' => 'open', 'opened_at' => now()]);
+        CashRegister::query()->create(['tenant_id' => $tenant->id, 'core_sucursal_id' => 2, 'core_sucursal_code' => 'S002', 'core_sucursal_name' => 'Sucursal Centro', 'name' => 'Caja Centro', 'status' => 'active']);
+
+        $this->actingAs($user)->getJson("/api/v1/platform/tenants/{$tenant->id}/cash/consolidated")
+            ->assertOk()
+            ->assertJsonPath('has_multiple_branches', true)
+            ->assertJsonPath('data.0.branch_name', 'Casa matriz')
+            ->assertJsonPath('data.0.status', 'open')
+            ->assertJsonPath('data.0.balance', 50)
+            ->assertJsonPath('data.0.opened_by', $user->name)
+            ->assertJsonPath('data.1.branch_name', 'Sucursal Centro')
+            ->assertJsonPath('data.1.status', 'closed')
+            ->assertJsonPath('data.1.balance', null);
+    }
+
+    public function test_cashier_cannot_view_the_consolidated_cash_status(): void
+    {
+        [$cashier, $tenant] = $this->cashierMember(assignedSucursalId: 1);
+
+        $this->actingAs($cashier)->getJson("/api/v1/platform/tenants/{$tenant->id}/cash/consolidated")->assertForbidden();
+    }
+
     private function member(): array
     {
         $app = PlatformApp::query()->create(['key' => 'facturacion', 'name' => 'Facturación', 'host' => 'new.stelfaro.com', 'default_path' => '/', 'status' => 'active']);

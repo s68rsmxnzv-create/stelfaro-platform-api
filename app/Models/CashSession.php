@@ -20,6 +20,11 @@ class CashSession extends Model
         return $this->belongsTo(CashRegister::class, 'cash_register_id');
     }
 
+    public function openedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'opened_by');
+    }
+
     public function movements(): HasMany
     {
         return $this->hasMany(CashMovement::class);

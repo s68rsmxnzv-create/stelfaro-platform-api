@@ -163,6 +163,7 @@ Route::prefix('v1')->group(function (): void {
             ->middleware('tenant.app:facturacion')
             ->group(function (): void {
                 Route::get('/', [CashRegisterController::class, 'overview']);
+                Route::get('consolidated', [CashRegisterController::class, 'consolidated']);
                 Route::get('settings', [CashSettingsController::class, 'index']);
                 Route::post('settings', [CashSettingsController::class, 'upsert']);
                 Route::put('settings/{cashRegister}', [CashSettingsController::class, 'update']);

@@ -70,6 +70,17 @@ class CashRegisterController extends Controller
         ]);
     }
 
+    public function consolidated(Request $request, Tenant $tenant, PlatformAccessPolicy $policy, CashService $cash): JsonResponse
+    {
+        abort_unless($policy->canViewCashConsolidated($request->user(), $tenant), 403);
+        $branches = $cash->consolidated($tenant);
+
+        return response()->json([
+            'data' => $branches->values(),
+            'has_multiple_branches' => $branches->count() > 1,
+        ]);
+    }
+
     public function open(Request $request, Tenant $tenant, PlatformAccessPolicy $policy, CashService $cash, PlatformAuditLogger $audit): JsonResponse
     {
         abort_unless($policy->canOperateTenant($request->user(), $tenant), 403);
