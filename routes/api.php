@@ -164,6 +164,7 @@ Route::prefix('v1')->group(function (): void {
             ->group(function (): void {
                 Route::get('/', [CashRegisterController::class, 'overview']);
                 Route::get('consolidated', [CashRegisterController::class, 'consolidated']);
+                Route::get('history', [CashRegisterController::class, 'history']);
                 Route::get('settings', [CashSettingsController::class, 'index']);
                 Route::post('settings', [CashSettingsController::class, 'upsert']);
                 Route::put('settings/{cashRegister}', [CashSettingsController::class, 'update']);

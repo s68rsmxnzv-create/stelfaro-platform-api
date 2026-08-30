@@ -240,6 +240,21 @@ class CashService
             });
     }
 
+    /** @return \Illuminate\Contracts\Pagination\LengthAwarePaginator<int, CashSession> */
+    public function history(Tenant $tenant, ?Collection $allowedRegisterIds, array $filters): \Illuminate\Contracts\Pagination\LengthAwarePaginator
+    {
+        return CashSession::query()
+            ->where('tenant_id', $tenant->id)
+            ->whereIn('status', ['closed', 'closed_unverified'])
+            ->when($allowedRegisterIds !== null, fn ($query) => $query->whereIn('cash_register_id', $allowedRegisterIds))
+            ->when($filters['cash_register_id'] ?? null, fn ($query, $registerId) => $query->where('cash_register_id', $registerId))
+            ->when($filters['date_from'] ?? null, fn ($query, $date) => $query->whereDate('business_date', '>=', $date))
+            ->when($filters['date_to'] ?? null, fn ($query, $date) => $query->whereDate('business_date', '<=', $date))
+            ->with(['register', 'openedBy', 'closedBy'])
+            ->latest('business_date')
+            ->paginate((int) ($filters['per_page'] ?? 20), ['*'], 'page', (int) ($filters['page'] ?? 1));
+    }
+
     public function defaultRegister(Tenant $tenant, array $branch = []): CashRegister
     {
         if (! isset($branch['core_sucursal_id'])) {

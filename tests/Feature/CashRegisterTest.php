@@ -431,6 +431,41 @@ class CashRegisterTest extends TestCase
         $this->assertDatabaseHas('cash_sessions', ['id' => $session['id'], 'status' => 'closed']);
     }
 
+    public function test_history_lists_closed_sessions_with_pagination_and_date_filter(): void
+    {
+        [$user, $tenant] = $this->member();
+        $register = CashRegister::query()->create(['tenant_id' => $tenant->id, 'core_sucursal_id' => 1, 'core_sucursal_code' => 'M001', 'core_sucursal_name' => 'Casa matriz', 'name' => 'Caja matriz', 'status' => 'active']);
+        CashSession::query()->create(['tenant_id' => $tenant->id, 'cash_register_id' => $register->id, 'opened_by' => $user->id, 'closed_by' => $user->id, 'opening_balance' => 50, 'expected_balance' => 80, 'declared_balance' => 80, 'difference' => 0, 'business_date' => '2026-08-10', 'opening_source' => 'manual', 'count_status' => 'counted', 'status' => 'closed', 'opened_at' => now(), 'closed_at' => now()]);
+        CashSession::query()->create(['tenant_id' => $tenant->id, 'cash_register_id' => $register->id, 'opened_by' => $user->id, 'opening_balance' => 40, 'expected_balance' => 95, 'declared_balance' => null, 'difference' => null, 'business_date' => '2026-08-20', 'opening_source' => 'manual', 'count_status' => 'pending_count', 'status' => 'closed_unverified', 'opened_at' => now(), 'closed_at' => now()]);
+        CashSession::query()->create(['tenant_id' => $tenant->id, 'cash_register_id' => $register->id, 'opened_by' => $user->id, 'opening_balance' => 0, 'business_date' => today(), 'opening_source' => 'manual', 'count_status' => 'pending', 'status' => 'open', 'opened_at' => now()]);
+
+        $response = $this->actingAs($user)->getJson("/api/v1/platform/tenants/{$tenant->id}/cash/history")
+            ->assertOk()->assertJsonCount(2, 'data');
+        $response->assertJsonPath('data.0.business_date', '2026-08-20')
+            ->assertJsonPath('data.0.status', 'closed_unverified')
+            ->assertJsonPath('data.0.declared_balance', null)
+            ->assertJsonPath('data.1.business_date', '2026-08-10')
+            ->assertJsonPath('data.1.status', 'closed')
+            ->assertJsonPath('data.1.declared_balance', 80)
+            ->assertJsonPath('data.1.difference', 0)
+            ->assertJsonPath('data.1.opened_by', $user->name)
+            ->assertJsonPath('data.1.closed_by', $user->name);
+
+        $this->getJson("/api/v1/platform/tenants/{$tenant->id}/cash/history?date_from=2026-08-15")
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.business_date', '2026-08-20');
+    }
+
+    public function test_cashier_cannot_request_history_of_another_branch(): void
+    {
+        [$user, $tenant] = $this->cashierMember(assignedSucursalId: 5);
+        $register = CashRegister::query()->create(['tenant_id' => $tenant->id, 'core_sucursal_id' => 9, 'core_sucursal_code' => 'S009', 'core_sucursal_name' => 'Otra sucursal', 'name' => 'Caja otra sucursal', 'status' => 'active']);
+        CashSession::query()->create(['tenant_id' => $tenant->id, 'cash_register_id' => $register->id, 'opened_by' => $user->id, 'opening_balance' => 0, 'declared_balance' => 0, 'difference' => 0, 'business_date' => '2026-08-10', 'opening_source' => 'manual', 'count_status' => 'counted', 'status' => 'closed', 'opened_at' => now(), 'closed_at' => now()]);
+
+        $this->actingAs($user)->getJson("/api/v1/platform/tenants/{$tenant->id}/cash/history?cash_register_id={$register->id}")
+            ->assertForbidden();
+        $this->getJson("/api/v1/platform/tenants/{$tenant->id}/cash/history")->assertOk()->assertJsonCount(0, 'data');
+    }
+
     private function member(): array
     {
         $app = PlatformApp::query()->create(['key' => 'facturacion', 'name' => 'Facturación', 'host' => 'new.stelfaro.com', 'default_path' => '/', 'status' => 'active']);

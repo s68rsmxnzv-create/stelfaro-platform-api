@@ -108,6 +108,42 @@ class CashRegisterController extends Controller
         ]);
     }
 
+    public function history(Request $request, Tenant $tenant, PlatformAccessPolicy $policy, CashService $cash): JsonResponse
+    {
+        abort_unless($policy->canViewTenantCatalog($request->user(), $tenant), 403);
+        $data = $request->validate([
+            'date_from' => ['nullable', 'date'], 'date_to' => ['nullable', 'date'],
+            'page' => ['nullable', 'integer', 'min:1'], 'per_page' => ['nullable', 'integer', 'min:5', 'max:100'],
+            'cash_register_id' => ['nullable', Rule::exists('cash_registers', 'id')->where('tenant_id', $tenant->id)],
+        ]);
+        $allowedRegisterIds = $policy->allowedCashRegisterIds($request->user(), $tenant);
+        if ($allowedRegisterIds !== null && isset($data['cash_register_id'])) {
+            abort_unless($allowedRegisterIds->contains((int) $data['cash_register_id']), 403);
+        }
+        $sessions = $cash->history($tenant, $allowedRegisterIds, $data);
+
+        return response()->json([
+            'data' => collect($sessions->items())->map(fn (CashSession $session) => $this->historyPayload($session))->values(),
+            'meta' => ['current_page' => $sessions->currentPage(), 'last_page' => $sessions->lastPage(), 'total' => $sessions->total()],
+        ]);
+    }
+
+    private function historyPayload(CashSession $session): array
+    {
+        return [
+            'id' => $session->id,
+            'business_date' => $session->business_date?->toDateString(),
+            'status' => $session->status,
+            'register' => ['id' => $session->register->id, 'branch_id' => $session->register->core_sucursal_id, 'branch_name' => $session->register->core_sucursal_name],
+            'opened_by' => $session->openedBy?->name,
+            'closed_by' => $session->closedBy?->name,
+            'opening_balance' => (float) $session->opening_balance,
+            'expected_balance' => $session->expected_balance !== null ? (float) $session->expected_balance : null,
+            'declared_balance' => $session->declared_balance !== null ? (float) $session->declared_balance : null,
+            'difference' => $session->difference !== null ? (float) $session->difference : null,
+        ];
+    }
+
     public function open(Request $request, Tenant $tenant, PlatformAccessPolicy $policy, CashService $cash, PlatformAuditLogger $audit): JsonResponse
     {
         abort_unless($policy->canOperateTenant($request->user(), $tenant), 403);
