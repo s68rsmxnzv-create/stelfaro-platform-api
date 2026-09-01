@@ -15,6 +15,7 @@ class TaxDeadlineNotificationGenerator
     public function generate(?CarbonImmutable $today = null): int
     {
         $today ??= CarbonImmutable::now('America/El_Salvador')->startOfDay();
+        $this->clearPastDeadlines($today);
         $deadlines = collect([
             ...$this->calendar->publishedDeadlines($today->year),
             ...$this->calendar->publishedDeadlines($today->addYear()->year),
@@ -72,6 +73,20 @@ class TaxDeadlineNotificationGenerator
         }
 
         return $created;
+    }
+
+    /**
+     * Un recordatorio de vencimiento deja de ser útil una vez pasada la fecha límite: si el
+     * usuario no lo leyó a tiempo, se queda para siempre en la campanita mostrando una
+     * obligación que ya venció. Se limpian antes de generar los recordatorios del día para
+     * que la bandeja solo muestre vencimientos vigentes.
+     */
+    private function clearPastDeadlines(CarbonImmutable $today): void
+    {
+        InternalNotification::query()
+            ->where('category', 'tax_deadline')
+            ->whereDate('due_date', '<', $today->toDateString())
+            ->delete();
     }
 
     private function stageFor(int $days): ?string

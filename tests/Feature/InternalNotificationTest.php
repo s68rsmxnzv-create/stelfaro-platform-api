@@ -120,6 +120,45 @@ class InternalNotificationTest extends TestCase
         ]);
     }
 
+    public function test_generator_clears_tax_reminders_whose_due_date_already_passed(): void
+    {
+        [$user, $tenant] = $this->member();
+        InternalNotification::query()->create([
+            'user_id' => $user->id,
+            'tenant_id' => $tenant->id,
+            'category' => 'tax_deadline',
+            'title' => 'Vence hoy F-07',
+            'message' => 'Declaración y pago mensual del IVA: jueves 20 de agosto. La fecha límite es hoy.',
+            'due_date' => '2026-08-20',
+            'source_type' => 'fiscal_calendar_entry',
+            'source_id' => '81',
+            'dedupe_key' => 'tax-deadline:stale-due',
+            'metadata' => ['form_code' => 'F-07', 'stage' => 'due', 'days_remaining' => 0],
+        ]);
+        $other = InternalNotification::query()->create([
+            'user_id' => $user->id,
+            'tenant_id' => $tenant->id,
+            'category' => 'cash',
+            'title' => 'Caja pendiente de conteo',
+            'message' => 'Otra cosa que no debe tocarse.',
+            'due_date' => '2026-08-20',
+            'dedupe_key' => 'cash:stale',
+        ]);
+
+        $calendar = Mockery::mock(FiscalCalendarClient::class);
+        $calendar->shouldReceive('publishedDeadlines')->once()->with(2026)->andReturn([]);
+        $calendar->shouldReceive('publishedDeadlines')->once()->with(2027)->andReturn([]);
+        $this->app->instance(FiscalCalendarClient::class, $calendar);
+
+        $generator = app(TaxDeadlineNotificationGenerator::class);
+        $today = CarbonImmutable::create(2026, 9, 1, 0, 0, 0, 'America/El_Salvador');
+
+        $generator->generate($today);
+
+        $this->assertDatabaseMissing('internal_notifications', ['dedupe_key' => 'tax-deadline:stale-due']);
+        $this->assertDatabaseHas('internal_notifications', ['id' => $other->id]);
+    }
+
     public function test_member_can_list_and_mark_own_notifications_as_read(): void
     {
         [$user, $tenant] = $this->member();
