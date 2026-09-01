@@ -17,7 +17,8 @@ class ImportLegacyInventoryCommand extends Command
         {--branch-code=M001 : Código de Casa Matriz}
         {--branch-name=Casa matriz : Nombre de Casa Matriz}
         {--replace : Sustituir el inventario actual}
-        {--dry-run : Validar sin escribir}';
+        {--dry-run : Validar sin escribir}
+        {--commit : Confirmar escritura para paquetes de Alefactura}';
 
     protected $description = 'Valida e importa catálogo, compras y existencias desde Stelfaro legado.';
 
@@ -39,6 +40,26 @@ class ImportLegacyInventoryCommand extends Command
             return self::FAILURE;
         }
 
+        $isAlefactura = ($payload['legacy_source'] ?? null) === 'alefactura';
+        if ($isAlefactura) {
+            $source = is_array($payload['source'] ?? null) ? $payload['source'] : [];
+            if (($source['environment'] ?? null) !== 'production') {
+                $this->error('Los paquetes de Alefactura deben provenir del ambiente production.');
+
+                return self::FAILURE;
+            }
+            if (($source['tenant_slug'] ?? null) !== $tenant->slug) {
+                $this->error('El tenant de origen no coincide con el tenant de destino.');
+
+                return self::FAILURE;
+            }
+            if (! $this->option('dry-run') && ! $this->option('commit')) {
+                $this->error('La importación de Alefactura requiere --dry-run o --commit.');
+
+                return self::FAILURE;
+            }
+        }
+
         $payload['target_branch'] = [
             'id' => (int) $this->option('branch-id'),
             'code' => trim((string) $this->option('branch-code')),
@@ -54,10 +75,13 @@ class ImportLegacyInventoryCommand extends Command
                 return self::SUCCESS;
             }
 
-            if ($this->option('replace')) {
+            if ($this->option('replace') || $isAlefactura) {
                 $backup = $importer->backup($tenant);
                 $path = 'backups/inventory-tenant-'.$tenant->id.'-'.now()->format('Ymd-His').'.json';
-                Storage::disk('local')->put($path, json_encode($backup, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+                $written = Storage::disk('local')->put($path, json_encode($backup, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+                if (! $written) {
+                    throw new InvalidArgumentException('No se pudo crear el respaldo; la importación fue cancelada.');
+                }
                 $this->info('Respaldo creado en storage/app/private/'.$path);
             }
 

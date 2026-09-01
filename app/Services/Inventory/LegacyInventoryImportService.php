@@ -155,6 +155,8 @@ class LegacyInventoryImportService
 
             $now = now();
             $branch = $this->branch($payload);
+            $legacySource = $this->blank($payload['legacy_source'] ?? null) ?? 'stelfaro';
+            $legacyTenantId = $payload['legacy_tenant_id'] ?? null;
             $categoryMap = [];
             foreach ($payload['categories'] as $category) {
                 $categoryMap[(int) $category['id']] = DB::table('catalog_categories')->insertGetId([
@@ -164,7 +166,7 @@ class LegacyInventoryImportService
                         'producto' => 'product', 'servicio' => 'service', default => 'mixed',
                     },
                     'status' => ($category['activo'] ?? true) ? 'active' : 'inactive',
-                    'legacy_reference' => json_encode(['source' => 'stelfaro', 'id' => (int) $category['id']]),
+                    'legacy_reference' => json_encode(['source' => $legacySource, 'tenant_id' => $legacyTenantId, 'id' => (int) $category['id']]),
                     'created_at' => $category['created_at'] ?? $now,
                     'updated_at' => $category['updated_at'] ?? $now,
                 ]);
@@ -213,7 +215,15 @@ class LegacyInventoryImportService
                     'stock_quantity' => $available,
                     'min_stock_quantity' => $controlsInventory ? max((float) ($item['stock_minimo'] ?? 1), 0) : 0,
                     'status' => ($item['activo'] ?? true) ? 'active' : 'inactive',
-                    'metadata' => json_encode(['legacy_supplier_id' => $item['proveedor_id'] ?? null, 'legacy_stock' => (float) ($item['stock_actual'] ?? 0)]),
+                    'metadata' => json_encode([
+                        'legacy_source' => $legacySource,
+                        'legacy_tenant_id' => $legacyTenantId,
+                        'legacy_item_id' => (int) $item['id'],
+                        'legacy_item_code' => $this->blank($item['legacy_item_code'] ?? null),
+                        'legacy_is_quick_access' => (bool) ($item['legacy_is_quick_access'] ?? false),
+                        'legacy_supplier_id' => $item['proveedor_id'] ?? null,
+                        'legacy_stock' => (float) ($item['stock_actual'] ?? 0),
+                    ]),
                     'created_at' => $item['created_at'] ?? $now,
                     'updated_at' => $item['updated_at'] ?? $now,
                 ]);
