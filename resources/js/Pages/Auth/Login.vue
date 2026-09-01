@@ -1,6 +1,7 @@
 <script setup>
+import { computed } from 'vue';
 import GuestLayout from '@/Layouts/GuestLayout.vue';
-import InputError from '@/Components/InputError.vue';
+import FormAlert from '@/Components/FormAlert.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { UiButton, UiEmailInput, UiPasswordInput } from '@stelfaro/ui';
 
@@ -20,15 +21,15 @@ const submit = () => {
         onFinish: () => form.reset('password'),
     });
 };
+
+const loginError = computed(() => form.errors.email || form.errors.password || '');
 </script>
 
 <template>
     <GuestLayout>
         <Head title="Iniciar sesión" />
 
-        <div v-if="status" class="mb-5 rounded-xl bg-success-soft px-4 py-3 text-sm font-medium text-success">
-            {{ status }}
-        </div>
+        <FormAlert variant="success" :message="status" class="mb-5" />
 
         <div class="mb-7">
             <h1 class="text-3xl font-black tracking-tight text-text">Inicia sesión</h1>
@@ -38,6 +39,12 @@ const submit = () => {
         </div>
 
         <form class="space-y-5" @submit.prevent="submit">
+            <FormAlert
+                variant="danger"
+                title="No pudimos iniciar tu sesión"
+                :message="loginError"
+            />
+
             <div>
                 <UiEmailInput
                     id="email"
@@ -47,8 +54,8 @@ const submit = () => {
                     required
                     autofocus
                     autocomplete="username"
+                    :aria-invalid="Boolean(loginError)"
                 />
-                <InputError class="mt-2" :message="form.errors.email" />
             </div>
 
             <div>
@@ -58,8 +65,8 @@ const submit = () => {
                     label="Contraseña"
                     required
                     autocomplete="current-password"
+                    :aria-invalid="Boolean(loginError)"
                 />
-                <InputError class="mt-2" :message="form.errors.password" />
             </div>
 
             <div class="flex items-center justify-between gap-4">

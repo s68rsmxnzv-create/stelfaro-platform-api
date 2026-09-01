@@ -1,5 +1,6 @@
 <script setup>
 import GuestLayout from '@/Layouts/GuestLayout.vue';
+import FormAlert from '@/Components/FormAlert.vue';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
@@ -24,16 +25,18 @@ const submit = () => {
         <Head title="Cambiar contraseña" />
 
         <div class="mb-6">
-            <p class="text-sm font-semibold uppercase tracking-wide text-blue-700">Primer inicio</p>
-            <h1 class="mt-2 text-2xl font-bold text-[#0d1629]">Crea tu contraseña personal</h1>
-            <p class="mt-2 text-sm text-slate-600">
-                Tu usuario fue creado con una contrasena temporal. Cambiala antes de entrar a tus apps.
+            <p class="text-xs font-bold uppercase tracking-[0.16em] text-primary">Primer inicio</p>
+            <h1 class="mt-2 text-2xl font-black tracking-tight text-text">Crea tu contraseña personal</h1>
+            <p class="mt-2 text-sm leading-6 text-muted">
+                Tu usuario se creó con una contraseña temporal. Cámbiala antes de entrar a tus apps.
             </p>
         </div>
 
-        <form @submit.prevent="submit">
+        <form class="space-y-4" @submit.prevent="submit">
+            <FormAlert variant="danger" :message="form.errors.current_password" />
+
             <div>
-                <InputLabel for="current_password" value="Contrasena temporal" />
+                <InputLabel for="current_password" value="Contraseña temporal" />
                 <TextInput
                     id="current_password"
                     v-model="form.current_password"
@@ -43,11 +46,10 @@ const submit = () => {
                     autofocus
                     autocomplete="current-password"
                 />
-                <InputError class="mt-2" :message="form.errors.current_password" />
             </div>
 
-            <div class="mt-4">
-                <InputLabel for="password" value="Nueva contrasena" />
+            <div>
+                <InputLabel for="password" value="Nueva contraseña" />
                 <TextInput
                     id="password"
                     v-model="form.password"
@@ -59,8 +61,8 @@ const submit = () => {
                 <InputError class="mt-2" :message="form.errors.password" />
             </div>
 
-            <div class="mt-4">
-                <InputLabel for="password_confirmation" value="Confirmar contrasena" />
+            <div>
+                <InputLabel for="password_confirmation" value="Confirmar contraseña" />
                 <TextInput
                     id="password_confirmation"
                     v-model="form.password_confirmation"
@@ -72,7 +74,7 @@ const submit = () => {
                 <InputError class="mt-2" :message="form.errors.password_confirmation" />
             </div>
 
-            <div class="mt-5 flex justify-end">
+            <div class="flex justify-end">
                 <PrimaryButton :class="{ 'opacity-25': form.processing }" :disabled="form.processing">
                     Guardar y continuar
                 </PrimaryButton>

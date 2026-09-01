@@ -12,7 +12,7 @@ class TemporaryPasswordNotificationClient
     /**
      * @return array<string, mixed>|null
      */
-    public function send(Tenant $tenant, User $user, string $role, string $temporaryPassword, string $reason): ?array
+    public function send(Tenant $tenant, User $user, string $role, string $temporaryPassword, string $reason, string $purpose = 'platform_temporary_password', ?string $subject = null): ?array
     {
         $baseUrl = rtrim((string) config('services.notifications.base_url'), '/');
         $token = (string) config('services.notifications.internal_token', '');
@@ -24,7 +24,9 @@ class TemporaryPasswordNotificationClient
         $response = Http::acceptJson()
             ->withToken($token)
             ->timeout(10)
-            ->post($baseUrl.'/platform/temporary-passwords/email', [
+            ->post($baseUrl.'/platform/temporary-passwords/email', array_filter([
+                'purpose' => $purpose,
+                'subject' => $subject,
                 'recipient' => [
                     'email' => $user->email,
                     'name' => $user->name,
@@ -46,7 +48,7 @@ class TemporaryPasswordNotificationClient
                     'must_change' => true,
                     'reason' => $reason,
                 ],
-            ]);
+            ], static fn ($value): bool => $value !== null));
 
         if ($response->failed()) {
             throw new RuntimeException('No fue posible enviar la contrasena temporal.');

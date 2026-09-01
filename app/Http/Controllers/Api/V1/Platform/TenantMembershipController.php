@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\UserTenantMembership;
 use App\Services\CoreBillingSessionBroker;
 use App\Services\PlatformAccessPolicy;
+use App\Services\Platform\TemporaryPasswordNotificationClient;
+use App\Services\Platform\TenantEnvironmentResolver;
 use App\Support\Platform\PlatformRoles;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -89,7 +91,7 @@ class TenantMembershipController extends Controller
         return response()->json(['membership' => $this->payload($membership->refresh())]);
     }
 
-    public function resetTemporaryPassword(Request $request, UserTenantMembership $membership, PlatformAccessPolicy $policy, CoreBillingSessionBroker $billingSessions): JsonResponse
+    public function resetTemporaryPassword(Request $request, UserTenantMembership $membership, PlatformAccessPolicy $policy, CoreBillingSessionBroker $billingSessions, TenantEnvironmentResolver $environmentResolver, TemporaryPasswordNotificationClient $temporaryPasswords): JsonResponse
     {
         $membership->load('tenant', 'user');
         abort_unless($policy->canSuspendTenantMember($request->user(), $membership->tenant), 403);
@@ -105,6 +107,24 @@ class TenantMembershipController extends Controller
             'temporary_password_expires_at' => now()->addHours((int) config('auth.temporary_password_ttl_hours', 72)),
         ])->save();
 
+        $delivery = null;
+        if ($environmentResolver->isProduction($membership->tenant)) {
+            try {
+                $delivery = $temporaryPasswords->send(
+                    $membership->tenant,
+                    $membership->user,
+                    $membership->role,
+                    $temporaryPassword,
+                    reason: 'password_reset',
+                    purpose: 'platform_account_activation',
+                    subject: 'Nueva contraseña de acceso a '.$membership->tenant->name,
+                );
+            } catch (RuntimeException $exception) {
+                report($exception);
+                $delivery = ['status' => 'failed', 'error' => $exception->getMessage()];
+            }
+        }
+
         return response()->json([
             'membership' => $this->payload($membership->refresh()),
             'user' => [
@@ -114,6 +134,7 @@ class TenantMembershipController extends Controller
                 'must_change_password' => true,
             ],
             'temporary_password' => $temporaryPassword,
+            'temporary_password_delivery' => $delivery,
         ]);
     }
 

@@ -1,6 +1,6 @@
 <script setup>
 import GuestLayout from '@/Layouts/GuestLayout.vue';
-import InputError from '@/Components/InputError.vue';
+import FormAlert from '@/Components/FormAlert.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
@@ -25,20 +25,19 @@ const submit = () => {
     <GuestLayout>
         <Head title="Recuperar contraseña" />
 
-        <div class="mb-4 text-sm text-gray-600">
-            ¿Olvidaste tu contraseña? No hay problema. Indícanos tu correo
-            electrónico y te enviaremos un enlace para restablecer tu
-            contraseña y elegir una nueva.
+        <div class="mb-5">
+            <h1 class="text-2xl font-black tracking-tight text-text">¿Olvidaste tu contraseña?</h1>
+            <p class="mt-2 text-sm leading-6 text-muted">
+                No hay problema. Indícanos tu correo electrónico y te enviaremos un
+                enlace para elegir una nueva.
+            </p>
         </div>
 
-        <div
-            v-if="status"
-            class="mb-4 text-sm font-medium text-green-600"
-        >
-            {{ status }}
-        </div>
+        <FormAlert variant="success" :message="status" class="mb-4" />
 
-        <form @submit.prevent="submit">
+        <form class="space-y-4" @submit.prevent="submit">
+            <FormAlert variant="danger" :message="form.errors.email" />
+
             <div>
                 <InputLabel for="email" value="Correo electrónico" />
 
@@ -51,11 +50,9 @@ const submit = () => {
                     autofocus
                     autocomplete="username"
                 />
-
-                <InputError class="mt-2" :message="form.errors.email" />
             </div>
 
-            <div class="mt-4 flex items-center justify-end">
+            <div class="flex items-center justify-end">
                 <PrimaryButton
                     :class="{ 'opacity-25': form.processing }"
                     :disabled="form.processing"

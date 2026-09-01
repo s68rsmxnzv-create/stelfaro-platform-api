@@ -509,6 +509,96 @@ class PlatformUserManagementTest extends TestCase
             ->assertJsonStructure(['temporary_password']);
     }
 
+    public function test_reset_temporary_password_emails_user_for_production_tenant(): void
+    {
+        config([
+            'services.notifications.base_url' => 'https://notifications.test/api/v1',
+            'services.notifications.internal_token' => 'notifications-secret',
+            'services.dte_core.base_url' => 'https://core.test/api/v1',
+            'services.dte_core.internal_token' => 'internal-secret',
+        ]);
+
+        $platformOwner = User::factory()->create(['platform_role' => 'platform_owner']);
+        [$companyOwner, $tenant] = $this->userWithTenantRole('owner');
+        $tenant->forceFill(['metadata' => ['environment' => '01']])->save();
+        $membership = $companyOwner->memberships()->where('tenant_id', $tenant->id)->firstOrFail();
+
+        Http::fake([
+            'https://core.test/api/v1/internal/auth/billing-session/revoke' => Http::response(['revoked' => 1]),
+            'https://notifications.test/api/v1/platform/temporary-passwords/email' => Http::response(['data' => [
+                'id' => 91,
+                'status' => 'pending',
+                'purpose' => 'platform_account_activation',
+                'recipient_email' => $companyOwner->email,
+            ]], 202),
+        ]);
+
+        $response = $this->actingAs($platformOwner)
+            ->postJson("/api/v1/platform/memberships/{$membership->id}/temporary-password")
+            ->assertOk()
+            ->assertJsonPath('user.must_change_password', true)
+            ->assertJsonPath('temporary_password_delivery.id', 91);
+
+        $temporaryPassword = (string) $response->json('temporary_password');
+        $this->assertMatchesRegularExpression('/^Sf-[A-Za-z0-9]{12}$/', $temporaryPassword);
+
+        Http::assertSent(fn ($request): bool => $request->url() === 'https://notifications.test/api/v1/platform/temporary-passwords/email'
+            && $request->hasHeader('Authorization', 'Bearer notifications-secret')
+            && $request['recipient']['email'] === $companyOwner->email
+            && $request['purpose'] === 'platform_account_activation'
+            && $request['temporary_password']['value'] === $temporaryPassword
+            && $request['temporary_password']['reason'] === 'password_reset');
+    }
+
+    public function test_reset_temporary_password_skips_email_for_non_production_tenant(): void
+    {
+        config([
+            'services.notifications.base_url' => 'https://notifications.test/api/v1',
+            'services.notifications.internal_token' => 'notifications-secret',
+        ]);
+        $this->fakeFiscalRevocation();
+
+        $platformOwner = User::factory()->create(['platform_role' => 'platform_owner']);
+        [$companyOwner, $tenant] = $this->userWithTenantRole('owner');
+        $membership = $companyOwner->memberships()->where('tenant_id', $tenant->id)->firstOrFail();
+
+        $this->actingAs($platformOwner)
+            ->postJson("/api/v1/platform/memberships/{$membership->id}/temporary-password")
+            ->assertOk()
+            ->assertJsonPath('temporary_password_delivery', null);
+
+        Http::assertNotSent(fn ($request): bool => str_contains($request->url(), '/platform/temporary-passwords/email'));
+    }
+
+    public function test_reset_temporary_password_succeeds_when_email_delivery_fails(): void
+    {
+        config([
+            'services.notifications.base_url' => 'https://notifications.test/api/v1',
+            'services.notifications.internal_token' => 'notifications-secret',
+            'services.dte_core.base_url' => 'https://core.test/api/v1',
+            'services.dte_core.internal_token' => 'internal-secret',
+            'logging.default' => 'null',
+        ]);
+
+        $platformOwner = User::factory()->create(['platform_role' => 'platform_owner']);
+        [$companyOwner, $tenant] = $this->userWithTenantRole('owner');
+        $tenant->forceFill(['metadata' => ['environment' => '01']])->save();
+        $membership = $companyOwner->memberships()->where('tenant_id', $tenant->id)->firstOrFail();
+
+        Http::fake([
+            'https://core.test/api/v1/internal/auth/billing-session/revoke' => Http::response(['revoked' => 1]),
+            'https://notifications.test/api/v1/platform/temporary-passwords/email' => Http::response(['message' => 'boom'], 500),
+        ]);
+
+        $response = $this->actingAs($platformOwner)
+            ->postJson("/api/v1/platform/memberships/{$membership->id}/temporary-password")
+            ->assertOk()
+            ->assertJsonPath('temporary_password_delivery.status', 'failed');
+
+        $this->assertMatchesRegularExpression('/^Sf-[A-Za-z0-9]{12}$/', (string) $response->json('temporary_password'));
+        $this->assertTrue(Hash::check((string) $response->json('temporary_password'), $companyOwner->refresh()->password));
+    }
+
     public function test_company_admin_cannot_reset_company_owner_temporary_password(): void
     {
         [$owner, $tenant] = $this->userWithTenantRole('owner');

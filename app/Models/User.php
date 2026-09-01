@@ -3,7 +3,9 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Services\Platform\PasswordResetNotificationClient;
 use Database\Factories\UserFactory;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -52,6 +54,22 @@ class User extends Authenticatable
     public function tenantRequests(): HasMany
     {
         return $this->hasMany(TenantRequest::class, 'requested_by_user_id');
+    }
+
+    /**
+     * Envia la notificacion de restablecimiento de contrasena.
+     *
+     * El correo se delega al servicio central de notificaciones (stelfaro-notifications),
+     * que resuelve el remitente desde el gestor de alias (purpose: platform_password_reset).
+     * Si el servicio no esta configurado, se usa la notificacion nativa de Laravel.
+     */
+    public function sendPasswordResetNotification(#[\SensitiveParameter] $token): void
+    {
+        $delivered = app(PasswordResetNotificationClient::class)->send($this, $token);
+
+        if ($delivered === null) {
+            $this->notify(new ResetPassword($token));
+        }
     }
 
     public function hasExpiredTemporaryPassword(): bool

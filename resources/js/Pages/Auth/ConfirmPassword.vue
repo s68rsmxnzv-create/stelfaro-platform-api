@@ -1,6 +1,6 @@
 <script setup>
 import GuestLayout from '@/Layouts/GuestLayout.vue';
-import InputError from '@/Components/InputError.vue';
+import FormAlert from '@/Components/FormAlert.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
@@ -21,12 +21,16 @@ const submit = () => {
     <GuestLayout>
         <Head title="Confirmar contraseña" />
 
-        <div class="mb-4 text-sm text-gray-600">
-            Esta es un área segura de la aplicación. Confirma tu contraseña
-            antes de continuar.
+        <div class="mb-5">
+            <h1 class="text-2xl font-black tracking-tight text-text">Confirma tu identidad</h1>
+            <p class="mt-2 text-sm leading-6 text-muted">
+                Esta es un área segura. Vuelve a ingresar tu contraseña para continuar.
+            </p>
         </div>
 
-        <form @submit.prevent="submit">
+        <form class="space-y-4" @submit.prevent="submit">
+            <FormAlert variant="danger" :message="form.errors.password" />
+
             <div>
                 <InputLabel for="password" value="Contraseña" />
                 <TextInput
@@ -38,12 +42,10 @@ const submit = () => {
                     autocomplete="current-password"
                     autofocus
                 />
-                <InputError class="mt-2" :message="form.errors.password" />
             </div>
 
-            <div class="mt-4 flex justify-end">
+            <div class="flex justify-end">
                 <PrimaryButton
-                    class="ms-4"
                     :class="{ 'opacity-25': form.processing }"
                     :disabled="form.processing"
                 >

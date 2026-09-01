@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue';
 import GuestLayout from '@/Layouts/GuestLayout.vue';
+import FormAlert from '@/Components/FormAlert.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 
@@ -25,19 +26,17 @@ const verificationLinkSent = computed(
     <GuestLayout>
         <Head title="Verificar correo electrónico" />
 
-        <div class="mb-4 text-sm text-gray-600">
-            ¡Gracias por registrarte! Antes de empezar, ¿podrías verificar tu
-            correo electrónico haciendo clic en el enlace que acabamos de
-            enviarte? Si no recibiste el correo, con gusto te enviaremos otro.
+        <div class="mb-4 text-sm leading-6 text-muted">
+            ¡Gracias por registrarte! Antes de empezar, verifica tu correo
+            electrónico con el enlace que acabamos de enviarte. Si no lo
+            recibiste, con gusto te enviamos otro.
         </div>
 
-        <div
-            class="mb-4 text-sm font-medium text-green-600"
-            v-if="verificationLinkSent"
-        >
-            Se envió un nuevo enlace de verificación al correo electrónico que
-            indicaste durante el registro.
-        </div>
+        <FormAlert
+            variant="success"
+            :message="verificationLinkSent ? 'Te enviamos un nuevo enlace de verificación al correo que indicaste durante el registro.' : ''"
+            class="mb-4"
+        />
 
         <form @submit.prevent="submit">
             <div class="mt-4 flex items-center justify-between">
@@ -52,7 +51,7 @@ const verificationLinkSent = computed(
                     :href="route('logout')"
                     method="post"
                     as="button"
-                    class="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                    class="rounded-md text-sm text-muted underline transition hover:text-text focus:outline-none focus:ring-2 focus:ring-primary-soft focus:ring-offset-2"
                     >Cerrar sesión</Link
                 >
             </div>

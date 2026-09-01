@@ -1,5 +1,6 @@
 <script setup>
 import GuestLayout from '@/Layouts/GuestLayout.vue';
+import FormAlert from '@/Components/FormAlert.vue';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
@@ -35,7 +36,16 @@ const submit = () => {
     <GuestLayout>
         <Head title="Restablecer contraseña" />
 
-        <form @submit.prevent="submit">
+        <div class="mb-5">
+            <h1 class="text-2xl font-black tracking-tight text-text">Elige tu nueva contraseña</h1>
+            <p class="mt-2 text-sm leading-6 text-muted">
+                Escribe una contraseña nueva para tu cuenta y confírmala.
+            </p>
+        </div>
+
+        <form class="space-y-4" @submit.prevent="submit">
+            <FormAlert variant="danger" :message="form.errors.email" />
+
             <div>
                 <InputLabel for="email" value="Correo electrónico" />
 
@@ -48,11 +58,9 @@ const submit = () => {
                     autofocus
                     autocomplete="username"
                 />
-
-                <InputError class="mt-2" :message="form.errors.email" />
             </div>
 
-            <div class="mt-4">
+            <div>
                 <InputLabel for="password" value="Contraseña" />
 
                 <TextInput
@@ -67,7 +75,7 @@ const submit = () => {
                 <InputError class="mt-2" :message="form.errors.password" />
             </div>
 
-            <div class="mt-4">
+            <div>
                 <InputLabel
                     for="password_confirmation"
                     value="Confirmar contraseña"
@@ -88,7 +96,7 @@ const submit = () => {
                 />
             </div>
 
-            <div class="mt-4 flex items-center justify-end">
+            <div class="flex items-center justify-end">
                 <PrimaryButton
                     :class="{ 'opacity-25': form.processing }"
                     :disabled="form.processing"
