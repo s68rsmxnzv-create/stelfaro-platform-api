@@ -126,6 +126,18 @@ class PlatformPortalController extends Controller
         return $this->renderBillingModule(['app' => ['id' => 'taller', 'name' => 'Pendientes', 'description' => 'Notas y recordatorios operativos sin efectos financieros ni fiscales.'], 'module' => 'follow-ups']);
     }
 
+    public function tallerLegacyHistory(): Response
+    {
+        return $this->renderBillingModule([
+            'app' => [
+                'id' => 'taller',
+                'name' => 'Legacy',
+                'description' => 'Documentos fiscales emitidos desde la plataforma anterior, migrados como referencia de solo lectura.',
+            ],
+            'module' => 'legacy-history',
+        ]);
+    }
+
     public function tallerAnnexes(): Response
     {
         return $this->renderBillingModule([
@@ -264,6 +276,18 @@ class PlatformPortalController extends Controller
     public function facturacionFollowUps(): Response
     {
         return $this->renderBillingModule(['app' => ['id' => 'facturacion', 'name' => 'Pendientes', 'description' => 'Notas y recordatorios operativos sin efectos financieros ni fiscales.'], 'module' => 'follow-ups']);
+    }
+
+    public function facturacionLegacyHistory(): Response
+    {
+        return $this->renderBillingModule([
+            'app' => [
+                'id' => 'facturacion',
+                'name' => 'Legacy',
+                'description' => 'Documentos fiscales emitidos desde la plataforma anterior, migrados como referencia de solo lectura.',
+            ],
+            'module' => 'legacy-history',
+        ]);
     }
 
     public function facturacionAnnexes(): Response

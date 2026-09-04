@@ -91,6 +91,7 @@ Route::domain(config('platform.portal.host'))
         Route::get('/ordenes-trabajo/cotizaciones/nueva', [PlatformPortalController::class, 'tallerQuoteBuilder'])->name('apps.taller.quote-builder.new');
         Route::get('/ordenes-trabajo/cotizaciones/{quotationId}/editar', [PlatformPortalController::class, 'tallerQuoteBuilder'])->whereNumber('quotationId')->name('apps.taller.quote-builder.edit');
         Route::get('/pendientes', [PlatformPortalController::class, 'tallerFollowUps'])->name('apps.taller.follow-ups');
+        Route::get('/legacy', [PlatformPortalController::class, 'tallerLegacyHistory'])->name('apps.taller.legacy-history');
         Route::get('/anexos', [PlatformPortalController::class, 'tallerAnnexes'])->name('apps.taller.annexes');
         Route::get('/libros-iva/pdf', IvaBooksPdfController::class)->name('apps.taller.iva-books.pdf');
         Route::get('/libros-iva', [PlatformPortalController::class, 'tallerIvaBooks'])->name('apps.taller.iva-books');
@@ -126,6 +127,7 @@ Route::domain(config('platform.portal.host'))
         Route::get('/ordenes-trabajo/cotizaciones/nueva', [PlatformPortalController::class, 'facturacionQuoteBuilder'])->name('apps.facturacion.quote-builder.new');
         Route::get('/ordenes-trabajo/cotizaciones/{quotationId}/editar', [PlatformPortalController::class, 'facturacionQuoteBuilder'])->whereNumber('quotationId')->name('apps.facturacion.quote-builder.edit');
         Route::get('/pendientes', [PlatformPortalController::class, 'facturacionFollowUps'])->name('apps.facturacion.follow-ups');
+        Route::get('/legacy', [PlatformPortalController::class, 'facturacionLegacyHistory'])->name('apps.facturacion.legacy-history');
         Route::get('/anexos', [PlatformPortalController::class, 'facturacionAnnexes'])->name('apps.facturacion.annexes');
         Route::get('/libros-iva/pdf', IvaBooksPdfController::class)->name('apps.facturacion.iva-books.pdf');
         Route::get('/libros-iva', [PlatformPortalController::class, 'facturacionIvaBooks'])->name('apps.facturacion.iva-books');
