@@ -5,7 +5,9 @@ namespace App\Services\Cash;
 use App\Models\CashRegisterSetting;
 use App\Models\CashSession;
 use App\Models\InternalNotification;
+use App\Models\Tenant;
 use App\Services\FiscalCalendarClient;
+use App\Support\Platform\PortalUrl;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -118,8 +120,20 @@ class CashAutomationService
 
     private function notify(CashRegisterSetting $setting, CashSession $session, string $title, string $message, string $event): void
     {
-        $setting->register->tenant->memberships()->where('status', 'active')->pluck('user_id')->each(function ($userId) use ($setting, $session, $title, $message, $event): void {
-            InternalNotification::query()->firstOrCreate(['dedupe_key' => "cash:{$event}:{$session->id}:{$userId}"], ['user_id' => $userId, 'tenant_id' => $setting->tenant_id, 'category' => 'cash', 'title' => $title, 'message' => $setting->register->name.' · '.$message, 'action_url' => '/caja', 'source_type' => 'cash_session', 'source_id' => (string) $session->id]);
+        $tenant = $setting->register->tenant;
+        $actionUrl = $this->cashActionUrl($tenant);
+        $tenant->memberships()->where('status', 'active')->pluck('user_id')->each(function ($userId) use ($setting, $session, $title, $message, $event, $actionUrl): void {
+            InternalNotification::query()->firstOrCreate(['dedupe_key' => "cash:{$event}:{$session->id}:{$userId}"], ['user_id' => $userId, 'tenant_id' => $setting->tenant_id, 'category' => 'cash', 'title' => $title, 'message' => $setting->register->name.' · '.$message, 'action_url' => $actionUrl, 'source_type' => 'cash_session', 'source_id' => (string) $session->id]);
         });
+    }
+
+    private function cashActionUrl(Tenant $tenant): string
+    {
+        $access = $tenant->appAccesses()->with('app')->where('status', 'active')->where('is_default', true)->first()
+            ?? $tenant->appAccesses()->with('app')->where('status', 'active')->first();
+
+        $appKey = $access?->app?->key;
+
+        return $appKey ? PortalUrl::app($appKey, '/caja') : '/caja';
     }
 }

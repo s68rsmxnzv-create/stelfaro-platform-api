@@ -7,6 +7,7 @@ use App\Models\CashMovement;
 use App\Models\CashRegister;
 use App\Models\CashRegisterSetting;
 use App\Models\CashSession;
+use App\Models\InternalNotification;
 use App\Models\InventoryPurchase;
 use App\Models\InventorySale;
 use App\Models\PlatformApp;
@@ -174,6 +175,21 @@ class CashRegisterTest extends TestCase
         app(CashAutomationService::class)->process();
         $this->assertDatabaseHas('cash_sessions', ['cash_register_id' => $register->id, 'status' => 'closed_unverified', 'count_status' => 'pending_count', 'expected_balance' => 25]);
         CarbonImmutable::setTestNow();
+    }
+
+    public function test_pending_count_notification_links_to_the_tenant_app_cash_route(): void
+    {
+        [, $tenant] = $this->member();
+        $register = CashRegister::query()->create(['tenant_id' => $tenant->id, 'core_sucursal_id' => 7, 'core_sucursal_code' => 'M007', 'core_sucursal_name' => 'Casa matriz', 'name' => 'Caja matriz', 'status' => 'active']);
+        CashRegisterSetting::query()->create(['tenant_id' => $tenant->id, 'cash_register_id' => $register->id, 'timezone' => 'America/El_Salvador', 'default_opening_balance' => 25, 'carry_forward_balance' => false, 'auto_open_enabled' => false, 'auto_open_time' => null, 'auto_close_enabled' => true, 'auto_close_time' => '18:00', 'close_grace_minutes' => 15, 'working_days' => [1, 2, 3, 4, 5, 6, 7], 'non_working_dates' => [], 'use_official_holidays' => false, 'allow_non_cash_when_closed' => true, 'active' => true]);
+        CashSession::query()->create(['tenant_id' => $tenant->id, 'cash_register_id' => $register->id, 'business_date' => '2026-07-21', 'opening_balance' => 25, 'opening_source' => 'scheduled', 'status' => 'open', 'count_status' => 'pending', 'opened_at' => CarbonImmutable::parse('2026-07-21 08:00:00', 'America/El_Salvador')->utc()]);
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-07-21 18:16:00', 'America/El_Salvador'));
+
+        app(CashAutomationService::class)->process();
+        CarbonImmutable::setTestNow();
+
+        $notification = InternalNotification::query()->where('category', 'cash')->where('source_type', 'cash_session')->firstOrFail();
+        $this->assertSame('https://new.stelfaro.com/facturacion/caja', $notification->action_url);
     }
 
     public function test_scheduler_recovers_an_open_session_after_its_business_day_ended(): void
