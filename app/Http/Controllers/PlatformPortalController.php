@@ -138,6 +138,18 @@ class PlatformPortalController extends Controller
         ]);
     }
 
+    public function tallerLegacyAnnexes(): Response
+    {
+        return $this->renderBillingModule([
+            'app' => [
+                'id' => 'taller',
+                'name' => 'Legacy - Anexos',
+                'description' => 'Anexos fiscales (ventas y compras) de la plataforma anterior, migrados como referencia de solo lectura.',
+            ],
+            'module' => 'legacy-annexes',
+        ]);
+    }
+
     public function tallerAnnexes(): Response
     {
         return $this->renderBillingModule([
@@ -287,6 +299,18 @@ class PlatformPortalController extends Controller
                 'description' => 'Documentos fiscales emitidos desde la plataforma anterior, migrados como referencia de solo lectura.',
             ],
             'module' => 'legacy-history',
+        ]);
+    }
+
+    public function facturacionLegacyAnnexes(): Response
+    {
+        return $this->renderBillingModule([
+            'app' => [
+                'id' => 'facturacion',
+                'name' => 'Legacy - Anexos',
+                'description' => 'Anexos fiscales (ventas y compras) de la plataforma anterior, migrados como referencia de solo lectura.',
+            ],
+            'module' => 'legacy-annexes',
         ]);
     }
 
